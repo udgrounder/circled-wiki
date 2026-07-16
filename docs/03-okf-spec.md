@@ -32,8 +32,9 @@
 - OKF v0.1의 최소 포맷 계약을 유지한다.
 - 표준 예시 필드의 의미를 조직 내부 사정으로 함부로 재정의하지 않는다.
 - 조직 특화 필드는 `extensions` 아래에만 추가한다.
-- 공식 Bundle은 Markdown과 YAML Frontmatter 기반으로 저장한다.
-- `knowledge/bundles/`, Evidence manifest와 `.knowledge-os/templates/`, `.knowledge-os/schemas/`, `.knowledge-os/policies/`의 관리 문서는 Markdown + YAML Frontmatter를 사용한다.
+- 공식 Bundle은 Markdown과 YAML Frontmatter 기반으로 저장한다. 여기서 Bundle은 Campingtalk Profile의 단일 공식
+  지식 문서이며, 디렉터리 단위인 표준 OKF Bundle과 구분한다.
+- `knowledge/bundles/`, Evidence Record와 `.knowledge-os/templates/`, `.knowledge-os/schemas/`, `.knowledge-os/policies/`의 관리 문서는 Markdown + YAML Frontmatter를 사용한다.
 - `inbox/`, `.raw/`, `evidence/`는 원본 수집/처리/보존 구간이므로 비Markdown 파일을 포함할 수 있다.
 - 본 저장소는 `Bundle 본문 + Frontmatter + Evidence 참조`를 하나의 최소 지식 단위로 본다.
 - 개념 하나는 파일 하나로 표현한다.
@@ -65,6 +66,9 @@
 - 플랫폼이 아니라 포맷이어야 한다.
 - Concept ID는 `파일 경로 - .md`로 해석한다.
 - `index.md`, `log.md`는 예약 파일명이다.
+
+이 절의 `OKF 번들`은 표준의 디렉터리 단위다. 이 저장소가 API와 파일 모델에서 사용하는 `Bundle`은 그 안의
+단일 공식 지식 문서를 뜻하며, 두 의미를 혼용하지 않는다.
 
 ### 3.3 OKF v0.1 권장 상호운용 필드
 
@@ -360,7 +364,7 @@ Inquiry는 `type: reference`에서만 사용한다. `question_id`, `status`, `ow
 
 ### 9.5 extensions.capture_context
 
-Evidence manifest는 `why_collected`와 non-empty `intended_use` 배열을 필수로 가진다. 선택 필드는
+Evidence Record는 `why_collected`와 non-empty `intended_use` 배열을 필수로 가진다. 선택 필드는
 `business_context`, `key_questions`, `expected_outputs`, `reuse_value`, `retention_class`,
 `sensitivity_review`다. Workflow Outcome Evidence는 Task와 Workflow
 메타데이터로 필수 값을 자동 생성한다. `extensions.availability`는 `available`, `metadata_only`,
@@ -388,9 +392,9 @@ lifecycle 상태다.
 
 - `evidence/`는 최종적으로 참조 가능한 정식 원본 보존 위치다.
 - 실제 원본 바이너리나 업로드 산출물은 `inbox/` 또는 `.raw/`에 먼저 들어오고, 처리 시작 후 `source_uuid`를 받은 뒤 `evidence/`로 보존된다.
-- 처리 완료된 Evidence 원본 파일은 10MB 이하이면 Git에 추적한다. 10MB를 초과하는 원본은 Git에서 제외하고 별도 원본 저장소에 보존하며, manifest의 `extensions.storage`에 복구 위치와 보관 방식을 기록한다.
-- 원본 파일 자체가 Evidence의 기준 객체이며, 정규화 텍스트나 추출 결과는 원본을 대체하지 않는 파생 산출물이다.
-- Bundle은 원본 파일의 Evidence URI를 참조하고, Evidence manifest를 통해 `source_ref`, checksum, 상태, 파생 산출물 경로를 조회한다.
+- 처리 완료된 외부 Evidence Original은 10MB 이하이면 Git에 추적한다. 10MB를 초과하는 원본은 Git에서 제외하고 별도 원본 저장소에 보존하며, External-file Evidence Manifest의 `extensions.storage`에 복구 위치와 보관 방식을 기록한다.
+- Evidence Original이 무결성의 기준이며, 정규화 텍스트나 추출 결과는 원본을 대체하지 않는 Derived Artifact다.
+- Bundle은 Evidence URI를 참조하고, Evidence Record를 통해 `source_ref`, checksum, 상태, Derived Artifact 경로를 조회한다.
 
 ## 11. Bundle 본문 규칙
 
@@ -443,10 +447,10 @@ lifecycle 상태다.
 - Active Runbook의 Risk Governance와 `workflow.learning` 확인
 - 본문 비어 있지 않음
 - Evidence URI가 저장소 내 객체와 연결 가능함
-- Evidence manifest가 같은 basename의 원본 파일명을 `original_file`로 기록함
+- External-file Evidence Manifest가 같은 basename의 원본 파일명을 `original_file`로 기록함
 - Evidence 원본 파일이 10MB 이하이면 Git 추적 대상이고, 10MB 초과이면 `original_file_git_tracked: false` 및 `extensions.storage` 정보가 있음
 - Bundle Frontmatter는 `.knowledge-os/schemas/bundle.schema.json`을 통과해야 함
-- Evidence manifest Frontmatter는 `.knowledge-os/schemas/evidence-manifest.schema.json`을 통과해야 함
+- Evidence Record Frontmatter는 호환성 파일명인 `.knowledge-os/schemas/evidence-manifest.schema.json`을 통과해야 함
 - `id`의 마지막 UUID 세그먼트와 `bundle_uuid` 필드 값이 일치함
 - 파일명의 `_{bundle_uuid}` 부분과 `bundle_uuid` 필드 값이 일치함
 - (방어적 점검) `knowledge/bundles/**/*.md` 전체에서 동일한 `id` 또는 동일한 `bundle_uuid`를 가진 문서가 두 개 이상 존재하지 않음

@@ -82,7 +82,7 @@ flowchart LR
     service --> search["Search Orchestrator"]
     service --> repo["Repository Adapter"]
     service --> parser["Parser / Validator"]
-    search --> files["Bundles / Evidence manifest / Policies / Templates / Schemas"]
+    search --> files["Bundles / Evidence Records / Policies / Templates / Schemas"]
     repo --> files
     parser --> files
     service --> response["Bundle 중심 결과 / Context Package"]
@@ -132,7 +132,7 @@ sequenceDiagram
     MCP->>Service: search_knowledge(query, filters)
     Service->>Search: 검색 실행
     Search->>Repo: 대상 문서 로드
-    Repo-->>Search: Bundle / Evidence manifest / 정책 문서
+    Repo-->>Search: Bundle / Evidence Record / 정책 문서
     Search-->>Service: 정규화된 결과
     Service-->>MCP: 출처 포함 Bundle 중심 결과
     MCP-->>Agent: 검색 결과 반환
@@ -178,7 +178,7 @@ sequenceDiagram
 ```mermaid
 flowchart TD
     request["사용자 작업 요청"] --> find["find_workflow"]
-    find --> choose{"Workflow 선택 가능?"}
+    find --> choose{"실행 가능한 Runbook 선택 가능?"}
     choose -->|아니오| clarify["목적 확인 / 사람 선택"]
     clarify --> find
     choose -->|예| freshness{"Runbook 유효?"}
@@ -195,7 +195,9 @@ flowchart TD
     human --> execute
     approval -->|아니오| validate["완료 기준 검증"]
     validate --> outcome["record_outcome"]
-    outcome --> evidence["Workflow Outcome Evidence"]
+    outcome --> inbox["Outcome Inbox Item"]
+    inbox --> gate["검사 / Sensitive Data Review / 승인 / ingest_accepted"]
+    gate --> evidence["Outcome Evidence"]
     evidence --> signal{"Learning Trigger?"}
     signal -->|아니오| accumulate["Outcome Evidence 누적"]
     signal -->|예| curator["개선 Refresh Task"]

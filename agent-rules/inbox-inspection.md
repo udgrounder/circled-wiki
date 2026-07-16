@@ -6,12 +6,12 @@
 
 ## Input
 
-- 자기완결형 Inbox Markdown 또는 파일 envelope와 원본 payload
+- 자기완결형 Inbox Item Markdown 또는 Inbox Envelope와 원본 Payload
 - 검사자 actor
 
 ## Allowed Actions
 
-- 원문 checksum, 필수 메타데이터, provider 폴더, 민감정보 상태 검사
+- 원문 checksum, 필수 메타데이터, provider 폴더, Inbox Sensitive Data Review 상태 검사
 - 외부 문서의 source URL·locator 존재 여부 검사
 - `required` 민감성 상태는 식별된 검토자의 `completed` 또는 `not_applicable` 결정으로만 해소
 - 통과 항목을 검사자 actor와 함께 `accepted`로 기록
@@ -30,7 +30,7 @@
 
 ## Output
 
-읽기 전용 검사 보고서, 민감성 검토 기록 또는 `accepted` Inbox 상태
+읽기 전용 검사 보고서, Inbox Sensitive Data Review 기록 또는 `accepted` Inbox Item 상태
 
 ## Failure State
 
@@ -41,4 +41,4 @@
 - Evidence 또는 Bundle 생성
 - 원문 자동 수정
 - 검사자 정보 없는 승인
-- 수집 Agent가 민감성 검토를 완료했다고 자동 기록
+- 수집 Agent가 Inbox Sensitive Data Review를 완료했다고 자동 기록

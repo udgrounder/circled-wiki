@@ -8,6 +8,9 @@ timestamp: 2026-07-14T00:00:00+09:00
 
 # Business Rulebook Template
 
+Business Rulebook은 별도 Bundle type이 아니다. `type: guide`와 `extensions.rulebook`으로 Policy·Guide·Runbook을
+연결하는 업무 진입점을 표현한다.
+
 ```yaml
 ---
 type: guide

@@ -46,7 +46,7 @@
 
 ### 3.3 Evidence 기반 큐레이션
 
-- 모든 공식 문서는 최소 1개 이상의 Evidence를 가져야 한다.
+- 모든 공식 지식 Bundle은 최소 1개 이상의 Evidence를 가져야 한다.
 - 원본 데이터는 Evidence Object로 별도 저장한다.
 - Evidence와 Curated Knowledge 간 양방향 추적이 가능해야 한다.
 
@@ -281,7 +281,7 @@ Knowledge MCP는 외부 AI Agent용 표준 인터페이스다.
 
 ### 9.1 문서 정책
 
-- 모든 공식 문서는 Markdown 기반으로 관리한다.
+- 모든 공식 지식 Bundle은 Markdown 기반으로 관리한다.
 - 모든 Bundle은 `summary`를 가진다.
 - 모든 Bundle은 `owner` 또는 `owners`를 가진다.
 - 모든 Bundle은 최소 1개 이상의 `evidence`를 가진다.

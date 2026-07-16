@@ -802,7 +802,7 @@ def record_refresh_decision(
     for evidence_id in evidence_ids:
         evidence = find_document_by_id(knowledge_root, evidence_id)
         if evidence is None or evidence.frontmatter.get("type") != "evidence":
-            raise ValueError("Refresh Evidence URI must resolve to an Evidence manifest")
+            raise ValueError("Refresh Evidence URI must resolve to an Evidence Record")
         extensions = evidence.frontmatter.get("extensions", {})
         if (
             decision != "insufficient_evidence"

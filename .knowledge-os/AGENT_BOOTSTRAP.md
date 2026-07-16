@@ -1,8 +1,11 @@
 # Knowledge OS Agent Bootstrap
 
-이 파일은 대상 프로젝트에서 Knowledge OS를 운영하는 AI Agent의 시작 지점이다. Agent는 작업을 시작할 때
+이 파일은 설치된 대상 프로젝트에서 Knowledge OS를 운영하는 AI Agent의 시작 지점이다. Agent는 작업을 시작할 때
 `.knowledge-os/OPERATING_RULES.md`를 읽고, 요청 목적에 맞는 `.knowledge-os/agent-rules/` Profile 하나를 선택한다.
 Profile의 Check와 Gate를 통과하기 전에는 다음 단계나 지식 발행을 진행하지 않는다.
+
+Knowledge OS 개발 저장소에서는 루트 `OPERATING_RULES.md`와 `agent-rules/`가 배포 원본이며 루트 `AGENTS.md`를
+따른다. `bootstrap-knowledge-os`는 이 자산을 대상 프로젝트의 `.knowledge-os/` 아래에 설치한다.
 
 대상 root의 `AGENTS.md`와 `CLAUDE.md`는 이 문서를 가리키는 Agent 자동 발견용 진입점이다. Bootstrap은 파일이
 없으면 참조 전용 파일을 생성하며, 조직이 이미 작성한 파일에는 운영 규칙 참조가 없을 때만 짧은 참조 블록을 추가한다.

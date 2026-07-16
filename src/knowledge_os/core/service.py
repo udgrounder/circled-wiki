@@ -399,7 +399,7 @@ class KnowledgeService:
         """Attach a user-supplied Evidence candidate to a deduplicated Refresh Task."""
         evidence = find_document_by_id(self.knowledge_root, evidence_id)
         if evidence is None or evidence.frontmatter.get("type") != "evidence":
-            raise ValueError("reference must resolve to an Evidence manifest")
+            raise ValueError("reference must resolve to an Evidence Record")
         if _is_restricted(evidence.frontmatter):
             raise ValueError("restricted Evidence cannot be submitted through this interface")
         extensions = evidence.frontmatter.get("extensions", {})

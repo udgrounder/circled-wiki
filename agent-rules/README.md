@@ -49,7 +49,7 @@ inbox-capture
 | Current | Action and Profile | Required Gate | Next |
 | --- | --- | --- | --- |
 | 없음 | `capture_conversation` · Inbox Capture | 필수 입력, 안전 경로, idempotency | `pending` |
-| `pending` | `inspect_inbox` · Inbox Inspection | 메타데이터, 경로, checksum, 민감정보 상태 | 승인 가능 또는 보류 |
+| `pending` | `inspect_inbox` · Inbox Inspection | 메타데이터, 경로, checksum, Inbox Sensitive Data Review 상태 | 승인 가능 또는 보류 |
 | `pending` + `sensitivity_review: required` | `review_inbox_sensitivity` · Inbox Inspection | 식별된 사람의 완료·비해당 결정 | 승인 검사 가능 |
 | `pending` | `accept_inbox` · Inbox Inspection | 모든 Gate 통과, inspector actor | `accepted` |
 | `accepted` | `ingest_accepted` · Evidence Ingest | 검사 기록, Evidence Schema | Evidence `new` |
@@ -60,7 +60,7 @@ inbox-capture
 
 | Scenario | Required Handling |
 | --- | --- |
-| 동일 idempotency key의 checksum 변경 | Capture 중단, 구조화된 기존 Intake 참조를 확인하고 충돌 보고 |
+| 동일 idempotency key의 checksum 변경 | Capture 중단, 구조화된 기존 Inbox Item 참조를 확인하고 충돌 보고 |
 | checksum 불일치 | Inbox 유지, 승인 금지 |
 | `sensitivity_review: required` | 승인 금지, 검토 완료 후 재검사 |
 | provider와 폴더 불일치 | Inbox 유지, 자동 이동·수정 금지 |

@@ -186,16 +186,16 @@ OKF 관점의 해석은 다음과 같다.
 - Git으로 관리되는 프로젝트 루트 전체가 복원 기준이다.
 - 실제 지식 저장소 기준 경로는 루트 아래 `knowledge/`다.
 - 경로 표현은 절대 경로가 아니라 프로젝트 루트 상대 경로를 사용한다.
-- `bundles/`와 Evidence manifest, 그리고 템플릿/스키마/정책 문서는 OKF 구조를 유지한다.
+- `bundles/`와 Evidence Record, 그리고 템플릿/스키마/정책 문서는 OKF 구조를 유지한다.
 - `inbox/`, `.raw/`, `evidence/`는 비Markdown 원본 파일을 포함할 수 있다.
 - 검색 인덱스는 캐시이며 기준 데이터가 아니다.
-- MVP 검색은 OS 파일 검색, Frontmatter 필터, Markdown 링크 추적, Evidence manifest 검색으로 시작한다.
+- MVP 검색은 OS 파일 검색, Frontmatter 필터, Markdown 링크 추적, Evidence Record 검색으로 시작한다.
 - Evidence와 Bundle은 별도 경로에 저장한다.
 - Inventory와 Audit은 Frontmatter에서 재생성하며 별도 Source of Truth를 만들지 않는다.
 - Archive는 경로를 이동하지 않고 Bundle 상태와 복구 조건으로 표현한다.
 - 기본 검색과 Runtime Context는 Active Bundle만 사용한다.
-- `evidence/`는 처리 완료된 원본 파일 자체를 보존하는 계층이며, Bundle 참조를 위한 근거 앵커다.
-- 10MB 이하 Evidence 원본은 manifest와 함께 Git에 추적한다. 10MB 초과 원본은 Git에서 제외하고 별도 원본 저장소에 보존하며, manifest에는 checksum과 보관 위치를 기록한다.
+- `evidence/`는 처리 완료된 Evidence Original과 Evidence Record를 보존하는 계층이며, Bundle 참조를 위한 근거 앵커다.
+- 10MB 이하 외부 Evidence Original은 External-file Evidence Manifest와 함께 Git에 추적한다. 10MB 초과 원본은 Git에서 제외하고 별도 원본 저장소에 보존하며, External-file Evidence Manifest에는 checksum과 보관 위치를 기록한다.
 - `inbox/`와 `.raw/`는 운영 큐이며, 공식 지식의 최종 저장 위치가 아니다.
 - `bundles/`는 정제된 공식 지식을 저장하는 경로이며, 저장 시 반드시 OKF 구조를 만족해야 한다.
 - 외부 Agent는 MCP만 사용한다. Hermes는 저장소를 인식하는 운영 Agent이며, 운영 작업과 사용자 요청 처리 모두에서 Knowledge Service를 사용한다.
@@ -217,6 +217,6 @@ OKF 관점의 해석은 다음과 같다.
 
 - 공식 절차는 `type: runbook`인 OKF Bundle로 관리한다.
 - Hermes는 활성 Runbook을 선택하고 필수 입력, 승인 지점, 완료 기준을 기준으로 작업을 조정한다.
-- 실행 중 Task 상태는 공식 지식이 아니므로 `knowledge/` 밖의 `.runtime/tasks/`에 저장한다.
-- 완료·실패·검토 필요 결과는 Outcome Evidence로 수집해 Curator 흐름으로 되돌린다.
+- 실행 중 Runtime Task 상태는 공식 지식이 아니므로 `knowledge/` 밖의 `.runtime/tasks/`에 저장한다.
+- 완료·실패·검토 필요 결과는 Outcome Inbox Item으로 수집하고, 검사·승인·변환 후 Outcome Evidence로 Curator 흐름에 되돌린다.
 - Task 실행 결과가 Validator와 Reviewer를 우회해 공식 Bundle을 직접 변경해서는 안 된다.

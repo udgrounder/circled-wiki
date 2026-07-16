@@ -59,12 +59,12 @@ Campingtalk 내부의 정책, 제품 지식, 운영 지식, 고객 응대 기준
 
 ## 6. 성공 기준
 
-- 공식 문서가 Open Definition의 개방성 원칙과 저장소 프로파일을 함께 만족한다.
-- 공식 문서가 `Campingtalk OKF Profile` 검증을 통과한다.
-- 모든 공식 문서가 Evidence를 추적할 수 있다.
+- 공식 지식 Bundle이 Open Definition의 개방성 원칙과 저장소 프로파일을 함께 만족한다.
+- 공식 지식 Bundle이 `Campingtalk OKF Profile` 검증을 통과한다.
+- 모든 공식 지식 Bundle이 Evidence를 추적할 수 있다.
 - 주요 AI Agent가 공통 MCP 인터페이스로 지식을 조회할 수 있다.
 - Hermes가 외부 정보의 변경분을 지속적으로 Evidence와 Bundle에 반영하고, 사용자 요청 시 출처 있는 지식을 활용한다.
-- 주요 반복 업무가 `bundles/<domain>/runbooks/`의 검증된 Workflow로 실행된다.
+- 주요 반복 업무가 `bundles/<domain>/runbooks/`의 검증된 active Runbook으로 실행된다.
 - 활성 지식은 Owner와 다음 검토 기한을 가진다.
 - 비활성 지식은 기본 Context에서 제외되고 명시적 조사에서만 사용된다.
 - 중요한 주장은 Evidence 지원 상태를 구분하며 사용자 레퍼런스는 독립 검증 없이 자동 채택되지 않는다.

@@ -24,7 +24,7 @@
 
 - OKF·Profile Validator
 - Evidence 양방향 참조
-- Sensitive Data Review
+- Publication Security Review
 - 승인 상태와 발행 권한
 - 기존 staged 변경 없음
 

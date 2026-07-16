@@ -27,25 +27,28 @@
 
 ### 단계 1: 수집
 
-- 사용자는 원본을 `knowledge/inbox/`에 적재한다.
-- 지정 Batch는 자체 스케줄·watermark로 변경분을 수집해 inbox에 적재하고 안정적인 `idempotency_key`를 전달한다.
-- Hermes는 업무 중 확보한 원본을 inbox에 적재한 뒤 `ingest_evidence`를 호출할 수 있다.
-- Knowledge OS는 Provider 스케줄러를 소유하지 않고 공통 ingest 이후만 책임진다.
-- 원본 메타데이터 확보
-- 수집 이유 `why_collected`와 적용 업무 `intended_use` 확보
+- 사용자·지정 Batch·Hermes는 `capture_conversation`, `capture_document`, `capture_file` 중 입력에 맞는 Capture API를 사용한다.
+- Capture는 원문과 메타데이터를 `pending` Inbox Item으로 저장하고 Capture Receipt를 반환한다.
+- 지정 Batch는 자체 스케줄·watermark로 변경분을 수집하고 안정적인 `idempotency_key`를 전달한다.
+- 수집 시 `source_ref`, `why_collected`, `intended_use`를 확보한다.
+- 이 단계에서는 Evidence를 생성하거나 정제하지 않는다.
+- Knowledge OS는 Provider 스케줄러를 소유하지 않고 공통 Capture 이후만 책임진다.
 
-### 단계 2: 정규화
+### 단계 2: Inbox 검사와 승인
 
-- provider 공통 필드로 변환
-- URI, timestamp, author 등 표준화
+- `inspect_inbox`가 checksum, 필수 메타데이터, provider 폴더와 Inbox Sensitive Data Review 상태를 검사한다.
+- `sensitivity_review: required`는 식별된 사람이 `review_inbox_sensitivity`로 완료·비해당 결정을 기록한다.
+- 모든 Gate를 통과한 Inbox Item만 `accept_inbox`로 `accepted` 상태가 된다.
+- Capture Agent는 자신이 수집한 항목을 자동 승인하지 않는다.
 
-### 단계 3: Work 이동
+### 단계 3: Evidence 변환 준비
 
-- `inbox/`에서 `.raw/`로 이동
+- `ingest_accepted`가 `accepted` Inbox Item만 처리한다.
+- 처리 중 원문을 `inbox/`에서 `.raw/`로 이동한다.
 - 이동 시 `source_uuid` 발급
-- 처리 단위별 작업 파일 생성
-- 작업 상태와 락 정보 기록 가능
-- `source_ref` 구조 생성
+- provider 공통 필드와 URI·timestamp를 정규화
+- 처리 단위별 작업 상태와 락 정보 기록 가능
+- `source_ref` 보존
 - 외부 ID와 내부 UUID 매핑
 - 작업 파일명 또는 작업 메타데이터에 `source_uuid` 기록
 
@@ -56,10 +59,10 @@
 - 상태 `new` 기록
 - Evidence 파일명과 `source_uuid` 일치
 - Evidence 파일 경로는 `{name}_{source_uuid}.{ext}` 패턴을 사용
-- 원본 파일을 `evidence/`에 보존
-- Evidence manifest를 원본과 같은 위치의 `{name}_{source_uuid}.md`로 생성
-- 원본 파일이 10MB 이하이면 manifest와 함께 Git에 추적
-- 원본 파일이 10MB를 초과하면 Git에서 제외하고 별도 원본 저장소에 보존하며 manifest에는 checksum과 보관 위치를 기록
+- 외부 파일은 Evidence Original을 `evidence/`에 보존하고 동일 basename의 External-file Evidence Manifest를 생성
+- 시스템 생성 텍스트는 Evidence Record와 Evidence Original을 합친 Embedded Evidence Document로 생성
+- 외부 Evidence Original이 10MB 이하이면 External-file Evidence Manifest와 함께 Git에 추적
+- 외부 Evidence Original이 10MB를 초과하면 Git에서 제외하고 별도 원본 저장소에 보존하며 External-file Evidence Manifest에는 checksum과 보관 위치를 기록
 - `source_ref`와 `curated_into` 초기화
 - `extensions.capture_context`에 수집 이유와 적용 업무 기록
 
@@ -84,16 +87,17 @@
 
 ```text
 inbox
+  -> inspect / accept
   -> .raw
-  -> evidence
+  -> Evidence Record + Evidence Original
   -> bundles
 ```
 
 상태 의미:
 
-- `inbox`: 아직 처리 대상이 확정되지 않은 입력 대기 공간
+- `inbox`: 검사·승인을 기다리는 Inbox Item 저장 공간
 - `.raw`: 처리 시작 후 UUID가 발급된 원본 작업 공간
-- `evidence`: 정식 원본 파일 보존 위치와 참조 manifest
+- `evidence`: Evidence Original과 Evidence Record의 보존 위치
 - `bundles`: Evidence를 기반으로 정제된 공식 지식
 
 주의:

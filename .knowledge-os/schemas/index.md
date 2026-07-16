@@ -9,4 +9,4 @@ timestamp: 2026-07-08T00:00:00+09:00
 # Schemas
 
 - [Bundle JSON Schema](./bundle.schema.json)
-- [Evidence Manifest JSON Schema](./evidence-manifest.schema.json)
+- [Evidence Record JSON Schema](./evidence-manifest.schema.json)

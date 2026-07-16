@@ -17,7 +17,7 @@ def propose_update(knowledge_root: Path, evidence_id: str) -> Dict[str, object]:
     """Produce a reviewable proposal; it never creates or changes a Bundle."""
     evidence = find_document_by_id(knowledge_root, evidence_id)
     if evidence is None or evidence.frontmatter.get("type") != "evidence":
-        raise ValueError("evidence_id must refer to an existing Evidence manifest")
+        raise ValueError("evidence_id must refer to an existing Evidence Record")
     original = evidence_original_path(evidence)
     original_bytes = evidence_original_bytes(evidence)
     excerpt = _read_excerpt(evidence, original_bytes)

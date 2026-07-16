@@ -28,7 +28,8 @@
 
 ## Output
 
-Task 상태, 단계별 결과, Outcome Inbox 영수증. Outcome은 Inbox 검사·민감성 검토·승인 후에만 Evidence가 된다.
+Runtime Task 상태, 단계별 결과, Outcome Inbox Item의 Capture Receipt. Outcome Inbox Item은 Inbox 검사,
+Inbox Sensitive Data Review, 승인과 `ingest_accepted`를 거친 후에만 Outcome Evidence가 된다.
 
 ## Failure State
 

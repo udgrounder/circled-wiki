@@ -9,7 +9,7 @@
 
 | 대상 | 저장 위치 | Source of Truth 여부 |
 | --- | --- | --- |
-| 원본과 Evidence manifest | `knowledge/evidence/` | 원본 근거 |
+| Evidence Original과 Evidence Record | `knowledge/evidence/` | 원본 근거 |
 | 공식 Bundle·Runbook·Decision | `knowledge/bundles/` | 공식 지식 |
 | Reference Assessment 진행 상태 | `.runtime/tasks/` | 일시적 실행 상태 |
 | Inventory·Audit | Frontmatter에서 계산 | 파생 조회 |
@@ -61,7 +61,7 @@ Validator와 Owner 승인을 계속 거친다.
 - `needs_review`: 근거 부족 또는 최신성 재확인 필요
 
 `prepare_context`는 이 계약을 Agent에 전달하고 `validate_claim_support`는 계약 구조와 Evidence 참조·원본
-무결성을 읽기 전용으로 검사한다. Evidence가 Claim을 의미적으로 입증하는지는 별도 Reviewer가 판단한다. 공식 문서로 승격할 때는
+무결성을 읽기 전용으로 검사한다. Evidence가 Claim을 의미적으로 입증하는지는 별도 Reviewer가 판단한다. 공식 지식 Bundle로 승격할 때는
 [Claim Support Template](../.knowledge-os/templates/claim-support.md)의 Markdown 구획을 사용한다.
 
 ## 5. 검색, Archive와 Inventory

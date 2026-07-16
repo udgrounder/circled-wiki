@@ -122,8 +122,9 @@ extensions:
 
 ## Outcome Capture
 
-완료·실패 결과에서 보존할 산출물 참조, 사용자 피드백, 학습 내용을 작성한다. 실행 중 Task 상태는
-Bundle에 쓰지 않고 `.runtime/tasks/`에 보관하며, 종료 결과는 Hermes Outcome Evidence로 수집한다.
+완료·실패 결과에서 보존할 산출물 참조, 사용자 피드백, 학습 내용을 작성한다. 실행 중 Runtime Task 상태는
+Bundle에 쓰지 않고 `.runtime/tasks/`에 보관한다. 종료 시 먼저 Outcome Inbox Item으로 수집하고, 검사·승인과
+`ingest_accepted` 이후에만 Outcome Evidence가 된다.
 
 Outcome은 `decisions`, `action_items`, `open_questions`를 본문 요약과 분리해 구조화한다. Action Item은
 `title`, `owner`, `completion_criteria`를 필수로 하고 필요하면 `due_at`과 Evidence URI를 추가한다.

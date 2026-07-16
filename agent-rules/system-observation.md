@@ -10,7 +10,7 @@ Knowledge OS 운영 중 오류, 비정상 결과, 반복 수작업, 모호한 Ag
 - 관찰한 사실과 발생 시각
 - 제기 출처(`user`, `agent`, `operator`, `automation`)와 제기자 식별자
 - 영향 범위와 안전한 재현 정보
-- 관련된 상대 경로·Task·Inbox intake·CLI 명령 중 공개 가능한 참조
+- 관련된 상대 경로·Runtime Task·Intake ID·CLI 명령 중 공개 가능한 참조
 
 ## Allowed Actions
 

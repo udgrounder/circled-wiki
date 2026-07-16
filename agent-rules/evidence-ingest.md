@@ -6,13 +6,13 @@
 
 ## Input
 
-- 승인된 Inbox 항목, 검사 기록, 외부 문서의 source provenance
+- 승인된 Inbox Item, 검사 기록, 외부 문서의 `source_ref`
 
 ## Allowed Actions
 
 - `.raw/` 경유
 - source UUID와 Evidence ID 발급
-- Embedded Evidence 또는 원본+manifest 생성
+- Embedded Evidence Document 또는 Evidence Original+External-file Evidence Manifest 생성
 - 원본 checksum과 출처 보존
 
 ## Checks

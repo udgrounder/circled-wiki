@@ -6,7 +6,7 @@
 
 ## Input
 
-- 원문(파일이면 원본 bytes)과 외부 문서인 경우 source URL·locator
+- 원문(파일이면 Payload bytes)과 외부 문서인 경우 `source_ref`의 URL·locator
 - provider, title, 수집 이유, intended use, idempotency key
 
 ## Allowed Actions
@@ -29,12 +29,12 @@
 
 ## Output
 
-`pending` Inbox 영수증: intake ID, 경로, checksum, 외부 문서의 경우 source provenance
+`pending` Capture Receipt: Intake ID, Inbox Item 경로, checksum, 외부 문서의 경우 `source_ref`
 
 ## Failure State
 
 수집 파일을 만들지 않고 입력 오류 또는 충돌을 반환한다. checksum 충돌은 기존 Intake ID·경로·checksum만 포함한
-구조화된 복구 응답으로 반환하며, 원문은 출력하지 않는다. Agent는 기존 Intake를 검사하고 변경된 원문이 의도된
+구조화된 복구 응답으로 반환하며, 원문은 출력하지 않는다. Agent는 기존 Inbox Item을 검사하고 변경된 원문이 의도된
 새 revision일 때만 새 idempotency key를 사용한다. 충돌·CLI 실패는 `system-observation` Profile로 Issue를 남긴다.
 
 ## Prohibited

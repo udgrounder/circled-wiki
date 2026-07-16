@@ -10,7 +10,7 @@ timestamp: 2026-07-09T00:00:00+09:00
 
 ## 목적
 
-Git에 커밋되는 지식 산출물(Bundle 본문, Evidence manifest, 10MB 이하의 Evidence 원본 및 derived_files)에
+Git에 커밋되는 지식 산출물(Bundle 본문, Evidence Record, 10MB 이하의 외부 Evidence Original 및 Derived Artifact)에
 자격증명이나 개인식별정보가 그대로 노출되지 않도록 하는 최소 규칙을 정의한다.
 
 Git 히스토리는 되돌리기 어렵다. 마스킹은 커밋 이전 단계에서 반드시 완료되어야 하며,
@@ -21,8 +21,8 @@ Git 히스토리는 되돌리기 어렵다. 마스킹은 커밋 이전 단계에
 마스킹은 Git에 실제로 추적되는 텍스트에만 적용한다.
 
 - `knowledge/bundles/**/*.md` 본문
-- `knowledge/evidence/**/*.md` manifest 본문 및 `derived_files`로 기록되는 정규화 텍스트
-- Git에 추적하려는 10MB 이하 Evidence 원본
+- `knowledge/evidence/**/*.md` Evidence Record 본문 및 `derived_files`로 기록되는 정규화 텍스트
+- Git에 추적하려는 10MB 이하 외부 Evidence Original
 
 마스킹 대상이 아닌 것:
 
@@ -55,11 +55,14 @@ Git 히스토리는 되돌리기 어렵다. 마스킹은 커밋 이전 단계에
 - 패턴이 명확한 경우(정규식 매칭): 값은 `*` 표기로 마스킹하고 `extensions.pii_masked: true`로 기록한다.
 - 패턴이 애매하거나 고위험으로 판단되는 경우(예: private key block 전체, 대량 개인정보 테이블): 자동 마스킹 대신
   Evidence 상태를 `needs_review`로 전환하고 사람 검토를 거친다.
-- 어떤 경우든 스캔을 거친 Evidence manifest는 `extensions.pii_scanned: true`를 기록한다. Bundle은 별도 `pii_scanned` 플래그를 두지 않고, 최종 결과 상태를 `extensions.pii_masked`와 `extensions.visibility`로 관리한다.
+- 어떤 경우든 Evidence PII Scan을 거친 Evidence Record는 `extensions.pii_scanned: true`를 기록한다. Inbox Sensitive
+  Data Review에서 실제 Scan까지 수행한 경우에만 `sensitivity_review: completed`를 선택하며, 변환 시 이 결정을
+  `pii_scanned: true`로 이어받을 수 있다. Bundle은 별도 `pii_scanned` 플래그를 두지 않고, 최종 결과 상태를
+  `extensions.pii_masked`와 `extensions.visibility`로 관리한다.
 
 ## 추적 필드
 
-- `extensions.pii_scanned`: Evidence manifest의 민감정보 스캔 수행 여부
+- `extensions.pii_scanned`: Evidence Record의 실제 Evidence PII Scan 수행 여부
 - `extensions.pii_masked`: 마스킹 적용 여부
 - `extensions.visibility`: `internal`(기본값) 또는 `restricted`. MCP 계층은 `restricted` 문서를 기본 조회 결과에서
   제외하거나 별도 권한 확인 후에만 노출해야 한다.

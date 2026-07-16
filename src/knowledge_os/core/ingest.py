@@ -661,7 +661,7 @@ def capture_document(
     captured_at: Optional[datetime] = None,
     capture_details: Optional[Dict[str, object]] = None,
 ) -> CaptureResult:
-    """Land an external document in Inbox with source provenance, without ingesting it."""
+    """Land an external document as an Inbox Item with source_ref, without ingesting it."""
     if not isinstance(content, str) or not content.strip():
         raise ValueError("document content must be non-empty")
     if not re.fullmatch(r"[a-z0-9_-]+", provider):

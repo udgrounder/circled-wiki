@@ -15,7 +15,7 @@ inbox 원본 1개
   -> evidence 원본 + manifest 생성
   -> Bundle 생성
   -> OKF 최소 / Campingtalk Profile 검증
-  -> 기본 검색으로 Bundle과 Evidence manifest 조회
+  -> 기본 검색으로 Bundle과 Evidence Record 조회
   -> 활성 Runbook 탐색 및 runtime Task 준비
   -> 작업 결과를 Outcome Evidence로 환류
 ```
@@ -45,11 +45,11 @@ tests/
 
 | 모듈 | 책임 | 직접 알면 안 되는 것 |
 | --- | --- | --- |
-| `models` | Bundle, Evidence manifest, 검증 결과의 구조화 표현 | CLI/MCP 출력 형식 |
+| `models` | Bundle, Evidence Record, 검증 결과의 구조화 표현 | CLI/MCP 출력 형식 |
 | `frontmatter` | Markdown YAML frontmatter 파싱과 렌더링 | 파일 검색 전략 |
 | `validator` | OKF v0.1 최소 규칙과 Profile 규칙을 분리 검증 | Git commit 여부 |
 | `ingest` | inbox -> .raw -> evidence 원본/manifest 이동과 UUID·checksum 처리 | Bundle 의미 판단 |
-| `repository` | Bundle/Evidence manifest 읽기와 경로 탐색 | 운영자용 출력 |
+| `repository` | Bundle/Evidence Record 읽기와 경로 탐색 | 운영자용 출력 |
 | `search` | `rg` 우선 검색과 Python fallback, filter/link 확장 | MCP tool 프로토콜 |
 | `workflow` | 실행 Runbook 탐색, Task 스냅샷, Outcome Evidence 환류 | Hermes의 LLM 의미 판단 |
 | `service` | 위 모듈을 조합한 구조화 API | UI/transport 세부사항 |
@@ -69,7 +69,7 @@ Bundle은 `id`, `bundle_uuid`, `title`, `type`, `status`, `summary`, `updated_at
 `type: runbook`은 `bundles/<domain>/runbooks/`에만 저장한다. `active` Bundle은 Owner와 검토 기한을
 포함한 `extensions.governance`를 가진다.
 
-Evidence manifest는 원본과 같은 basename으로 두며, `type: evidence`, `source_uuid`, `provider`,
+External-file Evidence Manifest는 Evidence Original과 같은 basename으로 두며, `type: evidence`, `source_uuid`, `provider`,
 `source_ref`, `captured_at`, `status`, `checksum`, `original_file`을 관리한다. Bundle과 Evidence의
 `evidence` / `curated_into` 참조는 양방향으로 검사한다.
 일반 Evidence는 수집 이유와 적용 대상을 `extensions.capture_context`에 기록한다.
@@ -86,7 +86,7 @@ Evidence manifest는 원본과 같은 basename으로 두며, `type: evidence`, `
 2. **파일 모델과 frontmatter**: Markdown/YAML을 읽고 안전하게 렌더링한다.
 3. **Validator**: 최소 OKF와 Profile을 분리해 검사하는 테스트를 통과시킨다.
 4. **Evidence ingest**: 원본을 보존하고 UUID, SHA-256, manifest를 생성한다. 성공한 `.raw/` 항목은 제거하고 실패/검토 항목은 보존한다.
-5. **Knowledge Service와 검색**: Bundle/Evidence manifest 읽기, 키워드/필터 검색, context 초안을 제공한다.
+5. **Knowledge Service와 검색**: Bundle/Evidence Record 읽기, 키워드/필터 검색, context 초안을 제공한다.
 6. **CLI**: `validate`, `ingest-evidence`, `search`, `read-bundle`을 Core API의 얇은 표현 계층으로 제공한다.
 7. **통합 검증**: 임시 저장소에서 ingest부터 search까지 실행하고, 기존 `knowledge/` 관리 문서도 검증한다.
 

@@ -135,6 +135,7 @@ Runbook은 Risk Tier와 Source Volatility로 `validity_days`를 정한다. `revi
 
 ```text
 Task Outcome
+  -> Outcome Inbox Item 검사·승인
   -> Outcome Evidence
   -> Curator 분류
   -> Runbook·Guide·Decision·Template 후보

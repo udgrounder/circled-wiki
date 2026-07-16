@@ -1,12 +1,16 @@
 ---
 type: template
-title: Evidence Manifest Template
-description: 외부 원본 파일 또는 내장 원문을 설명하는 Evidence 템플릿
+title: Evidence Record Template
+description: External-file Evidence Manifest와 Embedded Evidence Document의 공통 템플릿
 tags: [template, evidence]
 timestamp: 2026-07-09T00:00:00+09:00
 ---
 
-# Evidence Manifest Template
+# Evidence Record Template
+
+아래 기본형은 외부 Evidence Original을 설명하는 External-file Evidence Manifest다. 시스템이 직접 생성한
+텍스트는 문서 후반의 Embedded Evidence Document 변형을 사용한다.
+파일명 `evidence-manifest.md`는 기존 설치 자산과의 호환성을 위해 유지한다.
 
 ```yaml
 ---

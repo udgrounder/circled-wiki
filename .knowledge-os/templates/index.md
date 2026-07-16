@@ -8,7 +8,7 @@ timestamp: 2026-07-08T00:00:00+09:00
 
 # Templates
 
-- [Evidence Manifest](./evidence-manifest.md)
+- [Evidence Record](./evidence-manifest.md)
 - [Bundle](./bundle.md)
 - [Decision](./decision.md)
 - [Runbook](./runbook.md)

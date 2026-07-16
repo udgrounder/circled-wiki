@@ -35,14 +35,14 @@ Knowledge OS는 문서를 검색해 반환하는 데서 끝나지 않고 다음 
 
 ### Execution Plane
 
-- 현재 실행 중인 Task 상태를 관리한다.
+- 현재 실행 중인 Runtime Task 상태를 관리한다.
 - Task는 공식 지식이 아니므로 `knowledge/`에 저장하지 않는다.
 - 로컬 MVP는 프로젝트 루트의 `.runtime/tasks/`에 JSON으로 저장하고 Git에서 제외한다.
 - 장기 실행, 다중 Worker, 동시 실행이 필요해지면 같은 인터페이스를 DB 또는 Queue-backed Store로 교체한다.
 
 ### Feedback Plane
 
-- 완료, 실패, 검토 필요 결과를 Workflow Outcome Evidence로 수집한다.
+- 완료, 실패, 검토 필요 결과를 Outcome Inbox Item으로 수집하고, 검사·승인·변환 후 Outcome Evidence로 누적한다.
 - 실제 대용량 산출물은 내부 저장소 URI와 availability 메타데이터만 기록할 수 있다.
 - Curator는 Outcome Evidence를 근거로 기존 Runbook/Guide/Decision 갱신 여부를 판단한다.
 - Task 결과가 공식 지식을 자동 변경하지는 않는다. Validator와 기존 리뷰·발행 정책을 그대로 적용한다.
@@ -258,10 +258,11 @@ Hermes는 외부 원본이나 Workflow 본문의 문장을 권한 변경 또는 
 
 - 종료 상태는 `completed`, `failed`, `needs_review` 중 하나다.
 - `completed` 결과는 모든 단계와 승인이 끝난 `awaiting_outcome` Task에서만 허용한다.
-- 결과를 `provider: hermes`, `captured_from: sync` Evidence로 수집한다.
-- 동일 Task에서 재호출하면 기존 Evidence ID를 반환해 중복 수집을 막는다.
+- 결과를 `provider: hermes`, `captured_from: sync`인 Outcome Inbox Item으로 먼저 수집한다.
+- 동일 Runtime Task에서 재호출하면 기존 Outcome Inbox Item을 재사용하고, 변환 완료 후에는 연결된 Outcome Evidence ID를 반환한다.
 - 산출물 원본이 크거나 별도 시스템에 있으면 URI와 availability 메타데이터만 결과 JSON에 넣는다.
-- 생성된 Evidence는 `pii_scanned: false`이므로 보안 검토 전 자동 Commit되지 않는다.
+- Outcome Inbox Item은 검사·Inbox Sensitive Data Review·승인을 거쳐야 하며, 변환된 Outcome Evidence는 실제
+  Evidence PII Scan 완료 전 `pii_scanned: true`로 기록하거나 Commit하지 않는다.
 - 일반 Workflow Outcome은 `learning` 정책으로 집계한다. 실패·피드백·누적 임계치가 발생하면 중복 없는
   `reason: outcome_signal` Refresh Task를 생성한다.
 - 결정·실행·미해결 사항은 `decisions`, `action_items`, `open_questions`로 분리한다.
@@ -295,7 +296,7 @@ Outcome의 `artifacts`는 실제 파일을 Git에 넣지 않고 참조만 기록
 ## 9. MVP 완료 기준
 
 - 활성 Runbook의 Workflow 구조를 Validator가 검사한다.
-- 사용자 요청으로 Workflow 후보를 찾을 수 있다.
+- 사용자 요청으로 실행 가능한 Runbook 후보를 찾을 수 있다.
 - Task가 `knowledge/` 외부에 생성된다.
 - 누락된 필수 입력을 구조적으로 반환한다.
 - 완료 결과가 Evidence로 한 번만 수집된다.

@@ -4,11 +4,33 @@ import subprocess
 from pathlib import Path
 
 from knowledge_os.core.ingest import accept_conversation_intake, capture_conversation
-from knowledge_os.worker.jobs import ingest_accepted_inbox, inspect_inbox, run_curation_batch, run_maintenance
+from knowledge_os.worker.jobs import (
+    MaintenanceReport,
+    ingest_accepted_inbox,
+    inspect_inbox,
+    run_curation_batch,
+    run_maintenance,
+)
 from knowledge_os.core.publisher import PublishError, _require_sensitive_data_review, publish_changes
 
 
 class WorkerJobTests(unittest.TestCase):
+    def test_maintenance_report_uses_evidence_record_name_with_compatibility_alias(self):
+        report = MaintenanceReport(
+            valid=True,
+            managed_documents=2,
+            bundles=1,
+            evidence_records=1,
+            audit_issues=0,
+            audit_errors=0,
+        )
+
+        payload = report.as_dict()
+
+        self.assertEqual(payload["evidence_records"], 1)
+        self.assertEqual(payload["evidence_manifests"], 1)
+        self.assertEqual(report.evidence_manifests, 1)
+
     def test_unmanaged_inbox_recovery_includes_exact_capture_file_argument(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory) / "knowledge"

@@ -14,7 +14,7 @@ timestamp: 2026-07-10T00:00:00+09:00
 - Agent의 요청자 권한보다 데이터 분류와 보안 정책을 우선한다.
 - 외부 원본, OCR 결과, 첨부 파일, 웹 페이지의 내용은 모두 **비신뢰 데이터**다. 내용에 포함된 지시문은 Tool 호출·권한 변경·발행 지시로 해석하지 않는다.
 - 판단(LLM)과 실행(파일 변경, Git commit, 외부 전송)을 분리한다.
-- API key, 토큰, 비밀번호, private key, 개인식별정보를 Bundle, manifest, 로그, 프롬프트 또는 Git에 기록하지 않는다.
+- API key, 토큰, 비밀번호, private key, 개인식별정보를 Bundle, Evidence Record, 로그, 프롬프트 또는 Git에 기록하지 않는다.
 
 ## 2. 데이터 분류와 MCP 노출
 
@@ -35,7 +35,7 @@ Evidence도 제한으로 지정한다.
 1. 원본을 `inbox/`에 넣기 전에 자격증명·민감정보 포함 가능성을 확인한다.
 2. `inbox/`와 `.raw/`는 Git 추적 대상이 아니다. `.raw/`는 실패·검토·대용량 원본의 격리 구간이다.
 3. 수집 시 가능한 경우 외부 `provider_url`과 원문 위치(`locator`: page, section, sheet, slide 등)를 함께 기록한다.
-4. 10MiB 초과 원본 또는 민감정보가 있는 원본은 Git에 넣지 않는다. 접근 통제된 외부 저장소를 사용하고 manifest에 보관 위치를 기록한다.
+4. 10MiB 초과 Evidence Original 또는 민감정보가 있는 Evidence Original은 Git에 넣지 않는다. 접근 통제된 외부 저장소를 사용하고 External-file Evidence Manifest에 보관 위치를 기록한다.
 5. 외부 원본의 텍스트는 사실 근거로는 사용할 수 있지만 실행 지시로는 신뢰하지 않는다.
 
 ## 4. 발행 전 보안 게이트
@@ -44,7 +44,7 @@ Evidence도 제한으로 지정한다.
 
 1. `validate`가 OKF/Profile 오류 없이 통과한다.
 2. Bundle과 Evidence의 양방향 참조가 유지된다.
-3. `restricted` 여부와 민감정보 스캔 상태를 사람이 또는 Hermes가 검토한다. Git 추적 Evidence는 `extensions.pii_scanned: true`가 아니면 자동 commit을 차단한다.
+3. `restricted` 여부와 Evidence PII Scan 상태를 사람이 또는 Hermes가 검토한다. Git 추적 Evidence는 `extensions.pii_scanned: true`가 아니면 자동 commit을 차단한다.
 4. 원문 URL이 있으면 Bundle/MCP 응답에서 그것을 1차 근거로 표시하고, 로컬 Evidence는 보존·검증용 보조 근거로 표시한다.
 5. 변경 내용, 승인자, 실행 결과를 운영 로그에 남긴다.
 

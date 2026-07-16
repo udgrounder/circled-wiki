@@ -57,7 +57,7 @@
 - OS 파일 검색 기반 검색
 - Frontmatter 필터 검색
 - Markdown 링크와 backlink 확장
-- Evidence manifest 검색
+- Evidence Record 검색
 - Context Builder
 - Runbook 신선도와 Inquiry 조회
 - Active-only 기본 검색과 명시적 비활성 상태 조회

@@ -2,21 +2,29 @@
 
 ## 1. 목적
 
-Evidence는 원본 파일 자체를 보존하고, 공식 지식이 어떤 근거로 생성되었는지 추적하게 해주는 참조 앵커다.
+Evidence는 Evidence Original을 보존하고, 공식 지식이 어떤 근거로 생성되었는지 추적하게 해주는 참조 앵커다.
+Evidence Record는 ID·출처·checksum·상태·역참조를 관리한다.
 
 ## 2. 설계 원칙
 
 - 원본은 정제 전에 보존한다.
 - 원본 문서는 실제 처리 작업이 시작될 때 UUID를 발급받는다.
 - Evidence는 Bundle과 분리 저장한다.
-- Evidence의 기준 객체는 정규화문이 아니라 원본 파일 자체다.
+- Evidence 무결성의 기준은 정규화문이 아니라 Evidence Original이다.
 - 정규화 텍스트, OCR 결과, 파싱 결과는 원본을 대체하지 않는 파생 산출물이다.
 - 상태 전이를 가진다.
 - Bundle과 양방향 연결된다.
 - Bundle의 `evidence` 필드와 기계적으로 매칭 가능해야 한다.
 - 원본 시스템 참조와 내부 UUID 참조를 함께 유지한다.
 
-## 3. 저장 경로
+## 3. 저장 형식과 경로
+
+Evidence는 두 형식 중 하나로 저장한다.
+
+- External-file Evidence: 외부 Evidence Original과 동일 basename의 External-file Evidence Manifest
+- Embedded Evidence: Evidence Record와 불변 Evidence Original을 합친 Embedded Evidence Document
+
+외부 파일 형식의 경로는 다음과 같다.
 
 ```text
 evidence/{provider}/{yyyy}/{mm}/{dd}/{name}_{source_uuid}.{ext}
@@ -56,7 +64,7 @@ evidence://campingtalk/{provider}/{yyyy}/{mm}/{dd}/{source_uuid}
 
 ## 6. 저장 객체 구조
 
-Evidence 저장 단위는 원본 파일과 필수 manifest로 구성한다.
+External-file Evidence 저장 단위는 Evidence Original과 필수 External-file Evidence Manifest로 구성한다.
 
 ```text
 evidence/{provider}/{yyyy}/{mm}/{dd}/{name}_{source_uuid}.{ext}
@@ -64,15 +72,18 @@ evidence/{provider}/{yyyy}/{mm}/{dd}/{name}_{source_uuid}.md
 ```
 
 - `{name}_{source_uuid}.{ext}`는 보존 대상 원본 파일이다.
-- `{name}_{source_uuid}.md`는 원본 파일을 설명하는 OKF Markdown manifest다.
-- manifest는 원본 파일을 대체하지 않으며, 참조/검증/상태 추적을 위한 메타데이터다.
+- `{name}_{source_uuid}.md`는 원본 파일을 설명하는 External-file Evidence Manifest다.
+- External-file Evidence Manifest는 원본 파일을 대체하지 않으며, 참조·검증·상태 추적을 위한 Evidence Record다.
 - 바이너리 원본은 같은 위치에 같은 basename의 `.md` 파일을 함께 둔다.
 - 처리 완료된 원본 파일은 `evidence/`에 보존한다.
 - 크기가 10MB 이하인 원본은 `.md` manifest와 함께 Git에 추적해 저장소 복원성과 공유성을 확보한다.
 - 크기가 10MB를 초과하는 원본은 Git에서 제외하고 별도 원본 저장소에 보존한다. Git에는 `.md` manifest만 추적한다.
 - Git은 파일 크기만으로 ignore할 수 없으므로, ingest와 commit 전 Validator가 10MB 초과 Evidence 원본의 Git 추적을 차단해야 한다.
 
-## 7. Manifest 기본 구조
+Embedded Evidence Document는 별도 원본 파일 없이 하나의 Markdown에 Evidence Record와 불변 원문 구역을 둔다.
+`extensions.content_mode: embedded`, `checksum_scope: original_content`를 사용하며 `original_file`은 두지 않는다.
+
+## 7. External-file Evidence Manifest 기본 구조
 
 ```yaml
 ---
@@ -194,8 +205,8 @@ source_ref:
 - 동일 입력 중복 수집 여부를 checksum으로 판단할 수 있다.
 - `capture_context.reuse_value`, `retention_class`, `sensitivity_review`는 수집 가치와 보존·민감정보 검토 상태를 분류한다.
 - 이 분류는 Evidence 진실성 점수가 아니며 출처 권위와 최신성 평가는 Refresh Task의 Reference Assessment에서 수행한다.
-- Bundle이 참조하는 Evidence는 manifest를 통해 최소 메타데이터 수준에서 항상 읽을 수 있어야 한다.
-- `availability: available`이면 manifest 옆 원본 파일의 존재와 실제 SHA-256 checksum 일치를 검사한다.
+- Bundle이 참조하는 Evidence는 Evidence Record를 통해 최소 메타데이터 수준에서 항상 읽을 수 있어야 한다.
+- `availability: available`이면 Evidence Original의 존재와 Evidence Record의 실제 SHA-256 checksum 일치를 검사한다.
 - Active Bundle의 Evidence 누락과 `evidence`/`curated_into` 불일치는 발행 차단 오류로 취급한다.
 - 같은 원본을 재처리할 때는 새 UUID를 만들지 말고 기존 `source_uuid`를 유지한다.
 

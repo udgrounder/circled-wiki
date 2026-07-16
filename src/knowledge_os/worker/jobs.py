@@ -21,12 +21,20 @@ class MaintenanceReport:
     valid: bool
     managed_documents: int
     bundles: int
-    evidence_manifests: int
+    evidence_records: int
     audit_issues: int
     audit_errors: int
 
     def as_dict(self) -> Dict[str, object]:
-        return self.__dict__.copy()
+        payload = self.__dict__.copy()
+        # Compatibility alias for existing scheduler consumers.
+        payload["evidence_manifests"] = self.evidence_records
+        return payload
+
+    @property
+    def evidence_manifests(self) -> int:
+        """Deprecated compatibility alias; use evidence_records."""
+        return self.evidence_records
 
 
 def run_maintenance(knowledge_root: Path) -> MaintenanceReport:
@@ -39,7 +47,7 @@ def run_maintenance(knowledge_root: Path) -> MaintenanceReport:
         valid=bool(validation["valid"]),
         managed_documents=len(documents),
         bundles=sum("bundles" in path.parts and path.name != "index.md" for path in documents),
-        evidence_manifests=sum("evidence" in path.parts and path.name != "index.md" for path in documents),
+        evidence_records=sum("evidence" in path.parts and path.name != "index.md" for path in documents),
         audit_issues=int(audit["summary"]["issues"]),
         audit_errors=int(audit["summary"]["errors"]),
     )

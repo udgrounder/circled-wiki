@@ -92,7 +92,7 @@ Refresh Task
   -> Validator 실행
   -> Owner 승인
   -> 새 revision 발행
-  -> Refresh Outcome Evidence 기록
+  -> Refresh Outcome Inbox Item 기록·승인·Evidence 변환
   -> 원래 업무 요청 재시도
 ```
 

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": ".knowledge-os/schemas/evidence-manifest.schema.json",
-  "title": "Campingtalk Evidence Manifest Frontmatter",
+  "title": "Campingtalk Evidence Record Frontmatter",
   "type": "object",
   "additionalProperties": true,
   "required": [

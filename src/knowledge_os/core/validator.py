@@ -449,7 +449,7 @@ def _validate_evidence(document: MarkdownDocument, result: ValidationResult) -> 
         "checksum", "original_file_git_tracked",
     )
     if data.get("type") != "evidence":
-        result.profile_errors.append("Evidence manifest type must be evidence")
+        result.profile_errors.append("Evidence Record type must be evidence")
     for field in required:
         if field not in data:
             result.profile_errors.append(f"missing required Evidence field: {field}")
@@ -566,17 +566,17 @@ def validate_repository(knowledge_root: Path) -> List[ValidationResult]:
             is_active = document.frontmatter.get("status") == "active"
             for evidence_id in document.frontmatter.get("evidence", []):
                 if evidence_id not in evidence_ids:
-                    message = f"referenced Evidence manifest not found: {evidence_id}"
+                    message = f"referenced Evidence Record not found: {evidence_id}"
                     (result.profile_errors if is_active else result.warnings).append(message)
                 elif document.frontmatter.get("id") not in evidence_by_id[evidence_id].frontmatter.get("curated_into", []):
-                    message = f"Evidence manifest does not reference this Bundle: {evidence_id}"
+                    message = f"Evidence Record does not reference this Bundle: {evidence_id}"
                     (result.profile_errors if is_active else result.warnings).append(message)
         elif kind == "evidence":
             for bundle_id in document.frontmatter.get("curated_into", []) or []:
                 if bundle_id not in bundle_ids:
                     result.warnings.append(f"referenced Bundle not found: {bundle_id}")
                 elif document.frontmatter.get("id") not in bundle_by_id[bundle_id].frontmatter.get("evidence", []):
-                    message = f"Bundle does not reference this Evidence manifest: {bundle_id}"
+                    message = f"Bundle does not reference this Evidence Record: {bundle_id}"
                     if bundle_by_id[bundle_id].frontmatter.get("status") == "active":
                         result.profile_errors.append(message)
                     else:

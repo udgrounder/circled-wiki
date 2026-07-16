@@ -58,7 +58,7 @@ Hermes는 다음 순서로 처리해야 한다.
 
 ## 4. Workflow 선택 확인
 
-Hermes가 Workflow 후보를 제시하면 다음을 확인한다.
+Hermes가 실행 가능한 Runbook 후보를 제시하면 다음을 확인한다.
 
 - 내가 하려는 업무와 목적이 같은가
 - 신규 작업과 수정 작업이 구분되어 있는가
@@ -342,7 +342,7 @@ PYTHONPATH=src python3 -m knowledge_os.cli record-outcome \
 | 상황 | 조치 |
 | --- | --- |
 | Workflow가 검색되지 않음 | 일반 지식 검색 후 일회성 계획으로 진행하고 신규 Runbook 후보를 남긴다. |
-| Workflow 후보가 여러 개 | 적용 조건과 결과 차이를 비교하고 사람이 선택한다. |
+| Runbook 후보가 여러 개 | 적용 조건과 결과 차이를 비교하고 사람이 선택한다. |
 | 필수 입력을 알 수 없음 | 담당자 확인 또는 `needs_review`로 전환한다. |
 | 다음 단계가 기록되지 않음 | 이전 단계가 `completed` 또는 `approved`인지 확인한다. |
 | 승인자가 없음 | 자동 승인하지 않고 담당 owner에게 에스컬레이션한다. |

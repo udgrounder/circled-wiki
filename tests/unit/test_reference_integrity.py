@@ -22,4 +22,4 @@ class ReferenceIntegrityTests(unittest.TestCase):
 
             results = validate_repository(root)
 
-            self.assertTrue(any("Evidence manifest does not reference this Bundle" in warning for result in results for warning in result.warnings))
+            self.assertTrue(any("Evidence Record does not reference this Bundle" in warning for result in results for warning in result.warnings))

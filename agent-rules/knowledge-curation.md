@@ -32,8 +32,9 @@ Evidence를 기존 Bundle과 비교하거나 신규 Draft를 작성한다.
 
 ## Output
 
-정제 제안 또는 Evidence 역참조가 연결된 Draft. 제안은 `suggested_bundle_type`을 힌트로 제공하되 Curator가
-원문을 검토해 `no_bundle`, `guide`, `rulebook`, `decision`, `runbook` 중 적절한 결과를 선택한다. Owner가 없는 Draft 후보는
+정제 제안 또는 Evidence 역참조가 연결된 Draft Bundle. 제안은 `suggested_bundle_type`을 힌트로 제공하되 Curator가
+원문을 검토해 `no_bundle`, `guide`, `decision`, `runbook` 중 적절한 결과를 선택한다. Business Rulebook은
+`guide`와 `extensions.rulebook`으로 표현한다. Owner가 없는 Draft 후보는
 `assign_owner_and_review_draft`와 차단 조건을 반환한다.
 
 ## Failure State

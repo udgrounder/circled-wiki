@@ -34,14 +34,14 @@ def create_bundle(
     knowledge_root: Path, *, domain: str, slug: str, title: str, bundle_type: str,
     summary: str, evidence_id: str, body: str = "", curated_by: str = "manual",
 ) -> MarkdownDocument:
-    """Create a draft Bundle only when its Evidence manifest already exists."""
+    """Create a draft Bundle only when its Evidence Record already exists."""
     if not SAFE_PATH_SEGMENT.fullmatch(domain) or not SAFE_PATH_SEGMENT.fullmatch(slug):
         raise ValueError("domain and slug must be safe lowercase path segments")
     if not title.strip() or not summary.strip() or not curated_by.strip():
         raise ValueError("title, summary, and curated_by must be non-empty")
     evidence = find_document_by_id(knowledge_root, evidence_id)
     if evidence is None or evidence.frontmatter.get("type") != "evidence":
-        raise ValueError("evidence_id must refer to an existing Evidence manifest")
+        raise ValueError("evidence_id must refer to an existing Evidence Record")
     bundle_uuid = str(uuid4())
     bundle_id = f"knowledge://campingtalk/{domain}/{slug}_{bundle_uuid}"
     bundle_directory = knowledge_root / "bundles" / domain
