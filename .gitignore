@@ -1,0 +1,20 @@
+.DS_Store
+.obsidian/workspace.json
+.obsidian/workspaces.json
+.obsidian/cache/
+.obsidian/plugins/*/data.json
+*.swp
+*.swo
+.venv/
+.runtime/
+
+# .raw is an operational staging/quarantine area and can contain sensitive originals.
+# Keep only its explanatory index under version control.
+knowledge/.raw/*
+!knowledge/.raw/index.md
+knowledge/inbox/*
+!knowledge/inbox/index.md
+
+# Evidence originals up to 10MB are tracked with their manifests.
+# Git cannot ignore by file size; the Evidence validator/pre-commit check rejects
+# evidence originals larger than 10MB. Those originals belong in external storage.

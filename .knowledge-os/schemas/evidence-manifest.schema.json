@@ -1,0 +1,324 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": ".knowledge-os/schemas/evidence-manifest.schema.json",
+  "title": "Campingtalk Evidence Manifest Frontmatter",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "type",
+    "id",
+    "title",
+    "source_uuid",
+    "provider",
+    "source_ref",
+    "captured_at",
+    "status",
+    "checksum",
+    "original_file_git_tracked"
+  ],
+  "properties": {
+    "type": {
+      "type": "string",
+      "const": "evidence"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^evidence://campingtalk/[a-z0-9_-]+/[0-9]{4}/[0-9]{2}/[0-9]{2}/[0-9a-fA-F-]{36}$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_uuid": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "provider": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_ref": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "provider",
+        "captured_from"
+      ],
+      "properties": {
+        "provider": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provider_url": {
+          "type": "string"
+        },
+        "locator": {
+          "type": "string",
+          "description": "원문 내 위치. 예: page=12;section=Refund 또는 sheet=Orders;range=A1:F20"
+        },
+        "external_id": {
+          "type": "string"
+        },
+        "captured_from": {
+          "type": "string",
+          "enum": [
+            "api",
+            "webhook",
+            "manual",
+            "upload",
+            "sync"
+          ]
+        },
+        "snapshot_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "captured_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "new",
+        "processing",
+        "processed",
+        "ignored",
+        "failed",
+        "needs_review"
+      ]
+    },
+    "processed_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "curated_into": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^knowledge://campingtalk/[a-z0-9][a-z0-9._~/-]*_[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+      },
+      "uniqueItems": true
+    },
+    "checksum": {
+      "type": "string",
+      "pattern": "^sha256:[a-fA-F0-9]{64}$"
+    },
+    "language": {
+      "type": "string",
+      "minLength": 2
+    },
+    "original_file": {
+      "type": "string",
+      "minLength": 1
+    },
+    "original_file_git_tracked": {
+      "type": "boolean"
+    },
+    "derived_files": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "extensions": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "content_mode": {
+          "type": "string",
+          "enum": [
+            "external_file",
+            "embedded"
+          ]
+        },
+        "checksum_scope": {
+          "type": "string",
+          "enum": [
+            "original_file",
+            "original_content"
+          ]
+        },
+        "capture_fidelity": {
+          "type": "string",
+          "enum": [
+            "verbatim",
+            "partial",
+            "summarized"
+          ]
+        },
+        "conversation_capture": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "review_state": {
+          "type": "string"
+        },
+        "visibility": {
+          "type": "string",
+          "enum": [
+            "internal",
+            "restricted"
+          ]
+        },
+        "pii_scanned": {
+          "type": "boolean"
+        },
+        "pii_masked": {
+          "type": "boolean"
+        },
+        "storage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "class"
+          ],
+          "properties": {
+            "class": {
+              "type": "string",
+              "enum": [
+                "git",
+                "external"
+              ]
+            },
+            "uri": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "class": {
+                    "const": "external"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "uri"
+                ]
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "extensions": {
+            "properties": {
+              "content_mode": {
+                "const": "embedded"
+              }
+            },
+            "required": [
+              "content_mode"
+            ]
+          }
+        },
+        "required": [
+          "extensions"
+        ]
+      },
+      "then": {
+        "not": {
+          "required": [
+            "original_file"
+          ]
+        },
+        "properties": {
+          "extensions": {
+            "required": [
+              "checksum_scope"
+            ],
+            "properties": {
+              "checksum_scope": {
+                "const": "original_content"
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "required": [
+          "original_file"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "original_file_git_tracked": {
+            "const": true
+          }
+        },
+        "required": [
+          "original_file_git_tracked"
+        ]
+      },
+      "then": {
+        "properties": {
+          "extensions": {
+            "required": [
+              "storage"
+            ],
+            "properties": {
+              "storage": {
+                "properties": {
+                  "class": {
+                    "const": "git"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "original_file_git_tracked": {
+            "const": false
+          }
+        },
+        "required": [
+          "original_file_git_tracked"
+        ]
+      },
+      "then": {
+        "properties": {
+          "extensions": {
+            "required": [
+              "storage"
+            ],
+            "properties": {
+              "storage": {
+                "properties": {
+                  "class": {
+                    "const": "external"
+                  }
+                },
+                "required": [
+                  "uri"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
