@@ -8,7 +8,7 @@
 
 ## 1. 목적
 
-이 문서는 Campingtalk Knowledge Bundle이 따라야 하는 OKF 적용 원칙과 확장 규칙을 정의한다.
+이 문서는 Example Organization Knowledge Bundle이 따라야 하는 OKF 적용 원칙과 확장 규칙을 정의한다.
 
 이 문서의 역할은 세 가지다.
 
@@ -16,7 +16,7 @@
 - Google Cloud가 제안한 OKF v0.1의 포맷 관례를 반영한다.
 - 구현과 검증에 필요한 저장소 전용 프로파일을 명시한다.
 
-본 문서에서 `Campingtalk OKF Profile`은 표준을 대체하는 사양이 아니라, 저장소에서 검증 가능한
+본 문서에서 `Example Organization OKF Profile`은 표준을 대체하는 사양이 아니라, 저장소에서 검증 가능한
 구체 규칙 집합을 의미한다.
 
 중요:
@@ -32,7 +32,7 @@
 - OKF v0.1의 최소 포맷 계약을 유지한다.
 - 표준 예시 필드의 의미를 조직 내부 사정으로 함부로 재정의하지 않는다.
 - 조직 특화 필드는 `extensions` 아래에만 추가한다.
-- 공식 Bundle은 Markdown과 YAML Frontmatter 기반으로 저장한다. 여기서 Bundle은 Campingtalk Profile의 단일 공식
+- 공식 Bundle은 Markdown과 YAML Frontmatter 기반으로 저장한다. 여기서 Bundle은 Example Organization Profile의 단일 공식
   지식 문서이며, 디렉터리 단위인 표준 OKF Bundle과 구분한다.
 - `knowledge/bundles/`, Evidence Record와 `.knowledge-os/templates/`, `.knowledge-os/schemas/`, `.knowledge-os/policies/`의 관리 문서는 Markdown + YAML Frontmatter를 사용한다.
 - `inbox/`, `.raw/`, `evidence/`는 원본 수집/처리/보존 구간이므로 비Markdown 파일을 포함할 수 있다.
@@ -81,9 +81,9 @@
 - `tags`
 - `timestamp`
 
-이 필드들은 상호운용 표면으로 유용하지만, 아래 `Campingtalk OKF Profile`의 필수 여부와는 별도로 본다.
+이 필드들은 상호운용 표면으로 유용하지만, 아래 `Example Organization OKF Profile`의 필수 여부와는 별도로 본다.
 
-### 3.4 Campingtalk OKF Profile
+### 3.4 Example Organization OKF Profile
 
 다음은 저장소 내부 검증을 위한 프로파일이다.
 
@@ -122,17 +122,17 @@ description: 예약 환불 정책
 resource: https://internal.example/cs/refund-policy
 tags: [refund, cancellation]
 timestamp: 2026-07-08T10:05:00+09:00
-id: knowledge://campingtalk/cs/refund-policy_7c9e6679-7425-40de-944b-e07fc1f90ae7
+id: knowledge://example-org/cs/refund-policy_7c9e6679-7425-40de-944b-e07fc1f90ae7
 bundle_uuid: 7c9e6679-7425-40de-944b-e07fc1f90ae7
 status: active
 owners:
   - cs-team
 summary: 예약 환불 정책
 links:
-  - knowledge://campingtalk/product/reservation_3fa85f64-5717-4562-b3fc-2c963f66afa6
+  - knowledge://example-org/product/reservation_3fa85f64-5717-4562-b3fc-2c963f66afa6
 updated_at: 2026-07-08T10:05:00+09:00
 evidence:
-  - evidence://campingtalk/notion/2026/07/08/550e8400-e29b-41d4-a716-446655440000
+  - evidence://example-org/notion/2026/07/08/550e8400-e29b-41d4-a716-446655440000
 extensions:
   curated_by: hermes
   confidence: official
@@ -158,7 +158,7 @@ extensions:
 - 비예약 `.md` 파일은 파싱 가능한 YAML Frontmatter를 가져야 한다.
 - `index.md`, `log.md`는 각 용도 규칙을 따라야 한다.
 
-### 5.2 Campingtalk OKF Profile 필수
+### 5.2 Example Organization OKF Profile 필수
 
 - `id`
 - `bundle_uuid`
@@ -195,7 +195,7 @@ extensions:
 - 파일 경로 변경과 분리 가능
 - 공식 v0.1의 Concept ID와는 별도 식별자다.
 - Evidence `id`는 `source_uuid`(UUIDv4/v7)를 포함하므로 생성 시점에 유일성이 실질적으로 보장된다.
-- Bundle `id`도 동일한 원칙을 따른다. `id`는 `knowledge://campingtalk/{domain}/{slug}_{bundle_uuid}` 형식으로, 끝에 `bundle_uuid`를 붙여 사람이 읽는 slug를 유지하면서도 구조적으로 유일성을 보장한다.
+- Bundle `id`도 동일한 원칙을 따른다. `id`는 `knowledge://example-org/{domain}/{slug}_{bundle_uuid}` 형식으로, 끝에 `bundle_uuid`를 붙여 사람이 읽는 slug를 유지하면서도 구조적으로 유일성을 보장한다.
 - `bundle_uuid`는 Bundle 최초 생성 시 한 번만 발급하고, 이후 해당 Bundle을 갱신할 때는 새로 만들지 않고 그대로 유지한다. Evidence의 `source_uuid` 발급/유지 원칙과 동일하다.
 - 파일명도 같은 원칙으로 `{slug}_{bundle_uuid}.md`를 사용한다.
 
@@ -251,7 +251,7 @@ extensions:
 ### extensions.decision_status
 
 - `type: decision` 문서에서만 사용하는 저장소 확장 필드다.
-- 표준 OKF 필드가 아니라 Campingtalk 저장소 프로파일의 조직 확장이다.
+- 표준 OKF 필드가 아니라 Example Organization 저장소 프로파일의 조직 확장이다.
 - 결정문의 현재 상태를 표현하며 `review_state`와는 역할이 다르다.
 - 권장 값은 `proposed`, `accepted`, `rejected`, `superseded`다.
 - 다른 타입 문서에서는 사용하지 않는 것을 권장한다.
@@ -383,7 +383,7 @@ lifecycle 상태다.
 - 모든 Bundle은 최소 1개 이상의 Evidence를 가진다.
 - Bundle의 `evidence` 필드는 Evidence URI를 저장한다.
 - Evidence가 제거되면 연결 Bundle의 무결성을 다시 검사한다.
-- 이는 표준 OKF v0.1 자체가 아니라 Campingtalk Profile의 추가 규칙이다.
+- 이는 표준 OKF v0.1 자체가 아니라 Example Organization Profile의 추가 규칙이다.
 - 모든 Evidence는 `inbox/`에서 `.raw/`로 이동할 때 발급된 `source_uuid`를 가져야 한다.
 - Evidence 파일 경로는 `knowledge/evidence/{source}/{yyyy}/{mm}/{dd}/{name}_{source_uuid}.{ext}` 패턴을 권장한다.
 - Evidence는 `extensions.capture_context`에 수집 이유와 적용 업무를 기록한다.
@@ -431,7 +431,7 @@ lifecycle 상태다.
 - 깨진 cross-link
 - 누락된 `index.md`
 
-### 12.2 Campingtalk OKF Profile 적합성
+### 12.2 Example Organization OKF Profile 적합성
 
 - 필수 필드 존재 여부
 - `id` URI 포맷
@@ -478,7 +478,7 @@ lifecycle 상태다.
 ## 14. 파일 배치 규칙
 
 OKF v0.1은 Bundle 내부 하위 디렉터리를 허용하며 도메인별 저장 구조를 강제하지 않는다. 아래 배치 규칙은
-공식 OKF 요구가 아니라 Campingtalk Profile의 도메인 우선 운영 규칙이다.
+공식 OKF 요구가 아니라 Example Organization Profile의 도메인 우선 운영 규칙이다.
 
 - 도메인 기준으로 `bundles/<domain>/` 아래에 저장한다.
 - 파일명은 `{slug}_{bundle_uuid}.md` 형식으로 관리한다.

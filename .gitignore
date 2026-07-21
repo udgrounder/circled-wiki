@@ -7,6 +7,7 @@
 *.swo
 .venv/
 .runtime/
+graphify-out/
 
 # .raw is an operational staging/quarantine area and can contain sensitive originals.
 # Keep only its explanatory index under version control.

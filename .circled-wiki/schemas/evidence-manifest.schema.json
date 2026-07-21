@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": ".knowledge-os/schemas/evidence-manifest.schema.json",
-  "title": "Campingtalk Evidence Record Frontmatter",
+  "$id": ".circled-wiki/schemas/evidence-manifest.schema.json",
+  "title": "Knowledge OS Evidence Record Frontmatter",
   "type": "object",
   "additionalProperties": true,
   "required": [
@@ -23,7 +23,7 @@
     },
     "id": {
       "type": "string",
-      "pattern": "^evidence://campingtalk/[a-z0-9_-]+/[0-9]{4}/[0-9]{2}/[0-9]{2}/[0-9a-fA-F-]{36}$"
+      "pattern": "^evidence://[a-z0-9][a-z0-9_-]*/[a-z0-9_-]+/[0-9]{4}/[0-9]{2}/[0-9]{2}/[0-9a-fA-F-]{36}$"
     },
     "title": {
       "type": "string",
@@ -101,7 +101,7 @@
       "type": "array",
       "items": {
         "type": "string",
-        "pattern": "^knowledge://campingtalk/[a-z0-9][a-z0-9._~/-]*_[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        "pattern": "^knowledge://[a-z0-9][a-z0-9_-]*/[a-z0-9][a-z0-9._~/-]*_[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
       },
       "uniqueItems": true
     },

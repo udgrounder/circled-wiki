@@ -1,0 +1,13 @@
+schema_version: 1
+organization:
+  id: example-org
+  name: Example Organization
+agent:
+  operator: hermes
+graphify:
+  enabled: false
+  installation: external
+  command: graphify-mcp
+  graph_path: graphify-out/graph.json
+  source_paths:
+  - knowledge/bundles

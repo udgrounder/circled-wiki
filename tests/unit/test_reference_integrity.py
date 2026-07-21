@@ -12,8 +12,8 @@ class ReferenceIntegrityTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "knowledge"
             bundle_uuid, evidence_uuid = str(uuid.uuid4()), str(uuid.uuid4())
-            evidence_id = f"evidence://campingtalk/manual/2026/07/10/{evidence_uuid}"
-            bundle_id = f"knowledge://campingtalk/cs/refund_{bundle_uuid}"
+            evidence_id = f"evidence://example-org/manual/2026/07/10/{evidence_uuid}"
+            bundle_id = f"knowledge://example-org/cs/refund_{bundle_uuid}"
             evidence_path = root / "evidence" / "manual" / "2026" / "07" / "10" / f"refund_{evidence_uuid}.md"
             bundle_path = root / "bundles" / "cs" / f"refund_{bundle_uuid}.md"
             evidence_path.parent.mkdir(parents=True); bundle_path.parent.mkdir(parents=True)

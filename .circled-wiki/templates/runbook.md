@@ -11,7 +11,7 @@ timestamp: 2026-07-09T00:00:00+09:00
 ```yaml
 ---
 type: runbook
-id: knowledge://campingtalk/{domain}/{slug}_{bundle_uuid}
+id: knowledge://{organization_id}/{domain}/{slug}_{bundle_uuid}
 bundle_uuid: {bundle_uuid}
 title: {title}
 description: {description}
@@ -23,7 +23,7 @@ owners:
 tags:
   - runbook
 evidence:
-  - evidence://campingtalk/{provider}/{yyyy}/{mm}/{dd}/{source_uuid}
+  - evidence://{organization_id}/{provider}/{yyyy}/{mm}/{dd}/{source_uuid}
 links: []
 extensions:
   source_uuids:

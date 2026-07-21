@@ -21,12 +21,12 @@ class SystemObservationTests(unittest.TestCase):
                 actual="Only a generic error appears.",
                 reproduction="Inspect a malformed intake.",
                 improvement_hint="Include the intake ID.",
-                related_paths=[".knowledge-os/runtime/knowledge_os/worker/jobs.py"],
+                related_paths=[".circled-wiki/runtime/knowledge_os/worker/jobs.py"],
             )
 
             issue_path = Path(result["path"])
             content = issue_path.read_text(encoding="utf-8")
-            self.assertTrue(issue_path.parent.samefile(project / ".knowledge-os" / "issues"))
+            self.assertTrue(issue_path.parent.samefile(project / ".circled-wiki" / "issues"))
             self.assertEqual(result["status"], "open")
             self.assertIn("Area: cli", content)
             self.assertIn("Severity: medium", content)

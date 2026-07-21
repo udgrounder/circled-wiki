@@ -26,6 +26,25 @@ class McpServerTests(unittest.TestCase):
         }, service, access_mode="operator")
         self.assertFalse(response["result"].get("isError", False))
 
+    def test_audit_is_available_in_read_only_mode(self):
+        names = {tool["name"] for tool in available_tools("read_only")}
+        self.assertIn("audit_knowledge", names)
+
+    def test_initialize_uses_configured_organization_name(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            (project / "knowledge").mkdir()
+            (project / ".circled-wiki").mkdir()
+            (project / ".circled-wiki" / "config.yaml").write_text(
+                "schema_version: 1\norganization:\n  id: acme\n  name: Acme\n",
+                encoding="utf-8",
+            )
+            response = handle_request(
+                {"jsonrpc": "2.0", "id": 7, "method": "initialize", "params": {}},
+                KnowledgeService(project / "knowledge"),
+            )
+            self.assertEqual(response["result"]["serverInfo"]["name"], "acme-knowledge")
+
     def test_read_only_mode_blocks_mutation_tools(self):
         service = KnowledgeService(Path("knowledge"))
         response = handle_request({
@@ -149,4 +168,4 @@ class McpServerTests(unittest.TestCase):
             reused = json.loads(repeated["result"]["content"][0]["text"])
             self.assertEqual(reused["status"], "ingested")
             self.assertIsNone(reused["intake_id"])
-            self.assertTrue(reused["evidence_id"].startswith("evidence://campingtalk/codex/"))
+            self.assertTrue(reused["evidence_id"].startswith("evidence://example-org/codex/"))

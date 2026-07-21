@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from knowledge_os.config.paths import project_root
+from knowledge_os.config.settings import load_settings
 from knowledge_os.core.publisher import PublishError
 from knowledge_os.core.service import KnowledgeService
 
@@ -49,7 +50,7 @@ TOOLS = [
 
 READ_ONLY_TOOLS = {
     "search_knowledge", "read_bundle", "prepare_context", "propose_update", "propose_pending", "inspect_inbox",
-    "validate_result", "find_workflow", "list_knowledge_inventory",
+    "validate_result", "find_workflow", "audit_knowledge", "list_knowledge_inventory",
     "validate_claim_support", "measure_runbook_effectiveness", "get_task",
 }
 
@@ -71,7 +72,8 @@ def handle_request(
     if method == "notifications/initialized":
         return None
     if method == "initialize":
-        result: Dict[str, Any] = {"protocolVersion": request.get("params", {}).get("protocolVersion", "2024-11-05"), "capabilities": {"tools": {}}, "serverInfo": {"name": "campingtalk-knowledge", "version": "0.1.0"}}
+        organization_id = load_settings(service.knowledge_root.parent).organization_id
+        result: Dict[str, Any] = {"protocolVersion": request.get("params", {}).get("protocolVersion", "2024-11-05"), "capabilities": {"tools": {}}, "serverInfo": {"name": f"{organization_id}-knowledge", "version": "0.1.0"}}
     elif method == "tools/list":
         result = {"tools": available_tools(access_mode)}
     elif method == "tools/call":

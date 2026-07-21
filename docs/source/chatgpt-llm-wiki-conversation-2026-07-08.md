@@ -11,8 +11,8 @@
 
 다운로드:
 
-Campingtalk_AI_Knowledge_Platform_Plan.md
-# Campingtalk AI Knowledge Platform 기획 및 개발 계획서
+Example Organization_AI_Knowledge_Platform_Plan.md
+# Example Organization AI Knowledge Platform 기획 및 개발 계획서
 
 ## 1. 목표
 
@@ -144,7 +144,7 @@ Hermes Curator가 수행한다.
 예시
 
 ```yaml
-id: knowledge://campingtalk/cs/refund-policy
+id: knowledge://example-org/cs/refund-policy
 title: Refund Policy
 type: policy
 status: active
@@ -435,7 +435,7 @@ okf 를 지키도록 해줘
 
 OKF 표준 필드는 변경하지 않는다.
 
-Campingtalk 전용 메타데이터는 extensions 아래에만 추가한다.
+Example Organization 전용 메타데이터는 extensions 아래에만 추가한다.
 
 Evidence는 OKF Bundle과 연결되는 별도 객체로 관리한다.
 
@@ -451,7 +451,7 @@ AI_Knowledge_OS_OKF_Architecture.md
 # AI Knowledge Operating System v1.0 (OKF 기반)
 
 > 본 문서는 Google Open Knowledge Format(OKF)의 철학을 기본으로 하며,
-> Campingtalk의 Knowledge Platform을 위한 확장 규약을 정의한다.
+> Example Organization의 Knowledge Platform을 위한 확장 규약을 정의한다.
 
 ## 핵심 원칙
 
@@ -525,14 +525,14 @@ Vector Index / GraphRAG 갱신
 
 ```yaml
 ---
-id: evidence://campingtalk/notion/2026/07/08/000001
+id: evidence://example-org/notion/2026/07/08/000001
 provider: notion
 provider_url: https://...
 captured_at: 2026-07-08T10:00:00+09:00
 status: processed
 processed_at: 2026-07-08T10:03:00+09:00
 curated_into:
-  - knowledge://campingtalk/cs/refund-policy
+  - knowledge://example-org/cs/refund-policy
 ---
 ```
 
@@ -553,7 +553,7 @@ curated_into:
 
 ```yaml
 ---
-id: knowledge://campingtalk/cs/refund-policy
+id: knowledge://example-org/cs/refund-policy
 title: Refund Policy
 type: policy
 status: active
@@ -569,12 +569,12 @@ tags:
   - cancellation
 
 links:
-  - knowledge://campingtalk/product/reservation
+  - knowledge://example-org/product/reservation
 
 updated_at: 2026-07-08T10:05:00+09:00
 
 evidence:
-  - evidence://campingtalk/notion/2026/07/08/000001
+  - evidence://example-org/notion/2026/07/08/000001
 
 extensions:
   curated_by: hermes
@@ -587,7 +587,7 @@ extensions:
 원칙
 
 -   OKF 기본 필드는 유지한다.
--   Campingtalk 전용 메타데이터는 extensions 아래에만 추가한다.
+-   Example Organization 전용 메타데이터는 extensions 아래에만 추가한다.
 -   모든 Bundle은 최소 1개의 evidence를 가져야 한다.
 
 ------------------------------------------------------------------------
@@ -717,7 +717,7 @@ Markdown
 
 절대 OKF 필드를 제거하지 않는다.
 
-Campingtalk 전용 필드는 extensions 아래에만 추가한다.
+Example Organization 전용 필드는 extensions 아래에만 추가한다.
 
 Hermes는 Evidence를 기반으로 Curated Knowledge를 생성한다.
 

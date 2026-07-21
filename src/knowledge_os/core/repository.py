@@ -7,6 +7,8 @@ import re
 from typing import Any, Dict, Optional
 from uuid import uuid4
 
+from knowledge_os.config.settings import organization_id_for
+
 from .frontmatter import parse_markdown, render_markdown
 from .models import MarkdownDocument
 from .validator import validate_document, validate_repository
@@ -43,7 +45,8 @@ def create_bundle(
     if evidence is None or evidence.frontmatter.get("type") != "evidence":
         raise ValueError("evidence_id must refer to an existing Evidence Record")
     bundle_uuid = str(uuid4())
-    bundle_id = f"knowledge://campingtalk/{domain}/{slug}_{bundle_uuid}"
+    organization_id = organization_id_for(knowledge_root)
+    bundle_id = f"knowledge://{organization_id}/{domain}/{slug}_{bundle_uuid}"
     bundle_directory = knowledge_root / "bundles" / domain
     if bundle_type == "runbook":
         bundle_directory = bundle_directory / "runbooks"

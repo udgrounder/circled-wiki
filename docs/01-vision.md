@@ -2,7 +2,7 @@
 
 ## 1. 비전
 
-Campingtalk의 모든 핵심 지식이 사람과 AI Agent 모두에게 동일한 형태로 제공되는
+Example Organization의 모든 핵심 지식이 사람과 AI Agent 모두에게 동일한 형태로 제공되는
 `AI Knowledge Operating System`을 구축한다.
 
 ## 2. 왜 필요한가
@@ -53,7 +53,7 @@ Evidence는 수집 이유와 적용 업무를 함께 기록한다.
 ### OKF-First Design
 
 포맷은 자체 규격이 아니라 OKF를 우선 채택한다.
-다만 구현 검증을 위해 저장소 차원의 `Campingtalk OKF Profile`을 별도로 둔다.
+다만 구현 검증을 위해 저장소 차원의 `Example Organization OKF Profile`을 별도로 둔다.
 여기서 OKF는 우선 개방성 기준이며, Bundle 필드 구조는 그 위에 정의한 저장소 프로파일로 고정한다.
 
 ### AI Interoperability

@@ -11,7 +11,7 @@ timestamp: 2026-07-14T00:00:00+09:00
 ```yaml
 ---
 type: guide
-id: knowledge://campingtalk/company/{slug}_{bundle_uuid}
+id: knowledge://{organization_id}/company/{slug}_{bundle_uuid}
 bundle_uuid: {bundle_uuid}
 title: {조직 맥락 제목}
 status: draft
@@ -20,7 +20,7 @@ updated_at: {updated_at}
 owners:
   - {owner}
 evidence:
-  - evidence://campingtalk/{provider}/{yyyy}/{mm}/{dd}/{source_uuid}
+  - evidence://{organization_id}/{provider}/{yyyy}/{mm}/{dd}/{source_uuid}
 extensions:
   knowledge_revision: 1
   visibility: internal

@@ -1,6 +1,6 @@
 # AI Knowledge OS 문서 인덱스
 
-이 디렉터리는 Campingtalk의 `AI Knowledge Operating System` 구축을 위한 기획 및 설계 문서 세트다.
+이 디렉터리는 Example Organization의 `AI Knowledge Operating System` 구축을 위한 기획 및 설계 문서 세트다.
 
 ## 공식 참고 링크
 
@@ -53,4 +53,4 @@
 - 규약이 코드보다 먼저다.
 - 저장소 구조보다 데이터 모델을 먼저 고정한다.
 - 운영 Agent는 `OPERATING_RULES.md`를 기준으로 동작한다. 구현 Agent는 필요할 때만 설계 Reference를 확인한다.
-- OKF 관련 판단은 `표준 원칙`과 `Campingtalk OKF Profile`을 구분해서 읽는다.
+- OKF 관련 판단은 `표준 원칙`과 `Example Organization OKF Profile`을 구분해서 읽는다.

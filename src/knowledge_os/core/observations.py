@@ -52,7 +52,7 @@ def record_system_issue(
         raise ValueError(f"reported_from must be one of: {', '.join(ISSUE_REPORTERS)}")
     timestamp = datetime.now(timezone.utc)
     issue_id = f"issue-{timestamp.strftime('%Y%m%dT%H%M%SZ')}-{uuid4().hex[:8]}"
-    issue_path = project_root / ".knowledge-os" / "issues" / f"{issue_id}-{_slug(title)}.md"
+    issue_path = project_root / ".circled-wiki" / "issues" / f"{issue_id}-{_slug(title)}.md"
     issue_path.parent.mkdir(parents=True, exist_ok=True)
     related = related_paths or []
     related_section = "\n".join(f"- `{path}`" for path in related) or "- None recorded."
@@ -143,7 +143,7 @@ def update_system_issue_status(
 
 
 def _find_issue_path(project_root: Path, issue_ref: str) -> Path:
-    issues_root = project_root.resolve() / ".knowledge-os" / "issues"
+    issues_root = project_root.resolve() / ".circled-wiki" / "issues"
     candidate = Path(issue_ref)
     if candidate.is_file() and issues_root in candidate.resolve().parents:
         return candidate.resolve()

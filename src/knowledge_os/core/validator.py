@@ -1,4 +1,4 @@
-"""Validation for the OKF v0.1 minimum and the Campingtalk OKF Profile."""
+"""Validation for the OKF v0.1 minimum and the configured organization Profile."""
 
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -7,6 +7,8 @@ import math
 import re
 from typing import Any, Dict, Iterable, List, Optional, Set
 from uuid import UUID
+
+from knowledge_os.config.settings import organization_id_for
 
 from .frontmatter import FrontmatterError, parse_markdown
 from .evidence import evidence_content_mode, evidence_original_bytes
@@ -39,12 +41,16 @@ EVIDENCE_REUSE_VALUE = {"high", "medium", "low"}
 EVIDENCE_RETENTION_CLASS = {
     "workflow_reference", "decision_record", "outcome", "general_reference", "ephemeral",
 }
-EVIDENCE_URI = re.compile(
-    r"^evidence://campingtalk/[a-z0-9_-]+/\d{4}/\d{2}/\d{2}/[0-9a-fA-F-]{36}$"
-)
-BUNDLE_URI = re.compile(
-    r"^knowledge://campingtalk/[a-z0-9][a-z0-9._~/-]*_[0-9a-fA-F-]{36}$"
-)
+def _evidence_uri(organization_id: str) -> re.Pattern[str]:
+    return re.compile(
+        rf"^evidence://{re.escape(organization_id)}/[a-z0-9_-]+/\d{{4}}/\d{{2}}/\d{{2}}/[0-9a-fA-F-]{{36}}$"
+    )
+
+
+def _bundle_uri(organization_id: str) -> re.Pattern[str]:
+    return re.compile(
+        rf"^knowledge://{re.escape(organization_id)}/[a-z0-9][a-z0-9._~/-]*_[0-9a-fA-F-]{{36}}$"
+    )
 
 
 def _is_nonempty_string(value: Any) -> bool:
@@ -147,14 +153,17 @@ def validate_document(path: Path, knowledge_root: Path) -> ValidationResult:
         result.okf_errors.append("type must be a non-empty string")
 
     kind = _path_kind(path, knowledge_root)
+    organization_id = organization_id_for(knowledge_root)
     if kind == "bundle":
-        _validate_bundle(document, result)
+        _validate_bundle(document, result, organization_id)
     elif kind == "evidence":
-        _validate_evidence(document, result)
+        _validate_evidence(document, result, organization_id)
     return result
 
 
-def _validate_bundle(document: MarkdownDocument, result: ValidationResult) -> None:
+def _validate_bundle(
+    document: MarkdownDocument, result: ValidationResult, organization_id: str
+) -> None:
     data = document.frontmatter
     required = ("id", "bundle_uuid", "title", "type", "status", "summary", "updated_at", "evidence")
     for field in required:
@@ -165,8 +174,10 @@ def _validate_bundle(document: MarkdownDocument, result: ValidationResult) -> No
             result.profile_errors.append(f"{field} must be a non-empty string")
     if "bundle_uuid" in data and not _is_uuid(data["bundle_uuid"]):
         result.profile_errors.append("bundle_uuid must be a UUID")
-    if "id" in data and not BUNDLE_URI.match(str(data["id"])):
-        result.profile_errors.append("id must be a Campingtalk knowledge URI")
+    if "id" in data and not _bundle_uri(organization_id).match(str(data["id"])):
+        result.profile_errors.append(
+            f"id must be a knowledge URI for organization '{organization_id}'"
+        )
     if "status" in data and data["status"] not in BUNDLE_STATUSES:
         result.profile_errors.append("status must be one of draft, active, deprecated, archived")
     if "type" in data and data["type"] not in BUNDLE_TYPES:
@@ -176,8 +187,10 @@ def _validate_bundle(document: MarkdownDocument, result: ValidationResult) -> No
     evidence = data.get("evidence")
     if not isinstance(evidence, list) or not evidence:
         result.profile_errors.append("evidence must be a non-empty array")
-    elif any(not EVIDENCE_URI.match(str(item)) for item in evidence):
-        result.profile_errors.append("every evidence item must be a Campingtalk Evidence URI")
+    elif any(not _evidence_uri(organization_id).match(str(item)) for item in evidence):
+        result.profile_errors.append(
+            f"every evidence item must use organization '{organization_id}'"
+        )
     if "bundle_uuid" in data and _is_uuid(data["bundle_uuid"]):
         suffix = "_" + str(data["bundle_uuid"])
         if not str(data.get("id", "")).endswith(suffix):
@@ -189,7 +202,7 @@ def _validate_bundle(document: MarkdownDocument, result: ValidationResult) -> No
     _validate_archive(data, result)
     _validate_rulebook(data, result)
     _validate_inquiry(data, result)
-    _validate_workflow(data, result)
+    _validate_workflow(data, result, organization_id)
     _warn_unscoped_extensions(data, result)
 
 
@@ -315,7 +328,9 @@ def _validate_inquiry(data: Dict[str, Any], result: ValidationResult) -> None:
         result.profile_errors.append("resolved inquiry must include a resolution")
 
 
-def _validate_workflow(data: Dict[str, Any], result: ValidationResult) -> None:
+def _validate_workflow(
+    data: Dict[str, Any], result: ValidationResult, organization_id: str
+) -> None:
     extensions = data.get("extensions")
     workflow = extensions.get("workflow") if isinstance(extensions, dict) else None
     if data.get("type") == "runbook" and data.get("status") == "active" and not isinstance(workflow, dict):
@@ -416,7 +431,7 @@ def _validate_workflow(data: Dict[str, Any], result: ValidationResult) -> None:
         for field in ("successful", "failed"):
             value = examples.get(field, [])
             if not isinstance(value, list) or any(
-                not EVIDENCE_URI.match(str(item)) for item in value
+                not _evidence_uri(organization_id).match(str(item)) for item in value
             ):
                 result.profile_errors.append(
                     f"extensions.workflow.examples.{field} must be an Evidence URI array"
@@ -442,7 +457,9 @@ def _validate_workflow(data: Dict[str, Any], result: ValidationResult) -> None:
                     )
 
 
-def _validate_evidence(document: MarkdownDocument, result: ValidationResult) -> None:
+def _validate_evidence(
+    document: MarkdownDocument, result: ValidationResult, organization_id: str
+) -> None:
     data = document.frontmatter
     required = (
         "id", "title", "source_uuid", "provider", "source_ref", "captured_at", "status",
@@ -453,8 +470,10 @@ def _validate_evidence(document: MarkdownDocument, result: ValidationResult) -> 
     for field in required:
         if field not in data:
             result.profile_errors.append(f"missing required Evidence field: {field}")
-    if "id" in data and not EVIDENCE_URI.match(str(data["id"])):
-        result.profile_errors.append("id must be a Campingtalk Evidence URI")
+    if "id" in data and not _evidence_uri(organization_id).match(str(data["id"])):
+        result.profile_errors.append(
+            f"id must be an Evidence URI for organization '{organization_id}'"
+        )
     if "source_uuid" in data and not _is_uuid(data["source_uuid"]):
         result.profile_errors.append("source_uuid must be a UUID")
     if "provider" in data and not _is_nonempty_string(data["provider"]):
@@ -527,7 +546,7 @@ def managed_markdown_files(knowledge_root: Path) -> Iterable[Path]:
         root = knowledge_root / section
         if root.exists():
             yield from sorted(root.rglob("*.md"))
-    os_root = knowledge_root.parent / ".knowledge-os"
+    os_root = knowledge_root.parent / ".circled-wiki"
     for section in ("templates", "schemas", "policies"):
         root = os_root / section
         if root.exists():

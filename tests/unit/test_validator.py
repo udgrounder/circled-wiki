@@ -28,7 +28,7 @@ class ValidatorTests(unittest.TestCase):
     def test_repository_validation_includes_control_plane_documents(self):
         project = self.root / "isolated-project"
         knowledge_root = project / "knowledge"
-        path = project / ".knowledge-os" / "templates" / "broken.md"
+        path = project / ".circled-wiki" / "templates" / "broken.md"
         path.parent.mkdir(parents=True)
         path.write_text(render_markdown({"title": "Missing type"}), encoding="utf-8")
 
@@ -45,13 +45,13 @@ class ValidatorTests(unittest.TestCase):
             render_markdown(
                 {
                     "type": "policy",
-                    "id": f"knowledge://campingtalk/cs/refund_{bundle_uuid}",
+                    "id": f"knowledge://example-org/cs/refund_{bundle_uuid}",
                     "bundle_uuid": bundle_uuid,
                     "title": "Refund",
                     "status": "draft",
                     "summary": "Refund policy",
                     "updated_at": "2026-07-10T10:00:00+09:00",
-                    "evidence": [f"evidence://campingtalk/manual/2026/07/10/{evidence_uuid}"],
+                    "evidence": [f"evidence://example-org/manual/2026/07/10/{evidence_uuid}"],
                     "extensions": {"knowledge_revision": 1},
                 }
             ),
@@ -70,13 +70,13 @@ class ValidatorTests(unittest.TestCase):
             render_markdown(
                 {
                     "type": "runbook",
-                    "id": f"knowledge://campingtalk/cs/refund_{bundle_uuid}",
+                    "id": f"knowledge://example-org/cs/refund_{bundle_uuid}",
                     "bundle_uuid": bundle_uuid,
                     "title": "Refund Runbook",
                     "status": "draft",
                     "summary": "Refund procedure",
                     "updated_at": "2026-07-10T10:00:00+09:00",
-                    "evidence": [f"evidence://campingtalk/manual/2026/07/10/{evidence_uuid}"],
+                    "evidence": [f"evidence://example-org/manual/2026/07/10/{evidence_uuid}"],
                 }
             ),
             encoding="utf-8",
@@ -97,13 +97,13 @@ class ValidatorTests(unittest.TestCase):
             render_markdown(
                 {
                     "type": "policy",
-                    "id": f"knowledge://campingtalk/cs/refund_{bundle_uuid}",
+                    "id": f"knowledge://example-org/cs/refund_{bundle_uuid}",
                     "bundle_uuid": bundle_uuid,
                     "title": "Refund",
                     "status": "active",
                     "summary": "Refund policy",
                     "updated_at": "2026-07-10T10:00:00+09:00",
-                    "evidence": [f"evidence://campingtalk/manual/2026/07/10/{evidence_uuid}"],
+                    "evidence": [f"evidence://example-org/manual/2026/07/10/{evidence_uuid}"],
                 }
             ),
             encoding="utf-8",
@@ -122,13 +122,13 @@ class ValidatorTests(unittest.TestCase):
             render_markdown(
                 {
                     "type": "policy",
-                    "id": f"knowledge://campingtalk/cs/refund-rulebook_{bundle_uuid}",
+                    "id": f"knowledge://example-org/cs/refund-rulebook_{bundle_uuid}",
                     "bundle_uuid": bundle_uuid,
                     "title": "Refund Rulebook",
                     "status": "draft",
                     "summary": "Refund work entry point",
                     "updated_at": "2026-07-10T10:00:00+09:00",
-                    "evidence": [f"evidence://campingtalk/manual/2026/07/10/{evidence_uuid}"],
+                    "evidence": [f"evidence://example-org/manual/2026/07/10/{evidence_uuid}"],
                     "extensions": {
                         "rulebook": {
                             "rulebook_id": "refund-processing",
@@ -154,13 +154,13 @@ class ValidatorTests(unittest.TestCase):
             render_markdown(
                 {
                     "type": "reference",
-                    "id": f"knowledge://campingtalk/cs/refund-question_{bundle_uuid}",
+                    "id": f"knowledge://example-org/cs/refund-question_{bundle_uuid}",
                     "bundle_uuid": bundle_uuid,
                     "title": "Refund Question",
                     "status": "draft",
                     "summary": "Unresolved refund question",
                     "updated_at": "2026-07-10T10:00:00+09:00",
-                    "evidence": [f"evidence://campingtalk/manual/2026/07/10/{evidence_uuid}"],
+                    "evidence": [f"evidence://example-org/manual/2026/07/10/{evidence_uuid}"],
                     "extensions": {
                         "inquiry": {
                             "question_id": "refund-window",
@@ -187,14 +187,14 @@ class ValidatorTests(unittest.TestCase):
             render_markdown(
                 {
                     "type": "runbook",
-                    "id": f"knowledge://campingtalk/cs/refund_{bundle_uuid}",
+                    "id": f"knowledge://example-org/cs/refund_{bundle_uuid}",
                     "bundle_uuid": bundle_uuid,
                     "title": "Refund Runbook",
                     "status": "active",
                     "summary": "Refund workflow",
                     "updated_at": "2026-07-10T10:00:00+09:00",
                     "owners": ["cs-owner"],
-                    "evidence": [f"evidence://campingtalk/manual/2026/07/10/{evidence_uuid}"],
+                    "evidence": [f"evidence://example-org/manual/2026/07/10/{evidence_uuid}"],
                     "extensions": {
                         "governance": {
                             "reviewed_at": "2026-07-01T00:00:00+00:00",
@@ -232,10 +232,10 @@ class ValidatorTests(unittest.TestCase):
         evidence_uuid = str(uuid.uuid4())
         path = self.root / "bundles" / "cs" / f"old-policy_{bundle_uuid}.md"
         path.write_text(render_markdown({
-            "type": "policy", "id": f"knowledge://campingtalk/cs/old-policy_{bundle_uuid}",
+            "type": "policy", "id": f"knowledge://example-org/cs/old-policy_{bundle_uuid}",
             "bundle_uuid": bundle_uuid, "title": "Old Policy", "status": "archived",
             "summary": "Old policy", "updated_at": "2026-07-14T00:00:00+00:00",
-            "evidence": [f"evidence://campingtalk/manual/2026/07/14/{evidence_uuid}"],
+            "evidence": [f"evidence://example-org/manual/2026/07/14/{evidence_uuid}"],
             "extensions": {},
         }), encoding="utf-8")
 
@@ -249,10 +249,10 @@ class ValidatorTests(unittest.TestCase):
         path = self.root / "bundles" / "cs" / "runbooks" / f"artifact_{bundle_uuid}.md"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(render_markdown({
-            "type": "runbook", "id": f"knowledge://campingtalk/cs/artifact_{bundle_uuid}",
+            "type": "runbook", "id": f"knowledge://example-org/cs/artifact_{bundle_uuid}",
             "bundle_uuid": bundle_uuid, "title": "Artifact Runbook", "status": "draft",
             "summary": "Artifact workflow", "updated_at": "2026-07-14T00:00:00+00:00",
-            "evidence": [f"evidence://campingtalk/manual/2026/07/14/{evidence_uuid}"],
+            "evidence": [f"evidence://example-org/manual/2026/07/14/{evidence_uuid}"],
             "extensions": {"workflow": {
                 "workflow_id": "artifact-workflow", "version": 1, "execution_mode": "guided",
                 "required_inputs": [],
@@ -276,7 +276,7 @@ class ValidatorTests(unittest.TestCase):
         path.parent.mkdir(parents=True)
         (path.parent / "source.txt").write_text("actual", encoding="utf-8")
         path.write_text(render_markdown({
-            "type": "evidence", "id": f"evidence://campingtalk/manual/2026/07/14/{evidence_uuid}",
+            "type": "evidence", "id": f"evidence://example-org/manual/2026/07/14/{evidence_uuid}",
             "title": "Source", "source_uuid": evidence_uuid, "provider": "manual",
             "source_ref": {"provider": "manual", "captured_from": "manual"},
             "captured_at": "2026-07-14T00:00:00+00:00", "status": "processed",

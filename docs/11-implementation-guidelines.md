@@ -7,7 +7,7 @@
 - 데이터 모델이 먼저, 검색 엔진 연동은 나중이다.
 - Validator가 없는 자동 생성은 금지한다.
 - 자동 Commit은 Validator 통과 후에만 허용한다.
-- OKF 적합성과 Campingtalk OKF Profile 적합성을 별도로 검증한다.
+- OKF 적합성과 Example Organization OKF Profile 적합성을 별도로 검증한다.
 
 ## 2. MVP 정의
 
@@ -43,7 +43,7 @@ inbox 파일 1개
 ```text
 OPERATING_RULES.md를 먼저 읽어.
 Reference Traceability에서 아키텍처 리뷰에 필요한 문서만 선택해.
-OKF와 Campingtalk Profile을 구분해 전체 아키텍처를 리뷰해.
+OKF와 Example Organization Profile을 구분해 전체 아키텍처를 리뷰해.
 수정은 하지 말고 review만 해줘.
 ```
 

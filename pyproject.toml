@@ -3,9 +3,9 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "campingtalk-knowledge-os"
+name = "example-org-knowledge-os"
 version = "0.1.0"
-description = "Campingtalk AI Knowledge OS core library and CLI"
+description = "Example Organization AI Knowledge OS core library and CLI"
 requires-python = ">=3.9"
 dependencies = ["PyYAML>=6.0"]
 

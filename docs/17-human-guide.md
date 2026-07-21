@@ -149,7 +149,7 @@ Runbook Owner가 승인한다.
 ```sh
 PYTHONPATH=src python3 -m knowledge_os.cli submit-runbook-reference \
   --workflow poster-production \
-  --evidence evidence://campingtalk/user/2026/07/14/{source_uuid} \
+  --evidence evidence://example-org/user/2026/07/14/{source_uuid} \
   --submitted-by marketing-user \
   --note "최근 승인된 디자인 가이드이며 기존 기준과 비교가 필요함"
 ```

@@ -8,11 +8,11 @@
 
 ## 1. 프로젝트명
 
-Campingtalk AI Knowledge Operating System
+Example Organization AI Knowledge Operating System
 
 ## 2. 추진 배경
 
-Campingtalk 내부의 정책, 제품 지식, 운영 지식, 고객 응대 기준, 개발 문맥은 여러 도구에 분산되어 있다.
+Example Organization 내부의 정책, 제품 지식, 운영 지식, 고객 응대 기준, 개발 문맥은 여러 도구에 분산되어 있다.
 이 상태에서는 사람이 정보를 찾는 비용이 높고, AI Agent도 일관된 최신 지식을 사용하기 어렵다.
 
 따라서 단순 위키가 아니라, 원본 수집부터 정제, 검증, 검색, AI 제공까지 포함하는
@@ -60,7 +60,7 @@ Campingtalk 내부의 정책, 제품 지식, 운영 지식, 고객 응대 기준
 ## 6. 성공 기준
 
 - 공식 지식 Bundle이 Open Definition의 개방성 원칙과 저장소 프로파일을 함께 만족한다.
-- 공식 지식 Bundle이 `Campingtalk OKF Profile` 검증을 통과한다.
+- 공식 지식 Bundle이 `Example Organization OKF Profile` 검증을 통과한다.
 - 모든 공식 지식 Bundle이 Evidence를 추적할 수 있다.
 - 주요 AI Agent가 공통 MCP 인터페이스로 지식을 조회할 수 있다.
 - Hermes가 외부 정보의 변경분을 지속적으로 Evidence와 Bundle에 반영하고, 사용자 요청 시 출처 있는 지식을 활용한다.

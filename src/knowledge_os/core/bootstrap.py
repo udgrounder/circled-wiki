@@ -7,16 +7,27 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List
 
+from knowledge_os.config.settings import (
+    DEFAULT_OPERATOR_AGENT,
+    DEFAULT_ORGANIZATION_ID,
+    DEFAULT_ORGANIZATION_NAME,
+    load_settings,
+    render_settings,
+)
 
-MANIFEST_PATH = ".knowledge-os/manifest.json"
-BACKUP_ROOT = ".knowledge-os-backups"
+
+CONTROL_PLANE = ".circled-wiki"
+LEGACY_CONTROL_PLANE = ".knowledge-os"
+MANIFEST_PATH = f"{CONTROL_PLANE}/manifest.json"
+BACKUP_ROOT = ".circled-wiki-backups"
 AGENT_ENTRYPOINT_PATH = "AGENTS.md"
 CLAUDE_ENTRYPOINT_PATH = "CLAUDE.md"
-OPERATING_RULES_REFERENCE = ".knowledge-os/OPERATING_RULES.md"
+HERMES_ENTRYPOINT_PATH = "HERMES.md"
+OPERATING_RULES_REFERENCE = f"{CONTROL_PLANE}/OPERATING_RULES.md"
 MANAGED_DIRECTORIES = (
-    ".knowledge-os/agent-rules", ".knowledge-os/templates", ".knowledge-os/policies",
-    ".knowledge-os/schemas", ".knowledge-os/bin", ".knowledge-os/runtime",
-    ".knowledge-os/issues", ".knowledge-os/proposals", ".knowledge-os/history",
+    f"{CONTROL_PLANE}/agent-rules", f"{CONTROL_PLANE}/templates", f"{CONTROL_PLANE}/policies",
+    f"{CONTROL_PLANE}/schemas", f"{CONTROL_PLANE}/bin", f"{CONTROL_PLANE}/runtime",
+    f"{CONTROL_PLANE}/issues", f"{CONTROL_PLANE}/proposals", f"{CONTROL_PLANE}/history",
 )
 
 
@@ -37,9 +48,9 @@ def _release_id(assets: Dict[str, str]) -> str:
 
 def _agent_entrypoint_reference_block() -> str:
     """Return an append-only, reference-only block for an existing agent file."""
-    return """<!-- knowledge-os:agent-bootstrap -->
+    return """<!-- circled-wiki:agent-bootstrap -->
 
-Refer to `.knowledge-os/AGENT_BOOTSTRAP.md` and `.knowledge-os/OPERATING_RULES.md`.
+Refer to `.circled-wiki/AGENT_BOOTSTRAP.md` and `.circled-wiki/OPERATING_RULES.md`.
 """
 
 
@@ -61,9 +72,9 @@ def _agent_entrypoint_action(path: Path) -> str:
 
 def _claude_entrypoint_reference_block() -> str:
     """Return an append-only, reference-only block for Claude."""
-    return """<!-- knowledge-os:claude-bootstrap -->
+    return """<!-- circled-wiki:claude-bootstrap -->
 
-Refer to `.knowledge-os/AGENT_BOOTSTRAP.md` and `.knowledge-os/OPERATING_RULES.md`.
+Refer to `.circled-wiki/AGENT_BOOTSTRAP.md` and `.circled-wiki/OPERATING_RULES.md`.
 """
 
 
@@ -80,7 +91,29 @@ def _claude_entrypoint_action(path: Path) -> str:
     return "append_operating_reference"
 
 
-def _backup_operating_system(target: Path, release: str) -> Path:
+def _hermes_entrypoint_reference_block() -> str:
+    """Return the reference-only block for an autonomous Hermes process."""
+    return """<!-- circled-wiki:hermes-bootstrap -->
+
+On startup, read `.circled-wiki/AUTONOMOUS_AGENT_STARTUP.md`,
+`.circled-wiki/AGENT_BOOTSTRAP.md`, and `.circled-wiki/OPERATING_RULES.md`.
+"""
+
+
+def _hermes_entrypoint_content() -> str:
+    return "# Knowledge OS Hermes Entry Point\n\n" + _hermes_entrypoint_reference_block()
+
+
+def _hermes_entrypoint_action(path: Path) -> str:
+    if not path.exists():
+        return "create"
+    content = path.read_text(encoding="utf-8")
+    if f"{CONTROL_PLANE}/AUTONOMOUS_AGENT_STARTUP.md" in content:
+        return "preserve_existing"
+    return "append_operating_reference"
+
+
+def _backup_operating_system(target: Path, release: str, control_plane: Path) -> Path:
     """Copy the complete control plane before any upgrade mutation."""
     backup_root = target / BACKUP_ROOT
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -92,7 +125,7 @@ def _backup_operating_system(target: Path, release: str) -> Path:
         suffix += 1
     backup_root.mkdir(parents=True, exist_ok=True)
     try:
-        shutil.copytree(target / ".knowledge-os", destination, symlinks=True)
+        shutil.copytree(control_plane, destination, symlinks=True)
     except OSError as error:
         raise RuntimeError(
             "Knowledge OS backup failed; upgrade was stopped before modifying the existing OS"
@@ -104,35 +137,39 @@ def _source_assets(source_root: Path) -> Dict[str, bytes]:
     """Return portable operating assets; never package user Bundle or Evidence data."""
     operating_rules = source_root / "OPERATING_RULES.md"
     if not operating_rules.is_file():
-        operating_rules = source_root / ".knowledge-os" / "OPERATING_RULES.md"
+        operating_rules = source_root / CONTROL_PLANE / "OPERATING_RULES.md"
     assets: Dict[str, bytes] = {
-        ".knowledge-os/OPERATING_RULES.md": operating_rules.read_bytes(),
+        f"{CONTROL_PLANE}/OPERATING_RULES.md": operating_rules.read_bytes(),
     }
     for directory, destination in (
         (
             source_root / "agent-rules"
             if (source_root / "agent-rules").is_dir()
-            else source_root / ".knowledge-os" / "agent-rules",
-            ".knowledge-os/agent-rules",
+            else source_root / CONTROL_PLANE / "agent-rules",
+            f"{CONTROL_PLANE}/agent-rules",
         ),
-        (source_root / ".knowledge-os" / "templates", ".knowledge-os/templates"),
-        (source_root / ".knowledge-os" / "policies", ".knowledge-os/policies"),
-        (source_root / ".knowledge-os" / "schemas", ".knowledge-os/schemas"),
-        (source_root / ".knowledge-os" / "bin", ".knowledge-os/bin"),
-        (source_root / ".knowledge-os" / "issues", ".knowledge-os/issues"),
+        (source_root / CONTROL_PLANE / "templates", f"{CONTROL_PLANE}/templates"),
+        (source_root / CONTROL_PLANE / "policies", f"{CONTROL_PLANE}/policies"),
+        (source_root / CONTROL_PLANE / "schemas", f"{CONTROL_PLANE}/schemas"),
+        (source_root / CONTROL_PLANE / "bin", f"{CONTROL_PLANE}/bin"),
+        (source_root / CONTROL_PLANE / "issues", f"{CONTROL_PLANE}/issues"),
     ):
         for source in sorted(directory.rglob("*")):
             if source.is_file() and source.name != ".DS_Store":
                 assets[f"{destination}/{source.relative_to(directory).as_posix()}"] = source.read_bytes()
-    agent_guide = source_root / ".knowledge-os" / "AGENT_BOOTSTRAP.md"
+    agent_guide = source_root / CONTROL_PLANE / "AGENT_BOOTSTRAP.md"
     if agent_guide.is_file():
-        assets[".knowledge-os/AGENT_BOOTSTRAP.md"] = agent_guide.read_bytes()
+        assets[f"{CONTROL_PLANE}/AGENT_BOOTSTRAP.md"] = agent_guide.read_bytes()
+    for filename in ("AUTONOMOUS_AGENT_STARTUP.md", "GRAPHIFY.md"):
+        source = source_root / CONTROL_PLANE / filename
+        if source.is_file():
+            assets[f"{CONTROL_PLANE}/{filename}"] = source.read_bytes()
     runtime_source = source_root / "src" / "knowledge_os"
     if not runtime_source.is_dir():
-        runtime_source = source_root / ".knowledge-os" / "runtime" / "knowledge_os"
+        runtime_source = source_root / CONTROL_PLANE / "runtime" / "knowledge_os"
     for source in sorted(runtime_source.rglob("*.py")):
         assets[
-            ".knowledge-os/runtime/knowledge_os/"
+            f"{CONTROL_PLANE}/runtime/knowledge_os/"
             + source.relative_to(runtime_source).as_posix()
         ] = source.read_bytes()
     return assets
@@ -151,21 +188,62 @@ def _load_manifest(target: Path) -> Dict[str, object]:
     return payload
 
 
-def bootstrap_knowledge_root(target: Path, source_root: Path, *, apply: bool = False) -> Dict[str, object]:
+def bootstrap_knowledge_root(
+    target: Path,
+    source_root: Path,
+    *,
+    apply: bool = False,
+    organization_id: str = DEFAULT_ORGANIZATION_ID,
+    organization_name: str = DEFAULT_ORGANIZATION_NAME,
+    operator_agent: str = DEFAULT_OPERATOR_AGENT,
+    graphify_enabled: bool = False,
+) -> Dict[str, object]:
     """Plan or safely apply OS assets at a user-designated project root.
 
-    Upgrades only write below ``.knowledge-os``. The ``knowledge`` data plane is
+    Upgrades only write below ``.circled-wiki``. The ``knowledge`` data plane is
     never inventoried, moved, modified, or registered as an OS-managed asset.
     """
     target, source_root = target.expanduser().resolve(), source_root.resolve()
     if target == source_root or target == source_root / "knowledge" or target in source_root.parents:
         raise ValueError("bootstrap target must be a separate project root outside the source project")
+    control_root = target / CONTROL_PLANE
+    legacy_root = target / LEGACY_CONTROL_PLANE
+    if control_root.exists() and legacy_root.exists():
+        raise ValueError("both .circled-wiki and legacy .knowledge-os exist; resolve the conflict before upgrading")
+    legacy_migration_required = legacy_root.is_dir() and not control_root.exists()
+    if apply and legacy_migration_required:
+        legacy_manifest = legacy_root / "manifest.json"
+        release = "legacy"
+        if legacy_manifest.is_file():
+            try:
+                release = str(json.loads(legacy_manifest.read_text(encoding="utf-8")).get("os_release") or release)
+            except ValueError:
+                pass
+        _backup_operating_system(target, release, legacy_root)
+        shutil.move(str(legacy_root), str(control_root))
     manifest_exists = (target / MANIFEST_PATH).exists()
     agent_entrypoint = target / AGENT_ENTRYPOINT_PATH
     agent_entrypoint_action = _agent_entrypoint_action(agent_entrypoint)
     claude_entrypoint = target / CLAUDE_ENTRYPOINT_PATH
     claude_entrypoint_action = _claude_entrypoint_action(claude_entrypoint)
-    os_root = target / ".knowledge-os"
+    hermes_entrypoint = target / HERMES_ENTRYPOINT_PATH
+    hermes_entrypoint_action = _hermes_entrypoint_action(hermes_entrypoint)
+    config_path = target / CONTROL_PLANE / "config.yaml"
+    configuration_action = "preserve_existing" if config_path.exists() else "create"
+    configuration = render_settings(
+        organization_id=organization_id,
+        organization_name=organization_name,
+        operator_agent=operator_agent,
+        graphify_enabled=graphify_enabled,
+    ).encode("utf-8")
+    configured = load_settings(target) if configuration_action == "preserve_existing" else None
+    configuration_report = {
+        "organization_id": configured.organization_id if configured else organization_id,
+        "organization_name": configured.organization_name if configured else organization_name,
+        "operator_agent": configured.operator_agent if configured else operator_agent,
+        "graphify_enabled": configured.graphify.enabled if configured else graphify_enabled,
+    }
+    os_root = target / CONTROL_PLANE
     os_exists = os_root.is_dir() and any(os_root.iterdir())
     knowledge_exists = (target / "knowledge").exists()
     knowledge_action = (
@@ -175,6 +253,13 @@ def bootstrap_knowledge_root(target: Path, source_root: Path, *, apply: bool = F
     previous = manifest["assets"]
     if not isinstance(previous, dict):
         raise ValueError("Knowledge OS manifest assets are invalid")
+    if legacy_migration_required and apply:
+        previous = {
+            str(path).replace(f"{LEGACY_CONTROL_PLANE}/", f"{CONTROL_PLANE}/", 1): checksum
+            for path, checksum in previous.items()
+        }
+        manifest = dict(manifest)
+        manifest["assets"] = previous
     actions: List[Dict[str, str]] = []
     next_assets: Dict[str, str] = dict(previous)
     assets = _source_assets(source_root)
@@ -198,7 +283,7 @@ def bootstrap_knowledge_root(target: Path, source_root: Path, *, apply: bool = F
         if action in {"create", "upgrade"}:
             writes.append((destination, content))
         elif action == "preserve_and_propose":
-            proposal = target / ".knowledge-os" / "proposals" / f"{relative.replace('/', '__')}.new"
+            proposal = target / CONTROL_PLANE / "proposals" / f"{relative.replace('/', '__')}.new"
             if not proposal.exists() or _checksum(proposal.read_bytes()) != desired:
                 writes.append((proposal, content))
     release = _release_id(next_assets)
@@ -209,18 +294,25 @@ def bootstrap_knowledge_root(target: Path, source_root: Path, *, apply: bool = F
         or previous != next_assets
     )
     directories_missing = any(not (target / directory).is_dir() for directory in MANAGED_DIRECTORIES)
-    os_mutation_required = bool(writes or manifest_needs_update or directories_missing)
+    os_mutation_required = bool(
+        writes
+        or manifest_needs_update
+        or directories_missing
+        or configuration_action == "create"
+    )
     backup_required = os_exists and os_mutation_required
     backup_path = None
     if apply:
         if backup_required:
             prior_release = previous_release if isinstance(previous_release, str) else "unversioned"
-            backup_path = _backup_operating_system(target, prior_release)
+            backup_path = _backup_operating_system(target, prior_release, os_root)
         for directory in MANAGED_DIRECTORIES:
             (target / directory).mkdir(parents=True, exist_ok=True)
         for destination, content in writes:
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_bytes(content)
+        if configuration_action == "create":
+            config_path.write_bytes(configuration)
         if manifest_needs_update or backup_path is not None:
             manifest_payload = dict(manifest)
             manifest_payload.update({
@@ -260,12 +352,23 @@ def bootstrap_knowledge_root(target: Path, source_root: Path, *, apply: bool = F
                 if not claude_entrypoint.read_text(encoding="utf-8").endswith("\n"):
                     output.write("\n")
                 output.write("\n" + _claude_entrypoint_reference_block())
+        if hermes_entrypoint_action == "create":
+            hermes_entrypoint.write_text(_hermes_entrypoint_content(), encoding="utf-8")
+        elif hermes_entrypoint_action == "append_operating_reference":
+            with hermes_entrypoint.open("a", encoding="utf-8") as output:
+                if not hermes_entrypoint.read_text(encoding="utf-8").endswith("\n"):
+                    output.write("\n")
+                output.write("\n" + _hermes_entrypoint_reference_block())
     states = ("create", "upgrade", "preserve_existing", "unchanged", "preserve_and_propose")
     return {"target": str(target), "applied": apply, "actions": actions,
             "knowledge_action": knowledge_action,
             "os_release": release,
             "agent_entrypoint_action": agent_entrypoint_action,
             "claude_entrypoint_action": claude_entrypoint_action,
+            "hermes_entrypoint_action": hermes_entrypoint_action,
+            "configuration_action": configuration_action,
+            "configuration": configuration_report,
+            "legacy_migration_required": legacy_migration_required,
             "backup_required": backup_required,
             "backup_path": str(backup_path) if backup_path is not None else None,
             "summary": {state: sum(item["action"] == state for item in actions) for state in states}}

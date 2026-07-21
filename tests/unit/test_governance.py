@@ -14,8 +14,8 @@ class GovernanceTests(unittest.TestCase):
         root = Path(directory) / "knowledge"
         evidence_uuid = str(uuid4())
         bundle_uuid = str(uuid4())
-        evidence_id = f"evidence://campingtalk/manual/2026/07/14/{evidence_uuid}"
-        bundle_id = f"knowledge://campingtalk/ops/audit-policy_{bundle_uuid}"
+        evidence_id = f"evidence://example-org/manual/2026/07/14/{evidence_uuid}"
+        bundle_id = f"knowledge://example-org/ops/audit-policy_{bundle_uuid}"
         evidence_path = root / "evidence" / "manual" / "2026" / "07" / "14" / f"source_{evidence_uuid}.md"
         bundle_path = root / "bundles" / "ops" / f"audit-policy_{bundle_uuid}.md"
         evidence_path.parent.mkdir(parents=True)

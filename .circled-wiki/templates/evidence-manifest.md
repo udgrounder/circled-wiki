@@ -15,7 +15,7 @@ timestamp: 2026-07-09T00:00:00+09:00
 ```yaml
 ---
 type: evidence
-id: evidence://campingtalk/{provider}/{yyyy}/{mm}/{dd}/{source_uuid}
+id: evidence://{organization_id}/{provider}/{yyyy}/{mm}/{dd}/{source_uuid}
 title: {title}
 source_uuid: {source_uuid}
 provider: {provider}

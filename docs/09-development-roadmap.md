@@ -6,7 +6,7 @@
 - `AGENTS.md` 규칙 확정
 - 저장소 구조 확정
 - OKF 템플릿 정의
-- Campingtalk OKF Profile 정의
+- Example Organization OKF Profile 정의
 - `index.md` / `log.md` 보조 문서 규칙 정의
 - Evidence 원본 Git 제외와 manifest 추적 정책 정의
 - 도메인별 `runbooks/` 배치, Rulebook·Inquiry·Organization Context 모델 정의

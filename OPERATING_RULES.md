@@ -30,7 +30,7 @@
 | Term | Normative Meaning |
 | --- | --- |
 | OKF Bundle | OKF 표준에서 말하는 Markdown 문서 디렉터리 단위. 저장소 전용 단일 문서인 Bundle과 구분할 때만 이 이름을 사용한다. |
-| Bundle | Campingtalk Profile의 공식 지식 문서 하나. `knowledge/bundles/` 아래의 `Markdown + YAML Frontmatter` 파일이며 API 호환성을 위해 기존 `Bundle` 명칭을 유지한다. |
+| Bundle | 설치 시 설정된 Organization Profile의 공식 지식 문서 하나. `knowledge/bundles/` 아래의 `Markdown + YAML Frontmatter` 파일이며 API 호환성을 위해 기존 `Bundle` 명칭을 유지한다. |
 | Runbook | 반복 업무를 수행하는 단계별 절차인 `type: runbook` Bundle. 실행 가능한 구조는 `extensions.workflow`에 둔다. |
 | Workflow Definition | Runbook의 `extensions.workflow`에 저장된 입력·Step·Approval Gate·Completion Criteria 구조. 독립된 공식 문서나 Bundle type이 아니다. |
 | Runtime Task | Workflow Definition을 특정 사용자 요청에 맞게 스냅샷한 실행 인스턴스. `.runtime/tasks/`에 저장하며 공식 지식이 아니다. |
@@ -100,7 +100,7 @@ find_workflow
 - **RB-KNW-004** `index.md`, `log.md`는 예약 파일명이다.
 - **RB-KNW-005** 개념 하나는 파일 하나로 표현하고 경로를 Concept Identity 일부로 취급한다.
 - **RB-KNW-006** 조직 전용 메타데이터는 `extensions` 아래에만 둔다.
-- **RB-KNW-007** OKF 최소 적합성과 Campingtalk Profile 적합성을 분리한다.
+- **RB-KNW-007** OKF 최소 적합성과 설치별 Organization Profile 적합성을 분리한다.
 - **RB-KNW-008** Unknown field, unknown type, broken Markdown link만으로 Consumer가 Bundle을 거부하지 않는다.
 - **RB-KNW-009** 검색 인덱스와 Runtime State는 파생 데이터이며 Source of Truth가 아니다.
 - **RB-KNW-010** Machine-specific absolute path를 문서·코드·설정에 기록하지 않는다.
@@ -110,11 +110,11 @@ find_workflow
 - **RB-KNW-014** 기본 검색과 Operational Context에는 `active` Bundle만 포함한다.
 - **RB-KNW-015** Inventory와 Audit은 Frontmatter에서 재생성하는 파생 데이터이며 별도 Source of Truth가 아니다.
 - **RB-KNW-016** Archive는 파일 경로를 이동하지 않고 `status: archived`와 사유·복구 조건으로 표현한다.
-- **RB-KNW-017** 운영 템플릿·스키마·시스템 기본 정책은 `.knowledge-os/` Control Plane에 두며 OS 업그레이드는 `knowledge/` Data Plane을 수정하지 않는다.
-- **RB-KNW-018** 기존 Control Plane을 변경하는 OS 업그레이드는 먼저 `.knowledge-os-backups/<기존-version>-<UTC timestamp>/`에 `.knowledge-os/` 전체를 백업하며, 백업 실패 시 업그레이드를 시작하지 않는다.
-- **RB-KNW-019** Portable CLI Runtime과 Agent Bootstrap은 `.knowledge-os/` Control Plane의 관리 자산이며, 대상 프로젝트의 `knowledge/`만 운영하고 외부 개발 저장소 경로를 요구하지 않는다.
-- **RB-KNW-020** 대상 root의 `AGENTS.md`와 `CLAUDE.md`는 Agent가 OS를 발견하는 비관리 진입점이다. Bootstrap은 파일이 없으면 참조 전용 파일을 생성하고, 기존 파일에 `.knowledge-os/OPERATING_RULES.md` 참조가 없을 때만 표시된 참조 전용 블록을 append한다. 실제 운영 규칙은 `.knowledge-os/`에만 두며 기존 내용은 수정·등록·덮어쓰지 않는다.
-- **RB-KNW-021** `.knowledge-os/issues/`는 사용자·Agent·운영자·자동화가 제기한 운영 문제와 개선 제안을 기록하는 로컬 피드백 영역이다. 기록은 출처·사실·영향·재현 문맥·가설을 구분하고 민감정보를 포함하지 않으며, 이슈 기록만으로 OS·정책·Runbook을 자동 변경하거나 발행하지 않는다. 지정된 System Maintainer는 `open -> triaged -> mitigated -> verified -> resolved` 또는 `wont_fix` 상태 전환과 검증 근거를 기록할 수 있으며, `resolved`는 독립 검증 뒤에만 사용한다. OS upgrade는 이슈 기록을 원본 위치에서 이동·삭제·덮어쓰지 않고, 복구용 OS 백업에만 스냅샷으로 포함한다.
+- **RB-KNW-017** 운영 템플릿·스키마·시스템 기본 정책은 `.circled-wiki/` Control Plane에 두며 upgrade는 `knowledge/` Data Plane을 수정하지 않는다.
+- **RB-KNW-018** 기존 Control Plane을 변경하는 upgrade는 먼저 `.circled-wiki-backups/<기존-version>-<UTC timestamp>/`에 `.circled-wiki/` 전체를 백업하며, 백업 실패 시 시작하지 않는다. 기존 `.knowledge-os/` 설치는 같은 Gate를 통과한 뒤 `.circled-wiki/`로 이전한다.
+- **RB-KNW-019** Portable CLI Runtime과 Agent Bootstrap은 `.circled-wiki/` Control Plane의 관리 자산이며, 대상 프로젝트의 `knowledge/`만 운영하고 외부 개발 저장소 경로를 요구하지 않는다.
+- **RB-KNW-020** 대상 root의 `AGENTS.md`, `CLAUDE.md`, `HERMES.md`는 Agent가 Control Plane을 발견하는 비관리 진입점이다. Bootstrap은 파일이 없으면 참조 전용 파일을 생성하고, 기존 파일에 Circled Wiki 시작 문서 참조가 없을 때만 표시된 참조 전용 블록을 append한다. 실제 운영 규칙은 `.circled-wiki/`에만 두며 기존 내용은 수정·등록·덮어쓰지 않는다.
+- **RB-KNW-021** `.circled-wiki/issues/`는 사용자·Agent·운영자·자동화가 제기한 운영 문제와 개선 제안을 기록하는 로컬 피드백 영역이다. 기록은 출처·사실·영향·재현 문맥·가설을 구분하고 민감정보를 포함하지 않으며, 이슈 기록만으로 OS·정책·Runbook을 자동 변경하거나 발행하지 않는다. 지정된 System Maintainer는 `open -> triaged -> mitigated -> verified -> resolved` 또는 `wont_fix` 상태 전환과 검증 근거를 기록할 수 있으며, `resolved`는 독립 검증 뒤에만 사용한다. upgrade는 이슈 기록을 원본 위치에서 이동·삭제·덮어쓰지 않고, 복구용 Control Plane 백업에만 스냅샷으로 포함한다.
 
 ## 4. Evidence Invariants
 
@@ -224,7 +224,7 @@ OPERATING_RULES
 Evidence -> Curator -> Validator -> Reviewer -> Security Gate -> Commit
 ```
 
-- **RB-PUB-001** Agent 생성 변경은 OKF Validator와 Campingtalk Profile Validator를 통과해야 한다.
+- **RB-PUB-001** Agent 생성 변경은 OKF Validator와 설치별 Organization Profile Validator를 통과해야 한다.
 - **RB-PUB-002** Evidence Reference Integrity와 Publication Security Review를 통과해야 한다.
 - **RB-PUB-003** 실패·미검토·`needs_review` 결과를 공식 지식으로 발행하지 않는다.
 - **RB-PUB-004** Validator 실패 상태에서는 Publish 또는 Commit하지 않는다.

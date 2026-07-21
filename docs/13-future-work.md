@@ -200,7 +200,7 @@ MVP에서는 Agent가 Validator를 통과한 변경을 자동 Commit한다.
 
 현재 정책:
 
-- OKF 최소 규칙, Campingtalk Profile, Evidence/Bundle 참조 무결성, 민감정보 마스킹 절차를 통과한 변경만 자동 commit한다. Git 추적 Evidence는 `pii_scanned: true`가 필수다.
+- OKF 최소 규칙, Example Organization Profile, Evidence/Bundle 참조 무결성, 민감정보 마스킹 절차를 통과한 변경만 자동 commit한다. Git 추적 Evidence는 `pii_scanned: true`가 필수다.
 
 향후 검토할 항목:
 

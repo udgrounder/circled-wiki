@@ -13,6 +13,8 @@ import shutil
 from typing import Any, Callable, Dict, Iterator, List, Optional
 from uuid import uuid4
 
+from knowledge_os.config.settings import organization_id_for
+
 from .frontmatter import parse_markdown, render_markdown
 from .evidence import (
     ORIGINAL_CONTENT_END,
@@ -459,7 +461,8 @@ def ingest_evidence(
     original_name = f"{name}_{source_uuid}{raw_path.suffix.lower()}"
     original_path = evidence_root / original_name
     manifest_path = evidence_root / f"{name}_{source_uuid}.md"
-    evidence_id = f"evidence://campingtalk/{provider}/{date_path}/{source_uuid}"
+    organization_id = organization_id_for(knowledge_root)
+    evidence_id = f"evidence://{organization_id}/{provider}/{date_path}/{source_uuid}"
     timestamp = now.isoformat(timespec="seconds")
     source_ref = {
         "provider": provider,
@@ -617,7 +620,8 @@ def capture_conversation(
     if artifacts:
         details["artifacts"] = artifacts
     now = captured_at or datetime.now(timezone.utc)
-    intake_id = f"inbox://campingtalk/{provider}/{intake_uuid}"
+    organization_id = organization_id_for(knowledge_root)
+    intake_id = f"inbox://{organization_id}/{provider}/{intake_uuid}"
     frontmatter = {
         "type": "inbox_item",
         "id": intake_id,
@@ -705,7 +709,8 @@ def capture_document(
         return CaptureResult(str(existing["id"]), existing_path, checksum, True)
     intake_uuid = str(uuid4())
     now = captured_at or datetime.now(timezone.utc)
-    intake_id = f"inbox://campingtalk/{provider}/{intake_uuid}"
+    organization_id = organization_id_for(knowledge_root)
+    intake_id = f"inbox://{organization_id}/{provider}/{intake_uuid}"
     path = inbox_root / f"{_slug(title)}-{intake_uuid}.md"
     frontmatter = {
         "type": "inbox_item",
@@ -790,7 +795,8 @@ def capture_file(
     payload_name = f"{_slug(Path(original_filename).stem)}-{intake_uuid}{suffix}"
     payload_path = inbox_root / payload_name
     payload_path.write_bytes(payload)
-    intake_id = f"inbox://campingtalk/{provider}/{intake_uuid}"
+    organization_id = organization_id_for(knowledge_root)
+    intake_id = f"inbox://{organization_id}/{provider}/{intake_uuid}"
     envelope = inbox_root / f"{_slug(Path(original_filename).stem)}-{intake_uuid}.inbox.md"
     frontmatter = {
         "type": "inbox_item", "id": intake_id, "title": title.strip(), "provider": provider,

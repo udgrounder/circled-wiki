@@ -1,14 +1,14 @@
 ---
 type: catalog
-title: Campingtalk Knowledge Vault
-description: Campingtalk 내부 지식 저장소 루트
+title: Example Organization Knowledge Vault
+description: Example Organization 내부 지식 저장소 루트
 tags: [knowledge, vault, root]
 timestamp: 2026-07-08T00:00:00+09:00
 ---
 
-# Campingtalk Knowledge Vault
+# Example Organization Knowledge Vault
 
-이 디렉터리는 Campingtalk의 실제 지식 저장소이자 Obsidian Vault 기준 경로다.
+이 디렉터리는 Example Organization의 실제 지식 저장소이자 Obsidian Vault 기준 경로다.
 
 ## 하위 구조
 
@@ -26,4 +26,4 @@ timestamp: 2026-07-08T00:00:00+09:00
 - 실행 Workflow는 `bundles/<domain>/runbooks/`에서 관리한다.
 - 수집 대기 항목은 `inbox/`에서 관리한다.
 - 처리 중 작업 상태는 `.raw/`에서 관리한다. 성공한 원본은 `evidence/`에 보존하고 `.raw/`에서는 삭제한다.
-- 운영 템플릿·스키마·시스템 정책은 이 Vault가 아니라 프로젝트의 `.knowledge-os/`에서 관리한다.
+- 운영 템플릿·스키마·시스템 정책은 이 Vault가 아니라 프로젝트의 `.circled-wiki/`에서 관리한다.

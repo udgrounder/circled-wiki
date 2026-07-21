@@ -3,6 +3,7 @@
 import argparse
 import json
 from pathlib import Path
+import shutil
 import sys
 import unicodedata
 
@@ -34,6 +35,44 @@ class StructuredArgumentParser(argparse.ArgumentParser):
 
     def error(self, message: str) -> None:
         raise ValueError(message)
+
+
+def _bootstrap_configuration(args: argparse.Namespace) -> dict[str, object]:
+    """Prompt for first-install identity, while keeping automation explicit."""
+    target = Path(args.target).expanduser()
+    if (target / ".circled-wiki" / "config.yaml").is_file():
+        return {
+            "organization_id": args.organization_id or "example-org",
+            "organization_name": args.organization_name or "Example Organization",
+            "operator_agent": args.operator_agent or "hermes",
+            "graphify_enabled": args.graphify == "enabled",
+        }
+    supplied = (args.organization_id, args.organization_name, args.operator_agent, args.graphify)
+    if not sys.stdin.isatty() and any(value is None for value in supplied):
+        raise ValueError(
+            "first installation requires --organization-id, --organization-name, "
+            "--operator-agent, and --graphify enabled|disabled in non-interactive mode"
+        )
+
+    def ask(label: str, current: object, default: str) -> str:
+        if current is not None:
+            return str(current)
+        answer = input(f"{label} [{default}]: ").strip()
+        return answer or default
+
+    organization_id = ask("Organization ID", args.organization_id, "example-org")
+    organization_name = ask("Organization name", args.organization_name, "Example Organization")
+    operator_agent = ask("Operator agent", args.operator_agent, "hermes")
+    graphify = ask("Enable separately installed Graphify? (yes/no)", args.graphify, "no")
+    normalized = graphify.casefold()
+    if normalized not in {"enabled", "disabled", "yes", "no", "y", "n"}:
+        raise ValueError("Graphify answer must be enabled/disabled or yes/no")
+    return {
+        "organization_id": organization_id,
+        "organization_name": organization_name,
+        "operator_agent": operator_agent,
+        "graphify_enabled": normalized in {"enabled", "yes", "y"},
+    }
 
 
 def main() -> int:
@@ -81,6 +120,10 @@ def main() -> int:
     bootstrap = subparsers.add_parser("bootstrap-knowledge-os")
     bootstrap.add_argument("--target", required=True, help="Knowledge root to install or safely upgrade")
     bootstrap.add_argument("--apply", action="store_true", help="Apply the planned changes")
+    bootstrap.add_argument("--organization-id")
+    bootstrap.add_argument("--organization-name")
+    bootstrap.add_argument("--operator-agent")
+    bootstrap.add_argument("--graphify", choices=("enabled", "disabled"))
     ingest = subparsers.add_parser("ingest-evidence")
     ingest.add_argument("--provider", required=True)
     ingest.add_argument("--file", required=True)
@@ -275,7 +318,11 @@ def main() -> int:
     revise_bundle.add_argument("--actor", required=True)
     args = parser.parse_args()
     if args.command == "bootstrap-knowledge-os":
-        report = bootstrap_knowledge_root(Path(args.target), project_root(), apply=args.apply)
+        configuration = _bootstrap_configuration(args)
+        report = bootstrap_knowledge_root(
+            Path(args.target), project_root(), apply=args.apply,
+            **configuration,
+        )
         print(json.dumps(report, ensure_ascii=False, indent=2)); return 0
     root = project_root() / "knowledge"
     service = KnowledgeService(root)
@@ -339,22 +386,50 @@ def main() -> int:
     if args.command == "operational-preflight":
         project = project_root()
         required_assets = (
-            ".knowledge-os/OPERATING_RULES.md",
-            ".knowledge-os/AGENT_BOOTSTRAP.md",
-            ".knowledge-os/bin/knowledge-os.py",
-            ".knowledge-os/runtime/knowledge_os/__init__.py",
+            ".circled-wiki/OPERATING_RULES.md",
+            ".circled-wiki/AGENT_BOOTSTRAP.md",
+            ".circled-wiki/AUTONOMOUS_AGENT_STARTUP.md",
+            ".circled-wiki/config.yaml",
+            ".circled-wiki/bin/knowledge-os.py",
+            ".circled-wiki/runtime/knowledge_os/__init__.py",
         )
         missing = [asset for asset in required_assets if not (project / asset).is_file()]
         profiles = sorted(
-            path.name for path in (project / ".knowledge-os" / "agent-rules").glob("*.md")
+            path.name for path in (project / ".circled-wiki" / "agent-rules").glob("*.md")
             if path.name != "README.md"
         )
+        from knowledge_os.config.settings import load_settings
+        settings = load_settings(project)
+        graph_path = project / settings.graphify.graph_path
+        graph_command = shutil.which(settings.graphify.command)
+        graphify_ready = (
+            not settings.graphify.enabled
+            or (graph_command is not None and graph_path.is_file())
+        )
+        base_ready = not missing and bool(profiles)
         result = {
-            "ready": not missing and bool(profiles),
+            "ready": base_ready and graphify_ready,
             "project_root": project.name,
             "missing_assets": missing,
             "profiles": profiles,
-            "next_action": "select a profile and run the required stage command" if not missing else "repair or upgrade Knowledge OS before operating it",
+            "organization_id": settings.organization_id,
+            "organization_name": settings.organization_name,
+            "operator_agent": settings.operator_agent,
+            "graphify": {
+                "enabled": settings.graphify.enabled,
+                "ready": graphify_ready,
+                "command": settings.graphify.command,
+                "command_found": graph_command is not None,
+                "graph_path": settings.graphify.graph_path,
+                "graph_found": graph_path.is_file(),
+            },
+            "next_action": (
+                "select a profile and run the required stage command"
+                if base_ready and graphify_ready
+                else "install/build Graphify separately or disable it in .circled-wiki/config.yaml"
+                if base_ready and settings.graphify.enabled
+                else "repair or upgrade Knowledge OS before operating it"
+            ),
         }
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0 if result["ready"] else 1

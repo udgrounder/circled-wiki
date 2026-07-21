@@ -3,13 +3,44 @@ import unittest
 import unicodedata
 import io
 import json
+import argparse
 from pathlib import Path
 from unittest.mock import patch
 
-from knowledge_os.cli.__main__ import _resolve_capture_file, run_cli
+from knowledge_os.cli.__main__ import _bootstrap_configuration, _resolve_capture_file, run_cli
 
 
 class CliTests(unittest.TestCase):
+    def test_first_install_prompts_for_identity(self):
+        with tempfile.TemporaryDirectory() as directory:
+            args = argparse.Namespace(
+                target=str(Path(directory) / "target"),
+                organization_id=None,
+                organization_name=None,
+                operator_agent=None,
+                graphify=None,
+            )
+            with patch("sys.stdin.isatty", return_value=True):
+                with patch("builtins.input", side_effect=["acme", "Acme", "atlas", "yes"]):
+                    result = _bootstrap_configuration(args)
+        self.assertEqual(result["organization_id"], "acme")
+        self.assertEqual(result["organization_name"], "Acme")
+        self.assertEqual(result["operator_agent"], "atlas")
+        self.assertTrue(result["graphify_enabled"])
+
+    def test_noninteractive_first_install_requires_explicit_identity(self):
+        with tempfile.TemporaryDirectory() as directory:
+            args = argparse.Namespace(
+                target=str(Path(directory) / "target"),
+                organization_id=None,
+                organization_name=None,
+                operator_agent=None,
+                graphify=None,
+            )
+            with patch("sys.stdin.isatty", return_value=False):
+                with self.assertRaisesRegex(ValueError, "first installation requires"):
+                    _bootstrap_configuration(args)
+
     def test_resolve_capture_file_uses_existing_knowledge_root_once(self):
         with tempfile.TemporaryDirectory() as directory:
             knowledge_root = Path(directory) / "knowledge"

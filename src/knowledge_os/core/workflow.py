@@ -7,6 +7,8 @@ import re
 from typing import Any, Dict, Iterable, List, Optional
 from uuid import UUID, uuid4
 
+from knowledge_os.config.settings import load_settings
+
 from .frontmatter import parse_markdown
 from .ingest import capture_document
 from .evidence import evidence_original_bytes
@@ -30,7 +32,7 @@ REFERENCE_APPLICABILITY = {"full", "partial", "out_of_scope"}
 REFERENCE_CORROBORATION = {"corroborated", "single_source", "conflicting"}
 REFERENCE_DISPOSITIONS = {"accept", "partial_accept", "reject", "needs_more_evidence"}
 EVIDENCE_ID = re.compile(
-    r"^evidence://campingtalk/[a-z0-9_-]+/\d{4}/\d{2}/\d{2}/[0-9a-fA-F-]{36}$"
+    r"^evidence://[a-z0-9][a-z0-9_-]*/[a-z0-9_-]+/\d{4}/\d{2}/\d{2}/[0-9a-fA-F-]{36}$"
 )
 REFRESH_STEPS = [
     {"id": "collect-current-evidence", "title": "최신 Evidence 수집", "kind": "action"},
@@ -185,7 +187,8 @@ def evaluate_runbook_learning(knowledge_root: Path, identifier: str) -> Dict[str
         reviewed_at = reviewed_at.replace(tzinfo=timezone.utc)
 
     outcomes: List[Dict[str, Any]] = []
-    for path in sorted((knowledge_root / "evidence" / "hermes").rglob("*.md")):
+    operator_agent = load_settings(knowledge_root.parent).operator_agent
+    for path in sorted((knowledge_root / "evidence" / operator_agent).rglob("*.md")):
         try:
             evidence = parse_markdown(path)
             payload_bytes = evidence_original_bytes(evidence)
@@ -944,10 +947,11 @@ def record_outcome(
     }
     is_refresh = task.get("task_type") == "runbook_refresh"
     intended_workflow = str(task.get("target_workflow_id") or task["workflow_id"])
+    operator_agent = load_settings(knowledge_root.parent).operator_agent
     capture = capture_document(
         knowledge_root,
         json.dumps(payload, ensure_ascii=False, indent=2),
-        "hermes",
+        operator_agent,
         why_collected=(
             f"Runbook refresh outcome for {intended_workflow}"
             if is_refresh else f"Workflow outcome for {task['workflow_id']}"

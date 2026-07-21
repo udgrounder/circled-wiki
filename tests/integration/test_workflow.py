@@ -21,8 +21,8 @@ class WorkflowExecutionTests(unittest.TestCase):
         review_due_at = (now + timedelta(days=29)).isoformat(timespec="seconds")
         evidence_uuid = str(uuid4())
         bundle_uuid = str(uuid4())
-        evidence_id = f"evidence://campingtalk/manual/2026/07/14/{evidence_uuid}"
-        bundle_id = f"knowledge://campingtalk/marketing/poster-production_{bundle_uuid}"
+        evidence_id = f"evidence://example-org/manual/2026/07/14/{evidence_uuid}"
+        bundle_id = f"knowledge://example-org/marketing/poster-production_{bundle_uuid}"
         evidence_path = (
             knowledge_root / "evidence" / "manual" / "2026" / "07" / "14"
             / f"poster-source_{evidence_uuid}.md"
@@ -134,14 +134,14 @@ class WorkflowExecutionTests(unittest.TestCase):
                 render_markdown(
                     {
                         "type": "runbook",
-                        "id": f"knowledge://campingtalk/ops/broken_{bundle_uuid}",
+                        "id": f"knowledge://example-org/ops/broken_{bundle_uuid}",
                         "bundle_uuid": bundle_uuid,
                         "title": "Broken",
                         "status": "active",
                         "summary": "Missing workflow",
                         "updated_at": "2026-07-14T00:00:00+00:00",
                         "owners": ["ops-owner"],
-                        "evidence": [f"evidence://campingtalk/manual/2026/07/14/{evidence_uuid}"],
+                        "evidence": [f"evidence://example-org/manual/2026/07/14/{evidence_uuid}"],
                         "extensions": {
                             "governance": {
                                 "reviewed_at": "2026-07-14T00:00:00+00:00",
@@ -263,7 +263,7 @@ class WorkflowExecutionTests(unittest.TestCase):
                 }],
             )
             self.assertEqual(outcome["workflow_bundle_id"], bundle_id)
-            self.assertTrue(outcome["intake_id"].startswith("inbox://campingtalk/hermes/"))
+            self.assertTrue(outcome["intake_id"].startswith("inbox://example-org/hermes/"))
             inspection = service.inspect_inbox()
             self.assertEqual(inspection["items"][0]["gate_status"], "blocked")
             service.review_inbox_sensitivity(
@@ -273,7 +273,7 @@ class WorkflowExecutionTests(unittest.TestCase):
             ingested = service.ingest_accepted()
             outcome_item = ingested["items"][0]
             self.assertTrue(outcome_item["outcome_linked"])
-            self.assertTrue(outcome_item["evidence_id"].startswith("evidence://campingtalk/hermes/"))
+            self.assertTrue(outcome_item["evidence_id"].startswith("evidence://example-org/hermes/"))
             proposal = service.propose_update(outcome_item["evidence_id"])
             self.assertEqual(
                 [item["target_type"] for item in proposal["promotion_candidates"]],
@@ -460,7 +460,7 @@ class WorkflowExecutionTests(unittest.TestCase):
             source_path = next((knowledge_root / "evidence" / "manual").rglob("*.md"))
             source = parse_markdown(source_path)
             evidence_uuid = str(uuid4())
-            evidence_id = f"evidence://campingtalk/user/2026/07/14/{evidence_uuid}"
+            evidence_id = f"evidence://example-org/user/2026/07/14/{evidence_uuid}"
             evidence_data = dict(source.frontmatter)
             evidence_data.update({
                 "id": evidence_id,

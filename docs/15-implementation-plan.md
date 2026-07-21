@@ -14,7 +14,7 @@ inbox 원본 1개
   -> .raw 이동 및 source_uuid 발급
   -> evidence 원본 + manifest 생성
   -> Bundle 생성
-  -> OKF 최소 / Campingtalk Profile 검증
+  -> OKF 최소 / Example Organization Profile 검증
   -> 기본 검색으로 Bundle과 Evidence Record 조회
   -> 활성 Runbook 탐색 및 runtime Task 준비
   -> 작업 결과를 Outcome Evidence로 환류
@@ -61,7 +61,7 @@ tests/
 - 예약 파일(`index.md`, `log.md`)을 제외한 관리 대상 Markdown은 파싱 가능한 YAML frontmatter를 가진다.
 - `type`은 비어 있지 않다.
 
-### 4.2 Campingtalk OKF Profile
+### 4.2 Example Organization OKF Profile
 
 Bundle은 `id`, `bundle_uuid`, `title`, `type`, `status`, `summary`, `updated_at`, `evidence`를
 가져야 하며 `evidence`는 빈 배열일 수 없다. `id`와 파일명은 동일한 `bundle_uuid`를 사용한다.

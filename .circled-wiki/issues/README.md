@@ -8,7 +8,7 @@
 프로젝트 root에서 다음 명령을 실행한다.
 
 ```sh
-python3 .knowledge-os/bin/knowledge-os.py record-system-issue \
+python3 .circled-wiki/bin/knowledge-os.py record-system-issue \
   --title "Inbox inspection command returned an unclear error" \
   --summary "The operator could not identify the failed intake item." \
   --reported-by "user-id-or-operator-id" \
@@ -19,10 +19,10 @@ python3 .knowledge-os/bin/knowledge-os.py record-system-issue \
   --actual "Only a generic error was returned." \
   --reproduction "Run inspect-inbox with a malformed item." \
   --improvement-hint "Include intake ID and a safe recovery hint." \
-  --related-path ".knowledge-os/runtime/knowledge_os/worker/jobs.py"
+  --related-path ".circled-wiki/runtime/knowledge_os/worker/jobs.py"
 ```
 
-직접 Markdown을 만들 때는 `.knowledge-os/templates/system-issue.md` 형식을 사용한다.
+직접 Markdown을 만들 때는 `.circled-wiki/templates/system-issue.md` 형식을 사용한다.
 
 ## Triage and closure
 
@@ -30,7 +30,7 @@ Issue는 `open -> triaged -> mitigated -> verified -> resolved` 순서로 상태
 `open` 또는 `triaged`에서 `wont_fix`로 전환한다. 상태 전환에는 담당자, 안전한 근거와 검증 결과를 남긴다.
 
 ```sh
-python3 .knowledge-os/bin/knowledge-os.py update-system-issue \
+python3 .circled-wiki/bin/knowledge-os.py update-system-issue \
   --issue "issue-<timestamp>-<id>" \
   --status triaged \
   --actor "system-maintainer" \
@@ -46,4 +46,4 @@ python3 .knowledge-os/bin/knowledge-os.py update-system-issue \
 - 관찰된 사실과 추정한 원인을 구분한다.
 - 재현 정보, 영향 범위, 기대 결과와 실제 결과를 남긴다.
 - Issue 상태만으로 OS·정책·Runbook을 자동 변경하거나 발행하지 않는다.
-- OS upgrade는 이 폴더의 사용자 이슈 파일을 덮어쓰지 않으며, 전체 `.knowledge-os/` 백업에는 포함된다.
+- upgrade는 이 폴더의 사용자 이슈 파일을 덮어쓰지 않으며, 전체 `.circled-wiki/` 백업에는 포함된다.

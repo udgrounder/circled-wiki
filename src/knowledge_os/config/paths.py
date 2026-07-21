@@ -9,7 +9,7 @@ def project_root(start: Optional[Path] = None) -> Path:
     candidate = (start or Path.cwd()).resolve()
     for directory in (candidate, *candidate.parents):
         if (directory / "knowledge").is_dir() and (
-            (directory / ".knowledge-os").is_dir() or (directory / "docs").is_dir()
+            (directory / ".circled-wiki").is_dir() or (directory / "docs").is_dir()
         ):
             return directory
-    raise FileNotFoundError("project root containing knowledge/ and .knowledge-os/ was not found")
+    raise FileNotFoundError("project root containing knowledge/ and .circled-wiki/ was not found")

@@ -27,7 +27,7 @@
 
 ```yaml
 reference_assessment:
-  evidence_id: evidence://campingtalk/{provider}/{yyyy}/{mm}/{dd}/{source_uuid}
+  evidence_id: evidence://example-org/{provider}/{yyyy}/{mm}/{dd}/{source_uuid}
   authority: primary
   recency: newer
   applicability: partial

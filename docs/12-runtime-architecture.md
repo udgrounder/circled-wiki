@@ -7,7 +7,7 @@
 
 ## 1. 목적
 
-이 문서는 Campingtalk AI Knowledge Operating System의 실행 구조를 정의한다.
+이 문서는 Example Organization AI Knowledge Operating System의 실행 구조를 정의한다.
 
 핵심 질문은 다음과 같다.
 
@@ -305,6 +305,9 @@ cpt-knowledge/
 - `.knowledge-os/runtime/`은 대상 폴더에서 독립 실행하는 CLI 구현
 - `.knowledge-os/bin/knowledge-os.py`는 대상 프로젝트 root를 선택하는 portable launcher
 - `.knowledge-os/AGENT_BOOTSTRAP.md`는 AI Agent의 규칙·Profile·CLI 시작 계약
+- `.knowledge-os/AUTONOMOUS_AGENT_STARTUP.md`는 단일 머신 자율형 Agent의 초기 기동·답변·복구 계약
+- `.knowledge-os/config.yaml`은 설치별 organization namespace·operator Agent·선택적 Graphify 설정
+- `.knowledge-os/GRAPHIFY.md`는 별도 설치되는 파생 그래프의 MCP 연결과 공식 근거 재검증 경계
 - root `AGENTS.md`는 Agent 자동 발견용 비관리 진입점이며, 기존 조직 파일을 보존한다.
 - `.knowledge-os/issues/`는 사용자·Agent·운영자·자동화의 시스템 개선 이슈를 저장하는 로컬 피드백 영역
 - 루트 저장소 전체는 Git 복원 단위

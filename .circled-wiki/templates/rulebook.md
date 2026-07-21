@@ -14,7 +14,7 @@ Business Rulebook은 별도 Bundle type이 아니다. `type: guide`와 `extensio
 ```yaml
 ---
 type: guide
-id: knowledge://campingtalk/{domain}/{slug}_{bundle_uuid}
+id: knowledge://{organization_id}/{domain}/{slug}_{bundle_uuid}
 bundle_uuid: {bundle_uuid}
 title: {업무명} Rulebook
 status: draft
@@ -23,7 +23,7 @@ updated_at: {updated_at}
 owners:
   - {owner}
 evidence:
-  - evidence://campingtalk/{provider}/{yyyy}/{mm}/{dd}/{source_uuid}
+  - evidence://{organization_id}/{provider}/{yyyy}/{mm}/{dd}/{source_uuid}
 links: []
 extensions:
   knowledge_revision: 1

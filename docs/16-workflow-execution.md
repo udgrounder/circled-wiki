@@ -55,14 +55,14 @@ Knowledge OS는 문서를 검색해 반환하는 데서 끝나지 않고 다음 
 ```yaml
 ---
 type: runbook
-id: knowledge://campingtalk/marketing/poster-production_<bundle_uuid>
+id: knowledge://example-org/marketing/poster-production_<bundle_uuid>
 bundle_uuid: <bundle_uuid>
 title: 포스터 이미지 제작
 status: active
 summary: 요청 확인부터 제작, 검증, 승인까지 안내한다.
 updated_at: 2026-07-14T00:00:00+09:00
 evidence:
-  - evidence://campingtalk/manual/2026/07/14/<source_uuid>
+  - evidence://example-org/manual/2026/07/14/<source_uuid>
 extensions:
   visibility: internal
   knowledge_revision: 1

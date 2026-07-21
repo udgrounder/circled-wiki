@@ -76,7 +76,7 @@ def propose_update(knowledge_root: Path, evidence_id: str) -> Dict[str, object]:
         ],
         "constraints": [
             "A human or LLM Curator must verify semantic relevance before publication.",
-            "Any resulting Bundle must pass both OKF and Campingtalk Profile validation.",
+            "Any resulting Bundle must pass both OKF and the configured organization Profile validation.",
         ],
     }
 

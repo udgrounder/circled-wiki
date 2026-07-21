@@ -14,7 +14,7 @@ Knowledge OS 운영 중 오류, 비정상 결과, 반복 수작업, 모호한 Ag
 
 ## Allowed Actions
 
-- `.knowledge-os/issues/`에 `record-system-issue`로 `Status: open` 기록 생성
+- `.circled-wiki/issues/`에 `record-system-issue`로 `Status: open` 기록 생성
 - 사용자 제기 내용은 `--reported-from user`로 원문 취지를 사실·요청·가설로 구분해 기록
 - CLI 실패, Validator 오류, 예상과 다른 결과는 `--reported-from agent` 또는 실제 발생 주체로 기록하고 완료·해결을 주장하지 않음
 - 사실·기대 결과·실제 결과·재현 문맥·개선 가설을 구분해 기록
@@ -35,7 +35,7 @@ Knowledge OS 운영 중 오류, 비정상 결과, 반복 수작업, 모호한 Ag
 
 ## Output
 
-- `.knowledge-os/issues/<issue-id>-<slug>.md`의 `Status: open` 기록
+- `.circled-wiki/issues/<issue-id>-<slug>.md`의 `Status: open` 기록
 - 이후 Repository Engineering 또는 Owner 검토가 사용할 개선 후보
 - 원본 위치에 유지되는 이슈 기록과 업그레이드 직전 복구 스냅샷
 
