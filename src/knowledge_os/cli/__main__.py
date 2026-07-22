@@ -76,9 +76,13 @@ def _bootstrap_configuration(args: argparse.Namespace) -> dict[str, object]:
 
 
 def main() -> int:
-    parser = StructuredArgumentParser(prog="knowledge-os")
+    parser = StructuredArgumentParser(prog="circled-wiki")
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("validate")
+    evidence_links = subparsers.add_parser("backfill-evidence-links")
+    evidence_links.add_argument("--apply", action="store_true", help="write only validated Evidence file-link repairs")
+    migrate_ids = subparsers.add_parser("migrate-document-ids")
+    migrate_ids.add_argument("--apply", action="store_true", help="write the validated legacy-ID migration")
     subparsers.add_parser("operational-preflight")
     system_issue = subparsers.add_parser("record-system-issue")
     system_issue.add_argument("--title", required=True)
@@ -223,6 +227,8 @@ def main() -> int:
     ingest_accepted.add_argument("--limit", type=int, default=100)
     publish = subparsers.add_parser("publish-changes")
     publish.add_argument("--message", required=True)
+    push = subparsers.add_parser("push-changes")
+    push.add_argument("--commit", required=True)
     workflow = subparsers.add_parser("find-workflow")
     workflow.add_argument("--request", required=True)
     task = subparsers.add_parser("prepare-task")
@@ -318,6 +324,19 @@ def main() -> int:
     bundle.add_argument("--summary", required=True); bundle.add_argument("--evidence", required=True)
     bundle.add_argument("--body-file", help="UTF-8 Markdown body for a curator-authored draft")
     bundle.add_argument("--curated-by", default="manual")
+    subparsers.add_parser("list-curation-candidates")
+    curation_batch = subparsers.add_parser("run-configured-curation-batch")
+    curation_batch.add_argument("--limit", type=int, default=100)
+    review_candidate = subparsers.add_parser("review-curation-candidate")
+    review_candidate.add_argument("--bundle", required=True)
+    review_candidate.add_argument("--action", required=True, choices=("needs_changes", "approve", "reject", "merge"))
+    review_candidate.add_argument("--actor", required=True)
+    review_candidate.add_argument("--note", default="")
+    review_candidate.add_argument("--merged-into")
+    promote_candidate = subparsers.add_parser("promote-curation-candidate")
+    promote_candidate.add_argument("--bundle", required=True)
+    promote_candidate.add_argument("--actor", required=True)
+    promote_candidate.add_argument("--security-receipt", required=True)
     revise_bundle = subparsers.add_parser("apply-bundle-revision")
     revise_bundle.add_argument("--bundle", required=True)
     revise_bundle.add_argument("--expected-revision", required=True, type=int)
@@ -391,6 +410,12 @@ def main() -> int:
             for warning in result.warnings: print(f"WARN {result.path}: {warning}")
         print(f"validated={len(results)} invalid={len(invalid)}")
         return 1 if invalid else 0
+    if args.command == "backfill-evidence-links":
+        print(json.dumps(service.backfill_evidence_links(apply=args.apply), ensure_ascii=False, indent=2))
+        return 0
+    if args.command == "migrate-document-ids":
+        print(json.dumps(service.migrate_document_ids(apply=args.apply), ensure_ascii=False, indent=2))
+        return 0
     if args.command == "operational-preflight":
         project = project_root()
         required_assets = (
@@ -684,6 +709,12 @@ def main() -> int:
         except PublishError as error:
             parser.exit(1, f"ERROR: {error}\n")
         return 0
+    if args.command == "push-changes":
+        try:
+            print(json.dumps(service.push_committed_changes(args.commit), ensure_ascii=False))
+        except PublishError as error:
+            parser.exit(1, f"ERROR: {error}\n")
+        return 0
     if args.command == "apply-bundle-revision":
         proposal = json.loads(Path(args.frontmatter_file).read_text(encoding="utf-8"))
         document = apply_bundle_revision(
@@ -696,6 +727,19 @@ def main() -> int:
             "status": document.frontmatter["status"],
             "knowledge_revision": document.frontmatter["extensions"]["knowledge_revision"],
         }, ensure_ascii=False, indent=2)); return 0
+    if args.command == "list-curation-candidates":
+        print(json.dumps(service.list_curation_candidates(), ensure_ascii=False, indent=2)); return 0
+    if args.command == "run-configured-curation-batch":
+        print(json.dumps(service.run_configured_curation_batch(args.limit), ensure_ascii=False, indent=2)); return 0
+    if args.command == "review-curation-candidate":
+        print(json.dumps(service.review_curation_candidate(
+            args.bundle, action=args.action, actor=args.actor, note=args.note,
+            merged_into=args.merged_into,
+        ), ensure_ascii=False, indent=2)); return 0
+    if args.command == "promote-curation-candidate":
+        print(json.dumps(service.promote_curation_candidate(
+            args.bundle, actor=args.actor, security_receipt=args.security_receipt,
+        ), ensure_ascii=False, indent=2)); return 0
     body = Path(args.body_file).read_text(encoding="utf-8") if args.body_file else None
     document = create_bundle(
         root, domain=args.domain, slug=args.slug, title=args.title,

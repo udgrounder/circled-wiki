@@ -3,13 +3,29 @@
 from datetime import datetime, timezone
 from pathlib import Path
 import re
-from typing import Any, Dict, List, Optional
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Protocol
 
 from .frontmatter import parse_markdown, render_markdown
+from .evidence import evidence_original_bytes
 
 
 PII_SCAN_RESULTS = ("passed", "masked", "needs_review")
 _CHECKSUM = re.compile(r"^sha256:[0-9a-f]{64}$")
+
+
+@dataclass(frozen=True)
+class PiiScanResult:
+    result: str
+    scanner: str
+    scanner_version: str
+    receipt: str
+
+
+class PiiScannerAdapter(Protocol):
+    """External scanner boundary; implementations keep credentials outside the repository."""
+    def scan(self, *, evidence_id: str, checksum: str, content: bytes) -> PiiScanResult:
+        ...
 
 
 def pii_scan_receipt_errors(frontmatter: Dict[str, Any]) -> List[str]:
@@ -123,3 +139,31 @@ def record_pii_scan_receipt(
         "pii_scan": extensions["pii_scan"],
         "path": target.path.relative_to(knowledge_root.parent).as_posix(),
     }
+
+
+def scan_and_record_pii_receipt(
+    knowledge_root: Path, evidence_id: str, *, adapter: PiiScannerAdapter, reviewed_by: str,
+) -> Dict[str, object]:
+    """Run an injected scanner over preserved Evidence bytes and record its receipt."""
+    target = None
+    for path in sorted((knowledge_root / "evidence").rglob("*.md")):
+        if path.name in {"index.md", "log.md"}:
+            continue
+        document = parse_markdown(path)
+        if document.frontmatter.get("id") == evidence_id:
+            target = document
+            break
+    if target is None or target.frontmatter.get("type") != "evidence":
+        raise ValueError("evidence_id must refer to an existing Evidence Record")
+    content = evidence_original_bytes(target)
+    if content is None:
+        raise ValueError("Evidence original is unavailable for PII scanning")
+    result = adapter.scan(
+        evidence_id=evidence_id, checksum=str(target.frontmatter.get("checksum", "")), content=content,
+    )
+    if not isinstance(result, PiiScanResult):
+        raise ValueError("PII scanner adapter must return PiiScanResult")
+    return record_pii_scan_receipt(
+        knowledge_root, evidence_id, scanner=result.scanner, scanner_version=result.scanner_version,
+        result=result.result, reviewed_by=reviewed_by, receipt=result.receipt,
+    )

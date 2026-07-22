@@ -1,7 +1,9 @@
-# Example Organization AI Knowledge OS
+# Circled Wiki
 
-이 저장소는 Example Organization의 내부 지식과 이를 운영하는 AI Knowledge Operating System 설계를 함께 보관하는
-Git 기반 기준 저장소다.
+이 저장소는 조직의 내부 지식과 이를 운영하는 Circled Wiki 설계를 함께 보관하는 Git 기반 기준 저장소다.
+
+`circled-wiki`가 기본 CLI 이름이다. 기존 자동화의 `knowledge-os` CLI와 `knowledge_os` Python package는 0.x
+호환 기간 및 1.0 제거 공지가 나올 때까지 유지하며, 새 사용자 안내와 스크립트는 Circled Wiki 명칭을 사용한다.
 
 ## 목적
 
@@ -12,7 +14,7 @@ Git 기반 기준 저장소다.
 ## 루트 구조
 
 ```text
-cpt-knowledge/
+circled-wiki/
 ├── AGENTS.md
 ├── OPERATING_RULES.md
 ├── agent-rules/
@@ -176,6 +178,18 @@ PYTHONPATH=src python3 -m knowledge_os.cli create-bundle \
 PYTHONPATH=src python3 -m knowledge_os.cli validate
 ```
 
+자동 정제가 만든 후보는 `draft`와 `extensions.review_state`로 별도 관리하며, 기본 지식 조회에는 포함되지 않는다.
+후보를 확인하고 검토 기록을 남길 수 있다. `approve`는 Active 전환이 아니라 검토 완료 상태만 기록하며, Active 전환은
+Owner와 Publication Security Gate를 통과하는 별도 작업이다.
+
+```sh
+PYTHONPATH=src python3 -m knowledge_os.cli list-curation-candidates
+PYTHONPATH=src python3 -m knowledge_os.cli review-curation-candidate \
+  --bundle knowledge://<organization-id>/cs/refund-policy_<bundle-uuid> \
+  --action approve \
+  --actor <reviewer-id>
+```
+
 ### 3. 지식 조회
 
 ```sh
@@ -241,7 +255,7 @@ Hermes는 저장소 구조를 직접 조작하는 대신 Knowledge MCP 또는 CL
 (Notion·Slack·GitHub)의 인증·수집 설정은 Hermes 운영 환경에서 담당하며 이 저장소에는 비밀값을
 저장하지 않는다.
 
-모든 Agent는 [Knowledge OS Operating Rules](OPERATING_RULES.md)를 전역 운영 단일 기준으로 사용한다. Runtime Agent는
+모든 Agent는 [Circled Wiki Operating Rules](OPERATING_RULES.md)를 전역 운영 단일 기준으로 사용한다. Runtime Agent는
 `docs/`를 읽지 않고 전역 운영 규약과 Knowledge MCP가 반환한 공식 Bundle로 동작한다. 일반 조직 구성원은
 [사람 사용자 가이드](docs/17-human-guide.md)를 사용할 수 있다.
 
@@ -349,13 +363,18 @@ printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' \
 1. 사용자·지정 Batch·Hermes가 원본을 `knowledge/inbox/<provider>/`에 넣는다.
 2. 대화는 `capture_conversation`, URL에서 가져온 텍스트·HTML은 `capture_document`, PDF·Word·기타 파일은 `capture_file`로 적재한 뒤 `inspect_inbox`, 필요 시 `review_inbox_sensitivity`, `accept_inbox`, `ingest_accepted`를 순서대로 실행한다. URL만 저장하지 않고, 수집기가 실제로 읽은 원문과 URL·locator를 함께 보존한다.
 3. `propose_pending` 또는 `propose_update`로 기존 Bundle 후보와 신규 초안을 검토한다.
-4. 신규 지식은 `create_draft_bundle`, 기존 지식은 `apply_bundle_revision`으로 작성·갱신한다.
-5. `validate_result` 또는 CLI `validate`와 보안 게이트가 통과하면 Hermes가 변경된 `knowledge/`를 자동 Git commit하고 결과를 로그에 남긴다.
-6. 사용자 작업 요청은 `find_workflow`와 `prepare_task`로 실행하고, 종료 결과는 `record_outcome`으로 `pending` Inbox에 환류한다. 이후에도 같은 `inspect_inbox -> review_inbox_sensitivity -> accept_inbox -> ingest_accepted -> propose_pending` 흐름을 적용한다.
+4. LLM/하위 Agent Curation 결과는 `materialize_curation_candidate`로 PII-cleared Draft 후보를 만들고, 수동 초안은 `create_draft_bundle`, 기존 지식은 `apply_bundle_revision`으로 작성·갱신한다.
+5. 후보는 `list_curation_candidates`와 `review_curation_candidate`로 검토한다. Active 전환은 설정된 `approval.knowledge_owner`가 독립된 Security receipt와 함께 `promote_curation_candidate`로만 수행한다.
+6. `validate_result` 또는 CLI `validate`와 보안 게이트가 통과하면 Hermes가 변경된 `knowledge/`를 자동 Git commit하고 결과를 로그에 남긴다.
+7. 사용자 작업 요청은 `find_workflow`와 `prepare_task`로 실행하고, 종료 결과는 `record_outcome`으로 `pending` Inbox에 환류한다. 이후에도 같은 `inspect_inbox -> review_inbox_sensitivity -> accept_inbox -> ingest_accepted -> propose_pending` 흐름을 적용한다.
 
 MCP Tool은 수집·지식 변경·검증과 Workflow 실행 준비를 수행한다. `prepare_task`는 Git에서 제외된
 `.runtime/`만 변경하고, `record_outcome`은 작업 결과를 Inbox에 수집한다. `publish_changes`는 전체
 Validator 통과 후 `knowledge/` 변경만 자동 Git commit한다.
+
+Draft Bundle은 기본 질의·Workflow 실행 대상이 아니다. Agent는 공식 답변과 실행에는 `search_knowledge`와
+`find_workflow`의 Active 결과만 사용하고, 후보 검토에는 별도 `list_curation_candidates` 및
+`review_curation_candidate` 경로를 사용한다.
 
 제공 Tool은 다음과 같다.
 
@@ -375,6 +394,10 @@ Validator 통과 후 `knowledge/` 변경만 자동 Git commit한다.
 | `accept_inbox` | 검사자 actor와 함께 통과 항목을 `accepted`로 승인 | `knowledge/inbox/<provider>/` |
 | `ingest_accepted` | 승인된 입력만 Evidence로 변환 | `knowledge/inbox/<provider>/`, `knowledge/evidence/` |
 | `create_draft_bundle` | Evidence 기반 신규 Draft 생성 | `knowledge/bundles/`, Evidence 역참조 |
+| `materialize_curation_candidate` | typed 외부 Curator 결과로 PII 통과 Draft 생성 또는 재사용 | `knowledge/bundles/`, Evidence 역참조 |
+| `list_curation_candidates` | Draft 후보와 검토 상태 확인 | 없음 |
+| `review_curation_candidate` | 후보 검토·승인·거절·병합 기록 | `knowledge/bundles/` |
+| `promote_curation_candidate` | 설정 Owner와 Security receipt로 approved 후보 Active 승격 | `knowledge/bundles/` |
 | `apply_bundle_revision` | revision 충돌 검사 후 Bundle 변경 | Bundle, Evidence 역참조 |
 | `validate_result` | 발행 전 전체 적합성 확인 | 없음 |
 | `publish_changes` | Validator 통과 변경의 자동 Git commit | `knowledge/` commit |
@@ -514,7 +537,7 @@ Runtime과 Agent Bootstrap은 OS 관리 자산이므로 업그레이드 시 chec
 
 ### 선택적 Graphify
 
-Graphify는 Knowledge OS와 별도 설치하는 파생 관계 인덱스다. Bootstrap은 패키지나 자격증명을 설치하지 않고
+Graphify는 Circled Wiki와 별도 설치하는 파생 관계 인덱스다. Bootstrap은 패키지나 자격증명을 설치하지 않고
 `.circled-wiki/GRAPHIFY.md`와 Agent 사용 경계만 제공한다. 설치 시 Graphify를 활성화해도 graph 파일이 없으면
 `operational-preflight`가 `graphify.ready: false`로 보고한다. Agent는 Graphify로 후보를 찾을 수 있지만 최종 답변은
 항상 Knowledge MCP의 공식 Bundle과 Evidence로 재검증해야 한다.

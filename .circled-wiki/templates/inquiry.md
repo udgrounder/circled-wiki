@@ -11,7 +11,7 @@ timestamp: 2026-07-14T00:00:00+09:00
 ```yaml
 ---
 type: reference
-id: knowledge://{organization_id}/{domain}/{slug}_{bundle_uuid}
+id: bundle/{organization_id}/{slug}_{bundle_uuid}.md
 bundle_uuid: {bundle_uuid}
 title: {질문 제목}
 status: draft
@@ -19,8 +19,11 @@ summary: {확인이 필요한 질문과 영향}
 updated_at: {updated_at}
 owners:
   - {owner}
+tags: [bundles, reference, inquiry]
 evidence:
-  - evidence://{organization_id}/{provider}/{yyyy}/{mm}/{dd}/{source_uuid}
+  - evidence/{organization_id}/{name}_{source_uuid}.md
+evidence_links:
+  - "[{name}_{source_uuid}.md](evidence/{provider}/{yyyy}/{mm}/{dd}/{name}_{source_uuid}.md)"
 extensions:
   knowledge_revision: 1
   visibility: internal

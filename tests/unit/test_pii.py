@@ -4,7 +4,7 @@ from pathlib import Path
 
 from knowledge_os.core.frontmatter import parse_markdown, render_markdown
 from knowledge_os.core.ingest import ingest_evidence
-from knowledge_os.core.pii import record_pii_scan_receipt
+from knowledge_os.core.pii import PiiScanResult, record_pii_scan_receipt, scan_and_record_pii_receipt
 from knowledge_os.core.publisher import PublishError, _require_sensitive_data_review
 from knowledge_os.core.validator import validate_document
 
@@ -75,6 +75,21 @@ class PiiScanReceiptTests(unittest.TestCase):
                 "extensions.pii_scan.source_checksum must equal Evidence checksum",
                 validation.profile_errors,
             )
+
+    def test_adapter_result_is_bound_to_preserved_evidence_content(self):
+        class Scanner:
+            def scan(self, *, evidence_id, checksum, content):
+                self.content = content
+                return PiiScanResult("passed", "fake-scanner", "1", "scan://receipt")
+
+        with tempfile.TemporaryDirectory() as directory:
+            knowledge_root, ingested = self._ingest(directory)
+            scanner = Scanner()
+            recorded = scan_and_record_pii_receipt(
+                knowledge_root, ingested.evidence_id, adapter=scanner, reviewed_by="security-agent"
+            )
+            self.assertEqual(scanner.content, b"masked sample")
+            self.assertEqual(recorded["pii_scan"]["scanner"], "fake-scanner")
 
 
 if __name__ == "__main__":

@@ -108,6 +108,23 @@ class WorkerJobTests(unittest.TestCase):
         self.assertEqual(first["items"][0]["intake_id"], reviewed.intake_id)
         self.assertEqual(second["ingested_count"], 0)
 
+    def test_required_sensitivity_review_blocks_acceptance_and_evidence_ingest(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory) / "knowledge"
+            captured = capture_conversation(
+                root, "가상 테스트용 운영 메모", "synthetic",
+                title="민감성 검토 대기", why_collected="Gate 통합 검증",
+                intended_use=["safety-test"], idempotency_key="required-review-flow",
+            )
+
+            with self.assertRaisesRegex(ValueError, "sensitivity review"):
+                accept_conversation_intake(root, captured.intake_id, "reviewer")
+            ingested = ingest_accepted_inbox(root)
+
+            self.assertEqual(ingested["ingested_count"], 0)
+            self.assertEqual(list((root / "evidence").rglob("*.md")), [])
+            self.assertEqual(inspect_inbox(root)["items"][0]["gate_status"], "blocked")
+
     def test_empty_repository_is_a_valid_repeatable_maintenance_run(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory) / "knowledge"

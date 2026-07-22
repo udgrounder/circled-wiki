@@ -14,7 +14,7 @@ Business Rulebook은 별도 Bundle type이 아니다. `type: guide`와 `extensio
 ```yaml
 ---
 type: guide
-id: knowledge://{organization_id}/{domain}/{slug}_{bundle_uuid}
+id: bundle/{organization_id}/{slug}_{bundle_uuid}.md
 bundle_uuid: {bundle_uuid}
 title: {업무명} Rulebook
 status: draft
@@ -22,8 +22,11 @@ summary: {업무 적용 기준과 관련 절차의 진입점}
 updated_at: {updated_at}
 owners:
   - {owner}
+tags: [bundles, guide, rulebook]
 evidence:
-  - evidence://{organization_id}/{provider}/{yyyy}/{mm}/{dd}/{source_uuid}
+  - evidence/{organization_id}/{name}_{source_uuid}.md
+evidence_links:
+  - "[{name}_{source_uuid}.md](evidence/{provider}/{yyyy}/{mm}/{dd}/{name}_{source_uuid}.md)"
 links: []
 extensions:
   knowledge_revision: 1

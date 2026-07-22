@@ -29,7 +29,7 @@
     },
     "id": {
       "type": "string",
-      "pattern": "^knowledge://[a-z0-9][a-z0-9_-]*/[a-z0-9][a-z0-9._~/-]*_[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+      "pattern": "^bundle/[a-z0-9][a-z0-9_-]*/[^/]+_[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\\.md$"
     },
     "bundle_uuid": {
       "type": "string",
@@ -80,7 +80,16 @@
       "minItems": 1,
       "items": {
         "type": "string",
-        "pattern": "^evidence://[a-z0-9][a-z0-9_-]*/[a-z0-9_-]+/[0-9]{4}/[0-9]{2}/[0-9]{2}/[0-9a-fA-F-]{36}$"
+        "pattern": "^evidence/[a-z0-9][a-z0-9_-]*/[^/]+_[0-9a-fA-F-]{36}\\.md$"
+      },
+      "uniqueItems": true
+    },
+    "evidence_links": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^\\[[^\\]\\r\\n]+\\]\\(evidence/[a-z0-9_-]+/[0-9]{4}/[0-9]{2}/[0-9]{2}/[^/]+\\.md\\)$"
       },
       "uniqueItems": true
     },
@@ -115,7 +124,33 @@
           "type": "string"
         },
         "review_state": {
-          "type": "string"
+          "type": "string",
+          "enum": ["pending", "needs_changes", "approved", "rejected", "merged"]
+        },
+        "curation": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "generated_by": {"type": "string"},
+            "generated_at": {"type": "string", "format": "date-time"},
+            "generation_reason": {"type": "string"},
+            "reviewed_by": {"type": "string"},
+            "reviewed_at": {"type": "string", "format": "date-time"},
+            "merged_into": {"type": "string"},
+            "review_history": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["action", "actor", "at", "note"],
+                "properties": {
+                  "action": {"type": "string", "enum": ["needs_changes", "approve", "reject", "merge"]},
+                  "actor": {"type": "string"},
+                  "at": {"type": "string", "format": "date-time"},
+                  "note": {"type": "string"}
+                }
+              }
+            }
+          }
         },
         "confidence": {
           "type": "string"

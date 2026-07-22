@@ -123,6 +123,17 @@ def update_system_issue_status(
         raise ValueError("Issue record has an unsupported current status")
     if status not in _STATUS_TRANSITIONS[current]:
         raise ValueError(f"invalid Issue status transition: {current} -> {status}")
+    if status == "mitigated" and not fixed_release:
+        raise ValueError("mitigated status requires fixed_release")
+    if status == "verified":
+        if not fixed_release or not verification:
+            raise ValueError("verified status requires fixed_release and verification")
+        implemented_by = _history_actor(content, "mitigated")
+        if implemented_by and actor.strip() == implemented_by:
+            raise ValueError("verified status requires an independent actor")
+    if status == "resolved":
+        if not _history_has_release_and_verification(content):
+            raise ValueError("resolved status requires prior fixed_release and verification evidence")
     timestamp = datetime.now(timezone.utc).isoformat()
     content = content[:match.start(1)] + status + content[match.end(1):]
     history = (
@@ -140,6 +151,15 @@ def update_system_issue_status(
         "previous_status": current,
         "status": status,
     }
+
+
+def _history_actor(content: str, target_status: str) -> Optional[str]:
+    matches = re.findall(rf"`[^`]+` -> `{re.escape(target_status)}` by `([^`]+)`", content)
+    return matches[-1] if matches else None
+
+
+def _history_has_release_and_verification(content: str) -> bool:
+    return "fixed release: `" in content and "; verification: " in content
 
 
 def _find_issue_path(project_root: Path, issue_ref: str) -> Path:

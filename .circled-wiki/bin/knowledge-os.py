@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Portable Knowledge OS CLI launcher for an installed project."""
 
 import os

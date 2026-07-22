@@ -425,6 +425,53 @@ class BootstrapKnowledgeRootTests(unittest.TestCase):
             self.assertTrue(proposal.is_file())
             self.assertEqual(proposal.read_text(encoding="utf-8"), original)
 
+    def test_unrecorded_identical_legacy_asset_is_adopted_and_next_upgrade_is_idempotent(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "team-knowledge"
+            bootstrap_knowledge_root(target, ROOT, apply=True)
+            manifest_path = target / MANIFEST_PATH
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            legacy_asset = ".circled-wiki/templates/runbook.md"
+            manifest["assets"].pop(legacy_asset)
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+            adopted = bootstrap_knowledge_root(target, ROOT, apply=True)
+
+            action = next(item["action"] for item in adopted["actions"] if item["path"] == legacy_asset)
+            self.assertEqual(action, "adopt")
+            updated_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            self.assertIn(legacy_asset, updated_manifest["assets"])
+            repeated = bootstrap_knowledge_root(target, ROOT, apply=True)
+            repeated_action = next(item["action"] for item in repeated["actions"] if item["path"] == legacy_asset)
+            self.assertEqual(repeated_action, "unchanged")
+
+    def test_modified_runtime_module_is_upgraded_to_keep_runtime_compatible(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "team-knowledge"
+            bootstrap_knowledge_root(target, ROOT, apply=True)
+            settings = target / ".circled-wiki" / "runtime" / "knowledge_os" / "config" / "settings.py"
+            settings.write_text(settings.read_text(encoding="utf-8") + "\n# obsolete local runtime edit\n", encoding="utf-8")
+
+            report = bootstrap_knowledge_root(target, ROOT, apply=True)
+
+            action = next(item["action"] for item in report["actions"] if item["path"].endswith("config/settings.py"))
+            self.assertEqual(action, "upgrade")
+            self.assertNotIn("obsolete local runtime edit", settings.read_text(encoding="utf-8"))
+
+    def test_portable_cli_is_executable_after_install(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "team-knowledge"
+            bootstrap_knowledge_root(target, ROOT, apply=True)
+
+            cli = target / ".circled-wiki" / "bin" / "knowledge-os.py"
+            self.assertTrue(cli.stat().st_mode & 0o111)
+            self.assertTrue(cli.read_text(encoding="utf-8").startswith("#!/usr/bin/env python3\n"))
+            completed = subprocess.run(
+                [str(cli), "validate"], cwd=target, text=True,
+                capture_output=True, check=False,
+            )
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+
     def test_upgrade_never_changes_existing_knowledge_content(self):
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory) / "team-project"

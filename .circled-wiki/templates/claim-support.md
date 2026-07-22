@@ -15,7 +15,7 @@ timestamp: 2026-07-14T00:00:00+09:00
 claim: {주장}
 support_status: {verified|limited|inferred|needs_review}
 evidence_ids:
-  - evidence://{organization_id}/{provider}/{yyyy}/{mm}/{dd}/{source_uuid}
+  - evidence/{organization_id}/{name}_{source_uuid}.md
 checked_at: {checked_at}
 scope: {적용 범위}
 limitations: []

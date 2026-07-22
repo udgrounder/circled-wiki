@@ -71,7 +71,7 @@ class SystemObservationTests(unittest.TestCase):
             )
             verified = update_system_issue_status(
                 project, issue_ref=created["issue_id"], status="verified", actor="reviewer",
-                note="Verified the regression test.", verification="unit test passed",
+                note="Verified the regression test.", fixed_release="v1-test", verification="unit test passed",
             )
             resolved = update_system_issue_status(
                 project, issue_ref=created["issue_id"], status="resolved", actor="reviewer",
@@ -85,3 +85,14 @@ class SystemObservationTests(unittest.TestCase):
             self.assertIn("Status: resolved", content)
             self.assertIn("fixed release: `v1-test`", content)
             self.assertIn("verification: unit test passed", content)
+
+    def test_blocks_self_verification_and_unproven_resolution(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            created = record_system_issue(project, title="Gate", summary="test", reported_by="operator")
+            update_system_issue_status(project, issue_ref=created["issue_id"], status="triaged", actor="maintainer", note="triaged")
+            update_system_issue_status(project, issue_ref=created["issue_id"], status="mitigated", actor="implementer", note="fixed", fixed_release="v1")
+            with self.assertRaisesRegex(ValueError, "independent actor"):
+                update_system_issue_status(project, issue_ref=created["issue_id"], status="verified", actor="implementer", note="self check", fixed_release="v1", verification="test")
+            with self.assertRaisesRegex(ValueError, "invalid Issue status transition"):
+                update_system_issue_status(project, issue_ref=created["issue_id"], status="resolved", actor="maintainer", note="premature")

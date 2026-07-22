@@ -29,9 +29,20 @@ TOOLS = [
     {"name": "accept_inbox", "description": "Record an identified inspector acceptance for one pending Inbox item that passes all gates.", "inputSchema": {"type": "object", "required": ["intake_id", "actor"], "properties": {"intake_id": {"type": "string"}, "actor": {"type": "string"}}}},
     {"name": "ingest_accepted", "description": "Convert accepted Inbox items to Evidence without performing curation.", "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer", "minimum": 1, "maximum": 1000, "default": 100}}}},
     {"name": "create_draft_bundle", "description": "Create a new draft Bundle from one existing Evidence item.", "inputSchema": {"type": "object", "required": ["domain", "slug", "title", "bundle_type", "summary", "evidence_id", "body", "actor"], "properties": {"domain": {"type": "string"}, "slug": {"type": "string"}, "title": {"type": "string"}, "bundle_type": {"type": "string"}, "summary": {"type": "string"}, "evidence_id": {"type": "string"}, "body": {"type": "string"}, "actor": {"type": "string"}}}},
+    {"name": "list_curation_candidates", "description": "List Draft Bundle candidates that need or have recorded review. Active knowledge is excluded.", "inputSchema": {"type": "object", "properties": {}}},
+    {"name": "review_curation_candidate", "description": "Record needs-changes, approval, rejection, or merge of a Draft candidate. Approval remains Draft until a separate Active-publication Gate passes.", "inputSchema": {"type": "object", "required": ["bundle_id", "action", "actor"], "properties": {"bundle_id": {"type": "string"}, "action": {"type": "string", "enum": ["needs_changes", "approve", "reject", "merge"]}, "actor": {"type": "string"}, "note": {"type": "string"}, "merged_into": {"type": "string"}}}},
+    {"name": "materialize_curation_candidate", "description": "Validate a typed external-curator response and create or reuse a PII-cleared Draft candidate. Does not invoke a model or promote Active knowledge.", "inputSchema": {"type": "object", "required": ["evidence_id", "output", "generated_by", "curation_receipt"], "properties": {"evidence_id": {"type": "string"}, "output": {"type": "object"}, "generated_by": {"type": "string"}, "curation_receipt": {"type": "string"}}}},
+    {"name": "promote_curation_candidate", "description": "Promote an approved Draft only when the authenticated actor is the configured knowledge-owner and supplies a Security receipt.", "inputSchema": {"type": "object", "required": ["bundle_id", "actor", "security_receipt"], "properties": {"bundle_id": {"type": "string"}, "actor": {"type": "string"}, "security_receipt": {"type": "string"}}}},
     {"name": "apply_bundle_revision", "description": "Apply a validated Bundle revision using optimistic concurrency and Evidence backlink updates.", "inputSchema": {"type": "object", "required": ["bundle_id", "expected_revision", "frontmatter", "body", "actor"], "properties": {"bundle_id": {"type": "string"}, "expected_revision": {"type": "integer", "minimum": 1}, "frontmatter": {"type": "object"}, "body": {"type": "string"}, "actor": {"type": "string"}}}},
     {"name": "publish_changes", "description": "Validate and automatically Git commit knowledge changes.", "inputSchema": {"type": "object", "required": ["commit_message"], "properties": {"commit_message": {"type": "string"}}}},
+    {"name": "push_committed_changes", "description": "Push the current committed HEAD only when installation remote/branch allowlist enables it.", "inputSchema": {"type": "object", "required": ["commit"], "properties": {"commit": {"type": "string"}}}},
+    {"name": "audit_hardcoded_install_values", "description": "Report configured organization, owner, and absolute path values embedded in source or Agent rules.", "inputSchema": {"type": "object", "properties": {}}},
+    {"name": "curation_backlog_metrics", "description": "Return read-only Evidence-to-Bundle conversion and curation candidate backlog metrics.", "inputSchema": {"type": "object", "properties": {}}},
+    {"name": "run_configured_curation", "description": "Run the installation-configured external Curator adapter for one Evidence item; disabled adapters return a non-writing needs_review proposal.", "inputSchema": {"type": "object", "required": ["evidence_id"], "properties": {"evidence_id": {"type": "string"}}}},
+    {"name": "run_configured_curation_batch", "description": "Run a bounded configured Curator batch and return created, blocked, failed, and needs-review counts without inventing token or cost data.", "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer", "minimum": 1, "maximum": 1000, "default": 100}}}},
     {"name": "validate_result", "description": "Validate managed Knowledge documents.", "inputSchema": {"type": "object", "properties": {}}},
+    {"name": "backfill_evidence_links", "description": "Dry-run or apply a validated backfill of Obsidian Evidence file links from durable Evidence URIs.", "inputSchema": {"type": "object", "properties": {"apply": {"type": "boolean", "default": False}}}},
+    {"name": "migrate_document_ids", "description": "Dry-run or apply the atomic legacy URI to organization-and-filename ID migration.", "inputSchema": {"type": "object", "properties": {"apply": {"type": "boolean", "default": False}}}},
     {"name": "find_workflow", "description": "Find active executable Runbooks for a user request.", "inputSchema": {"type": "object", "required": ["request"], "properties": {"request": {"type": "string"}, "limit": {"type": "integer", "minimum": 1, "maximum": 20}}}},
     {"name": "prepare_task", "description": "Create a Runtime Task snapshot from an active Runbook's Workflow Definition.", "inputSchema": {"type": "object", "required": ["workflow_id", "request"], "properties": {"workflow_id": {"type": "string"}, "request": {"type": "string"}, "inputs": {"type": "object"}}}},
     {"name": "prepare_runbook_refresh", "description": "Create a Runbook Refresh Task for an expired or explicitly requested review.", "inputSchema": {"type": "object", "required": ["workflow_id", "request", "requested_by"], "properties": {"workflow_id": {"type": "string"}, "request": {"type": "string"}, "requested_by": {"type": "string"}, "reason": {"type": "string", "enum": ["expired", "user_requested", "user_reference", "owner_requested", "source_change", "outcome_signal", "security_or_compliance"]}}}},
@@ -50,8 +61,8 @@ TOOLS = [
 ]
 
 READ_ONLY_TOOLS = {
-    "search_knowledge", "read_bundle", "prepare_context", "propose_update", "propose_pending", "inspect_inbox",
-    "validate_result", "find_workflow", "audit_knowledge", "list_knowledge_inventory",
+    "search_knowledge", "read_bundle", "prepare_context", "propose_update", "propose_pending", "inspect_inbox", "list_curation_candidates",
+    "validate_result", "find_workflow", "audit_knowledge", "list_knowledge_inventory", "audit_hardcoded_install_values", "curation_backlog_metrics",
     "validate_claim_support", "measure_runbook_effectiveness", "get_task",
 }
 
@@ -89,6 +100,8 @@ def handle_request(
             elif name == "prepare_context": content = service.prepare_context(arguments["task_description"], arguments.get("bundle_ids"))
             elif name == "propose_update": content = service.propose_update(arguments["evidence_id"])
             elif name == "propose_pending": content = service.propose_pending(arguments.get("limit", 100))
+            elif name == "backfill_evidence_links": content = service.backfill_evidence_links(apply=arguments.get("apply", False))
+            elif name == "migrate_document_ids": content = service.migrate_document_ids(apply=arguments.get("apply", False))
             elif name == "ingest_evidence": content = service.ingest_evidence(
                 arguments["inbox_path"], arguments["provider"],
                 why_collected=arguments["why_collected"],
@@ -147,12 +160,29 @@ def handle_request(
                 summary=arguments["summary"], evidence_id=arguments["evidence_id"],
                 body=arguments["body"], actor=arguments["actor"],
             )
+            elif name == "list_curation_candidates": content = service.list_curation_candidates()
+            elif name == "review_curation_candidate": content = service.review_curation_candidate(
+                arguments["bundle_id"], action=arguments["action"], actor=arguments["actor"],
+                note=arguments.get("note", ""), merged_into=arguments.get("merged_into"),
+            )
+            elif name == "materialize_curation_candidate": content = service.materialize_curation_candidate(
+                arguments["evidence_id"], output=arguments["output"], generated_by=arguments["generated_by"],
+                curation_receipt=arguments["curation_receipt"],
+            )
+            elif name == "promote_curation_candidate": content = service.promote_curation_candidate(
+                arguments["bundle_id"], actor=arguments["actor"], security_receipt=arguments["security_receipt"],
+            )
             elif name == "apply_bundle_revision": content = service.apply_bundle_revision(
                 arguments["bundle_id"], expected_revision=arguments["expected_revision"],
                 frontmatter=arguments["frontmatter"], body=arguments["body"],
                 actor=arguments["actor"],
             )
             elif name == "publish_changes": content = service.publish_changes(arguments["commit_message"])
+            elif name == "push_committed_changes": content = service.push_committed_changes(arguments["commit"])
+            elif name == "audit_hardcoded_install_values": content = service.audit_hardcoded_install_values()
+            elif name == "curation_backlog_metrics": content = service.curation_backlog_metrics()
+            elif name == "run_configured_curation": content = service.run_configured_curation(arguments["evidence_id"])
+            elif name == "run_configured_curation_batch": content = service.run_configured_curation_batch(arguments.get("limit", 100))
             elif name == "validate_result": content = service.validate_result()
             elif name == "find_workflow": content = service.find_workflow(arguments["request"], arguments.get("limit", 5))
             elif name == "prepare_task": content = service.prepare_task(arguments["workflow_id"], arguments["request"], arguments.get("inputs"))

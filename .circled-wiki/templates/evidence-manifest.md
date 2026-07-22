@@ -15,8 +15,9 @@ timestamp: 2026-07-09T00:00:00+09:00
 ```yaml
 ---
 type: evidence
-id: evidence://{organization_id}/{provider}/{yyyy}/{mm}/{dd}/{source_uuid}
+id: evidence/{organization_id}/{name}_{source_uuid}.md
 title: {title}
+tags: [evidence, {provider}, source]
 source_uuid: {source_uuid}
 provider: {provider}
 source_ref:

@@ -11,7 +11,7 @@ timestamp: 2026-07-09T00:00:00+09:00
 ```yaml
 ---
 type: {policy|guide|runbook|decision|spec|reference}
-id: knowledge://{organization_id}/{domain}/{slug}_{bundle_uuid}
+id: bundle/{organization_id}/{slug}_{bundle_uuid}.md
 bundle_uuid: {bundle_uuid}
 title: {title}
 description: {description}
@@ -21,9 +21,13 @@ updated_at: {updated_at}
 owners:
   - {owner}
 tags:
+  - bundles
+  - {policy|guide|runbook|decision|spec|reference}
   - {tag}
 evidence:
-  - evidence://{organization_id}/{provider}/{yyyy}/{mm}/{dd}/{source_uuid}
+  - evidence/{organization_id}/{name}_{source_uuid}.md
+evidence_links:
+  - "[{name}_{source_uuid}.md](evidence/{provider}/{yyyy}/{mm}/{dd}/{name}_{source_uuid}.md)"
 links: []
 extensions:
   source_uuids:

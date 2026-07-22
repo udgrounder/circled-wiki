@@ -273,7 +273,7 @@ class WorkflowExecutionTests(unittest.TestCase):
             ingested = service.ingest_accepted()
             outcome_item = ingested["items"][0]
             self.assertTrue(outcome_item["outcome_linked"])
-            self.assertTrue(outcome_item["evidence_id"].startswith("evidence://example-org/hermes/"))
+            self.assertTrue(outcome_item["evidence_id"].startswith("evidence/example-org/"))
             proposal = service.propose_update(outcome_item["evidence_id"])
             self.assertEqual(
                 [item["target_type"] for item in proposal["promotion_candidates"]],

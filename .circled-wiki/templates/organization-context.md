@@ -11,7 +11,7 @@ timestamp: 2026-07-14T00:00:00+09:00
 ```yaml
 ---
 type: guide
-id: knowledge://{organization_id}/company/{slug}_{bundle_uuid}
+id: bundle/{organization_id}/{slug}_{bundle_uuid}.md
 bundle_uuid: {bundle_uuid}
 title: {조직 맥락 제목}
 status: draft
@@ -19,8 +19,11 @@ summary: {조직 목적과 판단 기준 요약}
 updated_at: {updated_at}
 owners:
   - {owner}
+tags: [bundles, guide, organization]
 evidence:
-  - evidence://{organization_id}/{provider}/{yyyy}/{mm}/{dd}/{source_uuid}
+  - evidence/{organization_id}/{name}_{source_uuid}.md
+evidence_links:
+  - "[{name}_{source_uuid}.md](evidence/{provider}/{yyyy}/{mm}/{dd}/{name}_{source_uuid}.md)"
 extensions:
   knowledge_revision: 1
   visibility: internal

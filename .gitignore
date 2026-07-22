@@ -26,7 +26,6 @@ dist/
 knowledge/.raw/*
 !knowledge/.raw/index.md
 knowledge/inbox/*
-!knowledge/inbox/index.md
 
 # Evidence originals up to 10MB are tracked with their manifests.
 # Git cannot ignore by file size; the Evidence validator/pre-commit check rejects

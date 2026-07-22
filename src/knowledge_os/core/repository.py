@@ -33,6 +33,163 @@ def find_document_by_id(knowledge_root: Path, document_id: str) -> Optional[Mark
     return None
 
 
+def knowledge_root_path(knowledge_root: Path, document: MarkdownDocument) -> str:
+    """Return an Obsidian-friendly absolute path within the knowledge_root vault."""
+    return document.path.relative_to(knowledge_root).as_posix()
+
+
+def evidence_markdown_link(knowledge_root: Path, document: MarkdownDocument) -> str:
+    """Return an Obsidian-compatible Markdown link, not an opaque identifier."""
+    path = knowledge_root_path(knowledge_root, document)
+    return f"[{document.path.name}]({path})"
+
+
+def backfill_evidence_links(knowledge_root: Path, *, apply: bool = False) -> Dict[str, object]:
+    """Plan or apply Obsidian Evidence-link backfill for existing Bundles.
+
+    ``evidence`` remains the durable URI reference.  This repair only derives the
+    vault-root path used by Obsidian from that URI; it never guesses a filename,
+    UUID prefix, or provider path.  A blocked Bundle is left unchanged.
+    """
+    changes: list[Dict[str, object]] = []
+    blocked: list[Dict[str, object]] = []
+    scanned = 0
+    unchanged = 0
+    for path in sorted((knowledge_root / "bundles").rglob("*.md")):
+        if path.name in {"index.md", "log.md"}:
+            continue
+        document = parse_markdown(path)
+        if document.frontmatter.get("type") == "inbox_item":
+            continue
+        scanned += 1
+        evidence_ids = document.frontmatter.get("evidence")
+        if not isinstance(evidence_ids, list) or not evidence_ids:
+            blocked.append({
+                "path": path.relative_to(knowledge_root).as_posix(),
+                "reason": "Bundle has no Evidence URI references",
+            })
+            continue
+        evidence_links: list[str] = []
+        unresolved: list[str] = []
+        for evidence_id in evidence_ids:
+            evidence = find_document_by_id(knowledge_root, str(evidence_id))
+            if evidence is None or evidence.frontmatter.get("type") != "evidence":
+                unresolved.append(str(evidence_id))
+            else:
+                evidence_links.append(evidence_markdown_link(knowledge_root, evidence))
+        if unresolved:
+            blocked.append({
+                "path": path.relative_to(knowledge_root).as_posix(),
+                "reason": "Bundle Evidence URI does not resolve",
+                "unresolved_evidence_ids": unresolved,
+            })
+            continue
+        if document.frontmatter.get("evidence_links") == evidence_links:
+            unchanged += 1
+            continue
+        changes.append({
+            "path": path.relative_to(knowledge_root).as_posix(),
+            "bundle_id": document.frontmatter.get("id"),
+            "evidence_links": evidence_links,
+        })
+
+    report: Dict[str, object] = {
+        "mode": "apply" if apply else "dry_run",
+        "scanned": scanned,
+        "unchanged": unchanged,
+        "change_count": len(changes),
+        "blocked_count": len(blocked),
+        "changes": changes,
+        "blocked": blocked,
+    }
+    if not apply or not changes:
+        return report
+
+    backups: Dict[Path, str] = {}
+    try:
+        for change in changes:
+            path = knowledge_root / str(change["path"])
+            document = parse_markdown(path)
+            backups[path] = path.read_text(encoding="utf-8")
+            data = dict(document.frontmatter)
+            data["evidence_links"] = list(change["evidence_links"])
+            path.write_text(render_markdown(data, document.body), encoding="utf-8")
+            validation = validate_document(path, knowledge_root)
+            if not validation.is_valid:
+                raise ValueError("Evidence-link backfill validation failed: " + "; ".join(validation.profile_errors))
+    except Exception:
+        for path, content in backups.items():
+            path.write_text(content, encoding="utf-8")
+        raise
+    report["applied_count"] = len(changes)
+    return report
+
+
+def migrate_document_ids(knowledge_root: Path, *, apply: bool = False) -> Dict[str, object]:
+    """Migrate legacy URI IDs to stable organization-and-filename IDs.
+
+    The operation is deliberately explicit because it changes reference values;
+    both Frontmatter references and literal body references are updated together.
+    """
+    settings = load_settings(knowledge_root.resolve().parent)
+    documents = [
+        parse_markdown(path) for path in iter_documents(knowledge_root)
+        if path.name not in {"index.md", "log.md"}
+    ]
+    id_map: Dict[str, str] = {}
+    for document in documents:
+        document_id = document.frontmatter.get("id")
+        if not isinstance(document_id, str):
+            continue
+        kind = document.frontmatter.get("type")
+        if kind == "evidence":
+            new_id = f"evidence/{settings.organization_id}/{document.path.name}"
+        elif "bundles" in document.path.parts:
+            new_id = f"bundle/{settings.organization_id}/{document.path.name}"
+        else:
+            continue
+        if document_id != new_id:
+            id_map[document_id] = new_id
+    report: Dict[str, object] = {
+        "mode": "apply" if apply else "dry_run", "change_count": len(id_map),
+        "id_map": id_map,
+    }
+    if not apply or not id_map:
+        return report
+    backups = {document.path: document.path.read_text(encoding="utf-8") for document in documents}
+    try:
+        for document in documents:
+            data = _replace_identifier_references(deepcopy(document.frontmatter), id_map)
+            body = _replace_identifier_text(document.body, id_map)
+            document.path.write_text(render_markdown(data, body), encoding="utf-8")
+        invalid = [item for item in validate_repository(knowledge_root) if not item.is_valid]
+        if invalid:
+            messages = [error for item in invalid for error in item.profile_errors]
+            raise ValueError("ID migration validation failed: " + "; ".join(messages))
+    except Exception:
+        for path, content in backups.items():
+            path.write_text(content, encoding="utf-8")
+        raise
+    report["applied_count"] = len(id_map)
+    return report
+
+
+def _replace_identifier_references(value: Any, id_map: Dict[str, str]) -> Any:
+    if isinstance(value, str):
+        return id_map.get(value, value)
+    if isinstance(value, list):
+        return [_replace_identifier_references(item, id_map) for item in value]
+    if isinstance(value, dict):
+        return {key: _replace_identifier_references(item, id_map) for key, item in value.items()}
+    return value
+
+
+def _replace_identifier_text(body: str, id_map: Dict[str, str]) -> str:
+    for old, new in id_map.items():
+        body = body.replace(old, new)
+    return body
+
+
 def create_bundle(
     knowledge_root: Path, *, domain: str, slug: str, title: str, bundle_type: str,
     summary: str, evidence_id: str, body: str = "", curated_by: str = "manual",
@@ -50,16 +207,18 @@ def create_bundle(
     organization_id = require_stable_organization_id(
         knowledge_root, settings.organization_id
     )
-    bundle_id = f"knowledge://{organization_id}/{domain}/{slug}_{bundle_uuid}"
     bundle_directory = knowledge_root / "bundles" / domain
     if bundle_type == "runbook":
         bundle_directory = bundle_directory / "runbooks"
     path = bundle_directory / f"{slug}_{bundle_uuid}.md"
+    bundle_id = f"bundle/{organization_id}/{path.name}"
     path.parent.mkdir(parents=True, exist_ok=True)
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     data = {
         "type": bundle_type, "id": bundle_id, "bundle_uuid": bundle_uuid, "title": title,
         "status": "draft", "summary": summary, "updated_at": now, "evidence": [evidence_id],
+        "evidence_links": [evidence_markdown_link(knowledge_root, evidence)],
+        "tags": ["bundles", bundle_type, domain],
         "owners": list(settings.workflow.default_owners),
         "extensions": {
             "source_uuids": [evidence.frontmatter["source_uuid"]],
@@ -146,6 +305,14 @@ def apply_bundle_revision(
     if len(set(map(str, evidence_ids))) != len(evidence_ids):
         raise ValueError("Bundle Evidence references must be unique")
 
+    existing_extensions = existing.frontmatter.get("extensions")
+    current_curation = existing_extensions.get("curation") if isinstance(existing_extensions, dict) else None
+    if isinstance(current_curation, dict) and proposed.get("status") == "active":
+        raise ValueError(
+            "curation candidates cannot be promoted through apply_bundle_revision; "
+            "use the Owner and Security publication Gate"
+        )
+
     evidence_documents = {}
     for evidence_id in set(map(str, [*existing.frontmatter.get("evidence", []), *evidence_ids])):
         evidence = find_document_by_id(knowledge_root, evidence_id)
@@ -154,6 +321,11 @@ def apply_bundle_revision(
         if evidence.frontmatter.get("extensions", {}).get("visibility") == "restricted":
             raise ValueError("restricted Evidence cannot be linked through this interface")
         evidence_documents[evidence_id] = evidence
+
+    proposed["evidence_links"] = [
+        evidence_markdown_link(knowledge_root, evidence_documents[str(evidence_id)])
+        for evidence_id in map(str, evidence_ids)
+    ]
 
     extensions = proposed.get("extensions")
     if not isinstance(extensions, dict):

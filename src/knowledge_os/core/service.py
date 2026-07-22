@@ -3,7 +3,10 @@
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from .repository import apply_bundle_revision, create_bundle, find_document_by_id
+from .repository import (
+    apply_bundle_revision, backfill_evidence_links, create_bundle,
+    find_document_by_id, knowledge_root_path, migrate_document_ids,
+)
 from .curator import propose_update
 from .ingest import (
     CaptureResult,
@@ -14,8 +17,15 @@ from .ingest import (
     complete_inbox_sensitivity_review,
     ingest_evidence,
 )
-from .publisher import publish_changes
+from .publisher import publish_changes, push_committed_changes
 from .pii import record_pii_scan_receipt
+from .candidates import curation_backlog_metrics, list_curation_candidates, promote_curation_candidate, review_curation_candidate
+from .curation import (
+    materialize_curation_candidate, run_configured_curation,
+    run_configured_curation_batch,
+)
+from .curation_contract import validate_curation_output
+from .config_audit import audit_hardcoded_install_values
 from .search import search_knowledge
 from .validator import validate_repository
 from .governance import (
@@ -102,6 +112,55 @@ class KnowledgeService:
     def validate_result(self) -> Dict[str, object]:
         results = validate_repository(self.knowledge_root)
         return {"valid": all(result.is_valid for result in results), "results": [result.as_dict() for result in results]}
+
+    def backfill_evidence_links(self, *, apply: bool = False) -> Dict[str, object]:
+        """Derive Obsidian file links from existing durable Evidence URIs."""
+        return backfill_evidence_links(self.knowledge_root, apply=apply)
+
+    def migrate_document_ids(self, *, apply: bool = False) -> Dict[str, object]:
+        return migrate_document_ids(self.knowledge_root, apply=apply)
+
+    def list_curation_candidates(self) -> List[Dict[str, object]]:
+        """Return Draft Bundles that need curation review; active knowledge is excluded."""
+        return list_curation_candidates(self.knowledge_root)
+
+    def review_curation_candidate(
+        self, bundle_id: str, *, action: str, actor: str, note: str = "",
+        merged_into: Optional[str] = None,
+    ) -> Dict[str, object]:
+        return review_curation_candidate(
+            self.knowledge_root, bundle_id, action=action, actor=actor,
+            note=note, merged_into=merged_into,
+        )
+
+    def materialize_curation_candidate(
+        self, evidence_id: str, *, output: Dict[str, object], generated_by: str,
+        curation_receipt: str,
+    ) -> Dict[str, object]:
+        """Validate an adapter response, then create or reuse a safe Draft candidate."""
+        typed_output = validate_curation_output(output, [evidence_id])
+        return materialize_curation_candidate(
+            self.knowledge_root, evidence_id, typed_output, generated_by=generated_by,
+            curation_receipt=curation_receipt,
+        )
+
+    def promote_curation_candidate(self, bundle_id: str, *, actor: str, security_receipt: str) -> Dict[str, object]:
+        return promote_curation_candidate(self.knowledge_root, bundle_id, actor=actor, security_receipt=security_receipt)
+
+    def push_committed_changes(self, commit: str) -> Dict[str, object]:
+        return push_committed_changes(self.knowledge_root.parent, commit)
+
+    def audit_hardcoded_install_values(self) -> List[Dict[str, object]]:
+        return audit_hardcoded_install_values(self.knowledge_root.parent)
+
+    def curation_backlog_metrics(self) -> Dict[str, object]:
+        return curation_backlog_metrics(self.knowledge_root)
+
+    def run_configured_curation(self, evidence_id: str) -> Dict[str, object]:
+        return run_configured_curation(self.knowledge_root, evidence_id)
+
+    def run_configured_curation_batch(self, limit: int = 100) -> Dict[str, object]:
+        return run_configured_curation_batch(self.knowledge_root, limit=limit)
 
     def record_evidence_pii_scan(
         self, evidence_id: str, *, scanner: str, scanner_version: str,
@@ -655,5 +714,10 @@ def _sources_for_bundle(knowledge_root: Path, bundle: Dict[str, object]) -> List
         extensions = evidence.frontmatter.get("extensions", {})
         embedded = isinstance(extensions, dict) and extensions.get("content_mode") == "embedded"
         evidence_locator = "#original-conversation" if embedded else evidence.frontmatter.get("original_file", "")
-        sources.append({"kind": "preserved_evidence", "uri": str(evidence_id), "locator": evidence_locator, "evidence_id": str(evidence_id)})
+        sources.append({
+            "kind": "preserved_evidence",
+            "uri": knowledge_root_path(knowledge_root, evidence),
+            "locator": evidence_locator,
+            "evidence_id": str(evidence_id),
+        })
     return sorted(sources, key=lambda source: 0 if source["kind"] == "original_source" else 1)

@@ -23,7 +23,7 @@
     },
     "id": {
       "type": "string",
-      "pattern": "^evidence://[a-z0-9][a-z0-9_-]*/[a-z0-9_-]+/[0-9]{4}/[0-9]{2}/[0-9]{2}/[0-9a-fA-F-]{36}$"
+      "pattern": "^evidence/[a-z0-9][a-z0-9_-]*/[^/]+_[0-9a-fA-F-]{36}\\.md$"
     },
     "title": {
       "type": "string",
@@ -101,7 +101,7 @@
       "type": "array",
       "items": {
         "type": "string",
-        "pattern": "^knowledge://[a-z0-9][a-z0-9_-]*/[a-z0-9][a-z0-9._~/-]*_[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        "pattern": "^bundle/[a-z0-9][a-z0-9_-]*/[^/]+_[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\\.md$"
       },
       "uniqueItems": true
     },

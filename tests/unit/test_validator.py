@@ -62,6 +62,30 @@ class ValidatorTests(unittest.TestCase):
 
         self.assertTrue(result.is_valid, result.as_dict())
 
+    def test_repository_validation_reports_malformed_bundle_evidence_without_crashing(self):
+        bundle_uuid = str(uuid.uuid4())
+        path = self.root / "bundles" / "cs" / f"broken-evidence_{bundle_uuid}.md"
+        path.write_text(
+            render_markdown(
+                {
+                    "type": "guide",
+                    "id": f"knowledge://example-org/cs/broken-evidence_{bundle_uuid}",
+                    "bundle_uuid": bundle_uuid,
+                    "title": "Broken Evidence",
+                    "status": "draft",
+                    "summary": "Malformed reference test",
+                    "updated_at": "2026-07-22T00:00:00+00:00",
+                    "evidence": [{"unexpected": "object"}],
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        results = validate_repository(self.root)
+
+        result = next(item for item in results if item.path == path)
+        self.assertIn("every evidence item must use organization 'example-org'", result.profile_errors)
+
     def test_runbook_must_use_domain_runbooks_directory(self):
         bundle_uuid = str(uuid.uuid4())
         evidence_uuid = str(uuid.uuid4())

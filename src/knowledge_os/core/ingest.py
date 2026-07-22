@@ -461,7 +461,7 @@ def ingest_evidence(
     original_name = f"{name}_{source_uuid}{raw_path.suffix.lower()}"
     original_path = evidence_root / original_name
     manifest_path = evidence_root / f"{name}_{source_uuid}.md"
-    evidence_id = f"evidence://{organization_id}/{provider}/{date_path}/{source_uuid}"
+    evidence_id = f"evidence/{organization_id}/{manifest_path.name}"
     timestamp = now.isoformat(timespec="seconds")
     source_ref = {
         "provider": provider,
@@ -474,6 +474,7 @@ def ingest_evidence(
     frontmatter = {
         "type": "evidence",
         "id": evidence_id,
+        "tags": ["evidence", provider, "source"],
         "title": title or source_path.stem,
         "source_uuid": source_uuid,
         "provider": provider,

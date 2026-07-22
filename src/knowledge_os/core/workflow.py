@@ -294,7 +294,7 @@ class TaskStore:
             "learning": workflow["workflow"].get("learning", {}),
             "related_bundle_ids": [
                 link for link in workflow.get("links", [])
-                if isinstance(link, str) and link.startswith("knowledge://")
+                if isinstance(link, str) and (link.startswith("bundle/") or link.startswith("knowledge/") or link.startswith("knowledge://"))
             ],
             "status": "awaiting_input" if missing else "ready",
             "created_at": now,
@@ -401,7 +401,7 @@ class TaskStore:
             ],
             "related_bundle_ids": [
                 link for link in workflow.get("links", [])
-                if isinstance(link, str) and link.startswith("knowledge://")
+                if isinstance(link, str) and (link.startswith("bundle/") or link.startswith("knowledge/") or link.startswith("knowledge://"))
             ],
             "owners": workflow.get("owners", []),
             "governance": workflow.get("governance", {}),

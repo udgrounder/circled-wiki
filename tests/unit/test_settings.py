@@ -2,10 +2,13 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from knowledge_os.config.settings import load_settings, render_settings
+from knowledge_os.config.settings import load_settings, render_settings, settings_semantic_checksum
 from knowledge_os.core.ingest import capture_document, capture_file, ingest_evidence
 from knowledge_os.core.namespace import inspect_organization_namespace
-from knowledge_os.core.repository import create_bundle
+from knowledge_os.core.repository import (
+    backfill_evidence_links, create_bundle, find_document_by_id, migrate_document_ids,
+)
+from knowledge_os.core.frontmatter import parse_markdown, render_markdown
 from knowledge_os.core.validator import validate_document
 
 
@@ -28,6 +31,61 @@ class SettingsTests(unittest.TestCase):
 
         self.assertEqual(settings.workflow.default_owners, ())
         self.assertEqual(settings.publication.allowed_paths, ("knowledge",))
+
+    def test_unversioned_legacy_config_migrates_without_identity_change(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            config = project / ".circled-wiki" / "config.yaml"
+            config.parent.mkdir()
+            config.write_text("organization:\n  id: acme\n  name: Acme\n", encoding="utf-8")
+
+            settings = load_settings(project)
+
+            self.assertEqual(settings.organization_id, "acme")
+            self.assertEqual(settings.organization_name, "Acme")
+            self.assertNotIn("schema_version", config.read_text(encoding="utf-8"))
+
+    def test_approval_owner_is_install_local_and_defaults_to_disabled(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            config = project / ".circled-wiki" / "config.yaml"
+            config.parent.mkdir()
+            config.write_text("schema_version: 1\napproval:\n  knowledge_owner: alice\n", encoding="utf-8")
+            self.assertEqual(load_settings(project).approval.knowledge_owner, "alice")
+            self.assertEqual(load_settings(Path(directory) / "other").approval.knowledge_owner, "")
+
+    def test_enabled_push_requires_remote_and_branch(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            config = project / ".circled-wiki" / "config.yaml"
+            config.parent.mkdir()
+            config.write_text("schema_version: 1\npublication:\n  push_enabled: true\n", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "push requires"):
+                load_settings(project)
+
+    def test_two_installations_keep_identity_and_inbox_uris_isolated(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            alpha = base / "alpha"; beta = base / "beta"
+            for project, organization_id in ((alpha, "alpha"), (beta, "beta")):
+                config = project / ".circled-wiki" / "config.yaml"
+                config.parent.mkdir(parents=True)
+                config.write_text(render_settings(organization_id=organization_id, organization_name=organization_id.title()), encoding="utf-8")
+            alpha_item = capture_document(alpha / "knowledge", "alpha source", "manual", title="Alpha", why_collected="test", intended_use=["isolation"], idempotency_key="alpha-1")
+            beta_item = capture_document(beta / "knowledge", "beta source", "manual", title="Beta", why_collected="test", intended_use=["isolation"], idempotency_key="beta-1")
+            self.assertTrue(alpha_item.intake_id.startswith("inbox://alpha/"))
+            self.assertTrue(beta_item.intake_id.startswith("inbox://beta/"))
+            self.assertNotEqual(alpha_item.intake_id, beta_item.intake_id)
+
+    def test_semantic_checksum_ignores_omitted_safe_defaults(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            explicit = base / "explicit"; legacy = base / "legacy"
+            for project in (explicit, legacy):
+                (project / ".circled-wiki").mkdir(parents=True)
+            (explicit / ".circled-wiki" / "config.yaml").write_text(render_settings(), encoding="utf-8")
+            (legacy / ".circled-wiki" / "config.yaml").write_text("schema_version: 1\n", encoding="utf-8")
+            self.assertEqual(settings_semantic_checksum(explicit), settings_semantic_checksum(legacy))
 
     def test_configured_namespace_is_used_for_new_intake_ids(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -86,8 +144,12 @@ class SettingsTests(unittest.TestCase):
                 evidence_id=evidence.evidence_id,
             )
             validation = validate_document(bundle.path, knowledge)
-        self.assertTrue(evidence.evidence_id.startswith("evidence://acme/manual/"))
-        self.assertTrue(bundle.frontmatter["id"].startswith("knowledge://acme/operations/"))
+        self.assertTrue(evidence.evidence_id.startswith("evidence/acme/"))
+        self.assertTrue(bundle.frontmatter["id"].startswith("bundle/acme/"))
+        self.assertEqual(len(bundle.frontmatter["evidence_links"]), 1)
+        self.assertTrue(bundle.frontmatter["evidence_links"][0].startswith("["))
+        self.assertIn("](evidence/manual/", bundle.frontmatter["evidence_links"][0])
+        self.assertTrue(bundle.frontmatter["evidence_links"][0].endswith(".md)"))
         self.assertEqual(bundle.frontmatter["owners"], ["knowledge-owner"])
         self.assertTrue(validation.is_valid, validation.profile_errors)
 
@@ -95,7 +157,13 @@ class SettingsTests(unittest.TestCase):
         rendered = render_settings()
 
         self.assertIn("default_owners: []", rendered)
+        self.assertIn("curation:", rendered)
+        self.assertIn("enabled: false", rendered)
         self.assertIn("allowed_paths:\n  - knowledge", rendered)
+
+    def test_enabled_curation_requires_explicit_adapter_identity(self):
+        with self.assertRaisesRegex(ValueError, "enabled curation requires"):
+            render_settings(curation_enabled=True)
 
     def test_invalid_default_owner_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "workflow.default_owners"):
@@ -178,6 +246,102 @@ class SettingsTests(unittest.TestCase):
         self.assertFalse(blocked_payload_exists)
         self.assertTrue(source_preserved)
         self.assertFalse(raw_exists)
+
+    def test_evidence_link_backfill_is_dry_run_then_repairs_existing_bundle(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            root = project / "knowledge"
+            source = root / "inbox" / "manual" / "source.txt"
+            source.parent.mkdir(parents=True)
+            source.write_text("source", encoding="utf-8")
+            evidence = ingest_evidence(
+                root, source, "manual", why_collected="test", intended_use=["test"],
+            )
+            bundle = create_bundle(
+                root, domain="test", slug="backfill", title="Backfill", bundle_type="guide",
+                summary="Backfill test.", evidence_id=evidence.evidence_id,
+            )
+            data = dict(bundle.frontmatter)
+            data.pop("evidence_links")
+            bundle.path.write_text(render_markdown(data, bundle.body), encoding="utf-8")
+
+            dry_run = backfill_evidence_links(root)
+            self.assertEqual(dry_run["mode"], "dry_run")
+            self.assertEqual(dry_run["change_count"], 1)
+            self.assertNotIn("evidence_links", parse_markdown(bundle.path).frontmatter)
+
+            applied = backfill_evidence_links(root, apply=True)
+            repaired = parse_markdown(bundle.path)
+            self.assertEqual(applied["applied_count"], 1)
+            self.assertEqual(repaired.frontmatter["evidence"], [evidence.evidence_id])
+            evidence_document = find_document_by_id(root, evidence.evidence_id)
+            self.assertEqual(
+                repaired.frontmatter["evidence_links"],
+                [f"[{evidence_document.path.name}]({evidence_document.path.relative_to(root).as_posix()})"],
+            )
+
+    def test_evidence_link_backfill_does_not_write_unresolved_bundle(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "knowledge"
+            bundle_path = root / "bundles" / "test" / "broken_00000000-0000-4000-8000-000000000000.md"
+            bundle_path.parent.mkdir(parents=True)
+            bundle_path.write_text(
+                "---\n"
+                "type: guide\n"
+                "id: knowledge://example-org/test/broken_00000000-0000-4000-8000-000000000000\n"
+                "bundle_uuid: 00000000-0000-4000-8000-000000000000\n"
+                "title: Broken\n"
+                "status: draft\n"
+                "summary: Broken reference.\n"
+                "evidence:\n  - evidence://example-org/manual/2026/07/22/missing\n"
+                "extensions:\n  knowledge_revision: 1\n"
+                "---\n\n# Broken\n",
+                encoding="utf-8",
+            )
+            original = bundle_path.read_text(encoding="utf-8")
+
+            report = backfill_evidence_links(root, apply=True)
+
+            self.assertEqual(report["blocked_count"], 1)
+            self.assertEqual(report.get("applied_count", 0), 0)
+            self.assertEqual(bundle_path.read_text(encoding="utf-8"), original)
+
+    def test_id_migration_replaces_legacy_ids_and_all_bundle_references(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            root = project / "knowledge"
+            source = root / "inbox" / "manual" / "source.txt"
+            source.parent.mkdir(parents=True)
+            source.write_text("source", encoding="utf-8")
+            evidence = ingest_evidence(root, source, "manual", why_collected="test", intended_use=["test"])
+            bundle = create_bundle(
+                root, domain="test", slug="legacy", title="Legacy", bundle_type="guide",
+                summary="Legacy migration.", evidence_id=evidence.evidence_id,
+            )
+            evidence_document = find_document_by_id(root, evidence.evidence_id)
+            legacy_evidence_id = f"evidence://example-org/manual/2026/07/22/{evidence_document.frontmatter['source_uuid']}"
+            legacy_bundle_id = f"knowledge://example-org/test/{bundle.path.stem}"
+            evidence_data = dict(evidence_document.frontmatter)
+            evidence_data["id"] = legacy_evidence_id
+            evidence_data["curated_into"] = [legacy_bundle_id]
+            evidence_document.path.write_text(render_markdown(evidence_data, evidence_document.body), encoding="utf-8")
+            bundle_data = dict(bundle.frontmatter)
+            bundle_data["id"] = legacy_bundle_id
+            bundle_data["evidence"] = [legacy_evidence_id]
+            bundle.path.write_text(render_markdown(bundle_data, bundle.body), encoding="utf-8")
+
+            dry_run = migrate_document_ids(root)
+            self.assertEqual(dry_run["change_count"], 2)
+            self.assertEqual(bundle_data["id"], legacy_bundle_id)
+
+            applied = migrate_document_ids(root, apply=True)
+            migrated_bundle = parse_markdown(bundle.path)
+            migrated_evidence = parse_markdown(evidence_document.path)
+            self.assertEqual(applied["applied_count"], 2)
+            self.assertEqual(migrated_bundle.frontmatter["id"], f"bundle/example-org/{bundle.path.name}")
+            self.assertEqual(migrated_evidence.frontmatter["id"], f"evidence/example-org/{evidence_document.path.name}")
+            self.assertEqual(migrated_bundle.frontmatter["evidence"], [migrated_evidence.frontmatter["id"]])
+            self.assertEqual(migrated_evidence.frontmatter["curated_into"], [migrated_bundle.frontmatter["id"]])
 
 
 if __name__ == "__main__":

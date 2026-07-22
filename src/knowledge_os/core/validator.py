@@ -16,7 +16,7 @@ from .evidence import evidence_content_mode, evidence_original_bytes
 from .models import MarkdownDocument, ValidationResult
 
 
-RESERVED_FILENAMES = {"index.md", "log.md"}
+RESERVED_FILENAMES = {"README.md", "index.md", "log.md"}
 BUNDLE_TYPES = {"policy", "guide", "runbook", "decision", "spec", "reference"}
 BUNDLE_STATUSES = {"draft", "active", "deprecated", "archived"}
 EVIDENCE_STATUSES = {"new", "processing", "processed", "ignored", "failed", "needs_review"}
@@ -44,13 +44,13 @@ EVIDENCE_RETENTION_CLASS = {
 }
 def _evidence_uri(organization_id: str) -> re.Pattern[str]:
     return re.compile(
-        rf"^evidence://{re.escape(organization_id)}/[a-z0-9_-]+/\d{{4}}/\d{{2}}/\d{{2}}/[0-9a-fA-F-]{{36}}$"
+        rf"^(?:evidence/{re.escape(organization_id)}/[^/]+_[0-9a-fA-F-]{{36}}\.md|evidence://{re.escape(organization_id)}/[a-z0-9_-]+/\d{{4}}/\d{{2}}/\d{{2}}/[0-9a-fA-F-]{{36}})$"
     )
 
 
 def _bundle_uri(organization_id: str) -> re.Pattern[str]:
     return re.compile(
-        rf"^knowledge://{re.escape(organization_id)}/[a-z0-9][a-z0-9._~/-]*_[0-9a-fA-F-]{{36}}$"
+        rf"^(?:(?:bundle|knowledge)/{re.escape(organization_id)}/[^/]+_[0-9a-fA-F-]{{36}}\.md|knowledge://{re.escape(organization_id)}/[a-z0-9][a-z0-9._~/-]*_[0-9a-fA-F-]{{36}})$"
     )
 
 
@@ -138,6 +138,25 @@ def _path_kind(path: Path, knowledge_root: Path) -> str:
     return "other"
 
 
+def _is_valid_evidence_link(value: Any, knowledge_root: Path) -> bool:
+    if not isinstance(value, str) or not value.strip():
+        return False
+    match = re.fullmatch(r"\[[^\]\r\n]+\]\(([^()\r\n]+)\)", value.strip())
+    if match is None:
+        return False
+    link = Path(match.group(1))
+    if link.is_absolute() or ".." in link.parts:
+        return False
+    if not link.parts or link.parts[0] != "evidence" or link.suffix != ".md":
+        return False
+    target = (knowledge_root / link).resolve()
+    try:
+        target.relative_to(knowledge_root.resolve())
+    except ValueError:
+        return False
+    return target.is_file()
+
+
 def validate_document(path: Path, knowledge_root: Path) -> ValidationResult:
     """Validate a single managed Markdown document without repository lookups."""
     result = ValidationResult(path=path)
@@ -156,14 +175,15 @@ def validate_document(path: Path, knowledge_root: Path) -> ValidationResult:
     kind = _path_kind(path, knowledge_root)
     organization_id = organization_id_for(knowledge_root)
     if kind == "bundle":
-        _validate_bundle(document, result, organization_id)
+        _validate_bundle(document, result, organization_id, knowledge_root)
     elif kind == "evidence":
         _validate_evidence(document, result, organization_id)
     return result
 
 
 def _validate_bundle(
-    document: MarkdownDocument, result: ValidationResult, organization_id: str
+    document: MarkdownDocument, result: ValidationResult, organization_id: str,
+    knowledge_root: Path,
 ) -> None:
     data = document.frontmatter
     required = ("id", "bundle_uuid", "title", "type", "status", "summary", "updated_at", "evidence")
@@ -192,19 +212,114 @@ def _validate_bundle(
         result.profile_errors.append(
             f"every evidence item must use organization '{organization_id}'"
         )
+    evidence_links = data.get("evidence_links")
+    if evidence_links is not None:
+        if not isinstance(evidence_links, list) or not evidence_links:
+            result.profile_errors.append("evidence_links must be a non-empty array when present")
+        elif any(not _is_valid_evidence_link(item, knowledge_root) for item in evidence_links):
+            result.profile_errors.append("evidence_links must contain Markdown links to knowledge-root Evidence Markdown paths")
     if "bundle_uuid" in data and _is_uuid(data["bundle_uuid"]):
         suffix = "_" + str(data["bundle_uuid"])
-        if not str(data.get("id", "")).endswith(suffix):
-            result.profile_errors.append("id must end with _{bundle_uuid}")
+        identifier = str(data.get("id", ""))
+        if identifier.startswith(("bundle/", "knowledge/")):
+            if not identifier.endswith(suffix + ".md"):
+                result.profile_errors.append("new Bundle id must end with _{bundle_uuid}.md")
+        elif not identifier.endswith(suffix):
+            result.profile_errors.append("legacy Bundle id must end with _{bundle_uuid}")
         if not document.path.stem.endswith(suffix):
             result.profile_errors.append("Bundle filename must end with _{bundle_uuid}")
     _validate_bundle_placement(document, result)
+    _validate_curation(data, result, organization_id)
     _validate_governance(data, result)
     _validate_archive(data, result)
     _validate_rulebook(data, result)
     _validate_inquiry(data, result)
     _validate_workflow(data, result, organization_id)
     _warn_unscoped_extensions(data, result)
+
+
+def _validate_curation(
+    data: Dict[str, Any], result: ValidationResult, organization_id: str
+) -> None:
+    """Validate review provenance when a Bundle is managed as a candidate."""
+    extensions = data.get("extensions")
+    if not isinstance(extensions, dict):
+        return
+    review_state = extensions.get("review_state")
+    curation = extensions.get("curation")
+    candidate_states = {"pending", "needs_changes", "approved", "rejected", "merged"}
+    if review_state is not None and review_state not in candidate_states:
+        result.profile_errors.append("extensions.review_state is invalid for a curation candidate")
+    if curation is None:
+        return
+    if not isinstance(curation, dict):
+        result.profile_errors.append("extensions.curation must be an object")
+        return
+    # Legacy active Bundles may use review_state=approved as a publication label.
+    # Candidate lifecycle rules apply only once curation provenance is present.
+    if review_state in {"pending", "needs_changes"} and data.get("status") != "draft":
+        result.profile_errors.append("pending and needs_changes candidates must remain draft")
+    if review_state == "approved" and data.get("status") not in {"draft", "active"}:
+        result.profile_errors.append("approved candidates must be draft or active")
+    if review_state == "approved" and data.get("status") == "active":
+        promotion = curation.get("promotion")
+        if not isinstance(promotion, dict):
+            result.profile_errors.append("active approved candidates must define extensions.curation.promotion")
+        else:
+            for field in ("approved_by", "approved_at", "security_receipt"):
+                if not _is_nonempty_string(promotion.get(field)):
+                    result.profile_errors.append(f"extensions.curation.promotion.{field} must be non-empty")
+            if "approved_at" in promotion and not _is_timestamp(promotion["approved_at"]):
+                result.profile_errors.append("extensions.curation.promotion.approved_at must be ISO 8601")
+    if review_state in {"rejected", "merged"} and data.get("status") != "archived":
+        result.profile_errors.append("rejected and merged candidates must be archived")
+    for field in ("generated_by", "generation_reason"):
+        if field in curation and not _is_nonempty_string(curation[field]):
+            result.profile_errors.append(f"extensions.curation.{field} must be non-empty")
+    if "generated_by" in curation:
+        for field in ("generated_at", "generation_reason", "evidence_checksum", "curation_receipt", "recommendation", "profile_version"):
+            if not _is_nonempty_string(curation.get(field)):
+                result.profile_errors.append(f"extensions.curation.{field} must be non-empty")
+        checksum = curation.get("evidence_checksum")
+        if isinstance(checksum, str) and not re.fullmatch(r"sha256:[0-9a-f]{64}", checksum):
+            result.profile_errors.append("extensions.curation.evidence_checksum must be a sha256 checksum")
+    if "generated_at" in curation and not _is_timestamp(curation["generated_at"]):
+        result.profile_errors.append("extensions.curation.generated_at must be ISO 8601")
+    _validate_curation_receipt(
+        curation.get("receipt"), result,
+        expected_checksum=curation.get("evidence_checksum"), prefix="extensions.curation.receipt",
+    )
+    reviewed_by = curation.get("reviewed_by")
+    reviewed_at = curation.get("reviewed_at")
+    if (reviewed_by is None) != (reviewed_at is None):
+        result.profile_errors.append("extensions.curation.reviewed_by and reviewed_at must appear together")
+    if reviewed_by is not None and not _is_nonempty_string(reviewed_by):
+        result.profile_errors.append("extensions.curation.reviewed_by must be non-empty")
+    if reviewed_at is not None and not _is_timestamp(reviewed_at):
+        result.profile_errors.append("extensions.curation.reviewed_at must be ISO 8601")
+    history = curation.get("review_history")
+    if history is not None:
+        if not isinstance(history, list) or not history:
+            result.profile_errors.append("extensions.curation.review_history must be a non-empty array")
+        else:
+            for entry in history:
+                if not isinstance(entry, dict):
+                    result.profile_errors.append("extensions.curation.review_history items must be objects")
+                    continue
+                if entry.get("action") not in {"needs_changes", "approve", "reject", "merge"}:
+                    result.profile_errors.append("extensions.curation.review_history.action is invalid")
+                if not _is_nonempty_string(entry.get("actor")):
+                    result.profile_errors.append("extensions.curation.review_history.actor must be non-empty")
+                if not _is_timestamp(entry.get("at")):
+                    result.profile_errors.append("extensions.curation.review_history.at must be ISO 8601")
+                if not isinstance(entry.get("note", ""), str):
+                    result.profile_errors.append("extensions.curation.review_history.note must be a string")
+    merged_into = curation.get("merged_into")
+    if review_state == "merged":
+        if not isinstance(merged_into, str) or not _bundle_uri(organization_id).match(merged_into):
+            result.profile_errors.append("merged candidates must define a valid extensions.curation.merged_into")
+    elif merged_into is not None:
+        result.profile_errors.append("extensions.curation.merged_into is only allowed for merged candidates")
 
 
 def _validate_bundle_placement(document: MarkdownDocument, result: ValidationResult) -> None:
@@ -529,7 +644,35 @@ def _validate_evidence(
         if sensitivity_review is not None and sensitivity_review not in {"completed", "required", "not_applicable"}:
             result.profile_errors.append("extensions.capture_context.sensitivity_review is invalid")
     result.profile_errors.extend(pii_scan_receipt_errors(data))
+    if isinstance(extensions, dict):
+        attempt = extensions.get("curation_attempt")
+        if attempt is not None and not isinstance(attempt, dict):
+            result.profile_errors.append("extensions.curation_attempt must be an object")
+        elif isinstance(attempt, dict):
+            _validate_curation_receipt(
+                attempt.get("receipt"), result,
+                expected_checksum=data.get("checksum"), prefix="extensions.curation_attempt.receipt",
+            )
     _warn_unscoped_extensions(data, result)
+
+
+def _validate_curation_receipt(
+    receipt: object, result: ValidationResult, *, expected_checksum: object, prefix: str,
+) -> None:
+    """Validate optional structured curation provenance without exposing adapter output."""
+    if receipt is None:
+        return
+    if not isinstance(receipt, dict):
+        result.profile_errors.append(f"{prefix} must be an object")
+        return
+    for field in ("evidence_checksum", "provider", "model", "profile_version", "prompt_template_version", "result_schema_version", "started_at", "status"):
+        if not _is_nonempty_string(receipt.get(field)):
+            result.profile_errors.append(f"{prefix}.{field} must be non-empty")
+    if receipt.get("evidence_checksum") != expected_checksum:
+        result.profile_errors.append(f"{prefix}.evidence_checksum must match the current Evidence checksum")
+    for field in ("started_at", "completed_at"):
+        if field in receipt and not _is_timestamp(receipt[field]):
+            result.profile_errors.append(f"{prefix}.{field} must be ISO 8601")
 
 
 def _warn_unscoped_extensions(data: Dict[str, Any], result: ValidationResult) -> None:
@@ -585,7 +728,13 @@ def validate_repository(knowledge_root: Path) -> List[ValidationResult]:
         kind = _path_kind(path, knowledge_root)
         if kind == "bundle":
             is_active = document.frontmatter.get("status") == "active"
-            for evidence_id in document.frontmatter.get("evidence", []):
+            evidence_refs = document.frontmatter.get("evidence", [])
+            if not isinstance(evidence_refs, list):
+                continue
+            for evidence_id in evidence_refs:
+                if not isinstance(evidence_id, str):
+                    # _validate_bundle already records the shape failure; never crash validation.
+                    continue
                 if evidence_id not in evidence_ids:
                     message = f"referenced Evidence Record not found: {evidence_id}"
                     (result.profile_errors if is_active else result.warnings).append(message)
@@ -593,7 +742,12 @@ def validate_repository(knowledge_root: Path) -> List[ValidationResult]:
                     message = f"Evidence Record does not reference this Bundle: {evidence_id}"
                     (result.profile_errors if is_active else result.warnings).append(message)
         elif kind == "evidence":
-            for bundle_id in document.frontmatter.get("curated_into", []) or []:
+            bundle_refs = document.frontmatter.get("curated_into", []) or []
+            if not isinstance(bundle_refs, list):
+                continue
+            for bundle_id in bundle_refs:
+                if not isinstance(bundle_id, str):
+                    continue
                 if bundle_id not in bundle_ids:
                     result.warnings.append(f"referenced Bundle not found: {bundle_id}")
                 elif document.frontmatter.get("id") not in bundle_by_id[bundle_id].frontmatter.get("evidence", []):

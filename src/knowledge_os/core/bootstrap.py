@@ -25,6 +25,7 @@ CLAUDE_ENTRYPOINT_PATH = "CLAUDE.md"
 HERMES_ENTRYPOINT_PATH = "HERMES.md"
 GITIGNORE_PATH = ".gitignore"
 GITIGNORE_TEMPLATE_PATH = f"{CONTROL_PLANE}/templates/.gitignore"
+RUNTIME_ASSET_PREFIX = f"{CONTROL_PLANE}/runtime/knowledge_os/"
 OPERATING_RULES_REFERENCE = f"{CONTROL_PLANE}/OPERATING_RULES.md"
 MANAGED_DIRECTORIES = (
     f"{CONTROL_PLANE}/agent-rules", f"{CONTROL_PLANE}/templates", f"{CONTROL_PLANE}/policies",
@@ -357,7 +358,20 @@ def bootstrap_knowledge_root(
         elif current == desired and recorded == desired:
             action = "unchanged"; next_assets[relative] = desired
         elif current == desired:
-            action = "preserve_existing"
+            # An older manifest can omit an asset which already exactly matches
+            # the release.  It is safe to adopt that file because no user
+            # content is replaced; later upgrades can now track it normally.
+            # A divergent unrecorded asset continues through the proposal path.
+            if recorded is None:
+                action = "adopt"; next_assets[relative] = desired
+            else:
+                action = "preserve_existing"
+        elif relative.startswith(RUNTIME_ASSET_PREFIX):
+            # Runtime modules are product code, never installation-local
+            # configuration.  Configuration belongs in config.yaml; retaining a
+            # locally edited module here can leave a new runtime internally
+            # incompatible, even though the rest of the upgrade succeeded.
+            action = "upgrade"; next_assets[relative] = desired
         elif isinstance(recorded, str) and current == recorded:
             action = "upgrade"; next_assets[relative] = desired
         else:
@@ -394,6 +408,12 @@ def bootstrap_knowledge_root(
         for destination, content in writes:
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_bytes(content)
+        # The portable CLI is a real executable entry point.  Source assets are
+        # copied as bytes, so its executable permission must be restored after
+        # initial installation and after upgrades.
+        portable_cli = target / CONTROL_PLANE / "bin" / "knowledge-os.py"
+        if portable_cli.is_file():
+            portable_cli.chmod(portable_cli.stat().st_mode | 0o111)
         if configuration_action == "create":
             config_path.write_bytes(configuration)
         if manifest_needs_update or backup_path is not None:
@@ -451,7 +471,7 @@ def bootstrap_knowledge_root(
         }:
             current = gitignore.read_text(encoding="utf-8") if gitignore.is_file() else ""
             gitignore.write_text(_render_gitignore(current, gitignore_block), encoding="utf-8")
-    states = ("create", "upgrade", "preserve_existing", "unchanged", "preserve_and_propose")
+    states = ("create", "adopt", "upgrade", "preserve_existing", "unchanged", "preserve_and_propose")
     return {"target": str(target), "applied": apply, "actions": actions,
             "knowledge_action": knowledge_action,
             "os_release": release,

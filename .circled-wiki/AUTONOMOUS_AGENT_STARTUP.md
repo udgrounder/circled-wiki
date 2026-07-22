@@ -5,7 +5,7 @@
 
 ## Startup Sequence
 
-1. `.circled-wiki/config.yaml`을 읽어 조직 ID, 운영 Agent, Graphify 사용 여부를 확인한다.
+1. `.circled-wiki/config.yaml`을 읽어 조직 ID, 운영 Agent, Graphify 사용 여부, Curation 활성화 여부와 `approval.knowledge_owner`를 확인한다.
 2. `.circled-wiki/OPERATING_RULES.md`를 읽는다.
 3. 요청을 root `AGENTS.md` Routing Table로 분류하고 해당 `.circled-wiki/agent-rules/*.md` 하나만 읽는다.
 4. `python3 .circled-wiki/bin/knowledge-os.py operational-preflight`를 실행한다.
@@ -22,6 +22,9 @@ Preflight가 실패하면 지식 파일을 직접 우회 수정하지 않는다.
 - 사용자가 Obsidian에서 보는 내용은 참고용이다. 공식 지식 변경은 Agent가 Inbox → Evidence → Bundle → Validator →
   Publication Gate 순서로 수행한다.
 - 자율형 Agent라도 승인자를 사칭하거나 스스로 사람 Approval을 기록하지 않는다.
+- Curation은 `materialize_curation_candidate`의 typed 결과 경계로만 Draft를 만들며, Evidence·Bundle frontmatter를 직접 편집하지 않는다.
+- 하위 Agent는 읽기 전용 문맥만 `prepare_context`로 받고, operator 권한·작업 범위·기간이 명시적으로 위임된 경우에만 변경 Tool을 쓴다.
+- `approved` Draft의 Active 승격은 설정된 `approval.knowledge_owner`만 `promote_curation_candidate`로 실행하며, 독립된 Security receipt가 필요하다.
 - `knowledge/`는 Source of Truth이고 `.runtime/`, 검색 인덱스, Graphify graph는 파생 상태다.
 
 ## Answer Contract
@@ -53,5 +56,6 @@ Graphify 설치와 MCP 등록은 `.circled-wiki/GRAPHIFY.md`를 따른다. Knowl
 
 - 변경을 발행하기 전에 `validate`를 통과한다.
 - 자동 Git commit은 보안 Gate와 staged 변경 검사를 통과한 `knowledge/` 변경에만 사용한다.
+- Push 권한이 있어도 Commit 이후의 Push는 별도 승인된 실행 경로와 remote/branch 검증이 구현되기 전에는 실행하지 않는다.
 - 실패·검토 필요 원본은 `.raw/` 또는 Inbox에 보존하고 원인을 기록한다.
 - 종료 전 미완료 Runtime Task와 pending Inbox 상태를 사용자에게 요약한다.
