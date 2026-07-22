@@ -15,6 +15,7 @@ from .ingest import (
     ingest_evidence,
 )
 from .publisher import publish_changes
+from .pii import record_pii_scan_receipt
 from .search import search_knowledge
 from .validator import validate_repository
 from .governance import (
@@ -101,6 +102,18 @@ class KnowledgeService:
     def validate_result(self) -> Dict[str, object]:
         results = validate_repository(self.knowledge_root)
         return {"valid": all(result.is_valid for result in results), "results": [result.as_dict() for result in results]}
+
+    def record_evidence_pii_scan(
+        self, evidence_id: str, *, scanner: str, scanner_version: str,
+        result: str, reviewed_by: str, receipt: str,
+        scanned_at: Optional[str] = None,
+    ) -> Dict[str, object]:
+        """Record a supplied scan receipt without claiming to execute the scanner."""
+        return record_pii_scan_receipt(
+            self.knowledge_root, evidence_id, scanner=scanner,
+            scanner_version=scanner_version, result=result,
+            reviewed_by=reviewed_by, receipt=receipt, scanned_at=scanned_at,
+        )
 
     def propose_update(self, evidence_id: str) -> Dict[str, object]:
         return propose_update(self.knowledge_root, evidence_id)
@@ -199,7 +212,8 @@ class KnowledgeService:
             sensitivity_review=sensitivity_review,
             idempotency_key=idempotency_key,
             content_mode=content_mode,
-            pii_scanned=sensitivity_review == "completed",
+            # A completed Inbox review is not an Evidence PII Scan receipt.
+            pii_scanned=False,
         )
         response = {
             "evidence_id": result.evidence_id,

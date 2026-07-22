@@ -58,6 +58,23 @@ extensions:
 ---
 ```
 
+PII 검사를 실제로 수행한 뒤에만 `pii_scanned`를 `true`로 바꾸고, 현재 Evidence `checksum`에
+결합된 다음 영수증을 함께 기록한다. Inbox 민감정보 검토 완료만으로 이 영수증을 만들지 않는다.
+
+```yaml
+extensions:
+  pii_scanned: true
+  pii_masked: false
+  pii_scan:
+    scanner: {scanner_name}
+    scanner_version: {scanner_version}
+    scanned_at: {ISO_8601_timestamp}
+    result: {passed|masked}
+    reviewed_by: {identified_actor}
+    receipt: {scanner_job_or_review_reference}
+    source_checksum: {Evidence checksum과 동일한 값}
+```
+
 ## Summary
 
 원본 요약을 작성한다.

@@ -11,3 +11,8 @@ graphify:
   graph_path: graphify-out/graph.json
   source_paths:
   - knowledge/bundles
+workflow:
+  default_owners: []
+publication:
+  allowed_paths:
+  - knowledge

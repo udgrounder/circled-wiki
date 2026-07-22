@@ -11,6 +11,7 @@ from uuid import UUID
 from knowledge_os.config.settings import organization_id_for
 
 from .frontmatter import FrontmatterError, parse_markdown
+from .pii import pii_scan_receipt_errors
 from .evidence import evidence_content_mode, evidence_original_bytes
 from .models import MarkdownDocument, ValidationResult
 
@@ -527,6 +528,7 @@ def _validate_evidence(
         sensitivity_review = capture_context.get("sensitivity_review")
         if sensitivity_review is not None and sensitivity_review not in {"completed", "required", "not_applicable"}:
             result.profile_errors.append("extensions.capture_context.sensitivity_review is invalid")
+    result.profile_errors.extend(pii_scan_receipt_errors(data))
     _warn_unscoped_extensions(data, result)
 
 

@@ -46,24 +46,30 @@ Git 히스토리는 되돌리기 어렵다. 마스킹은 커밋 이전 단계에
 
 ## 적용 시점
 
-- Evidence 단계: 정규화 텍스트(`derived_files`)를 생성할 때 1차 스캔 및 마스킹을 수행한다.
-- Bundle 단계: Hermes Curator가 Bundle 본문을 생성/수정할 때 커밋 전 최종 스캔을 수행한다.
-- 두 단계 모두, 커밋 직전 검증(Validator) 단계에서 마스킹 완료 여부를 확인한다.
+- Inbox Capture 단계: 저장 전에 대화·문서 텍스트의 명확한 PII와 자격증명을 `*`로 1차 마스킹한다.
+- Inbox Inspection 단계: 내용을 다시 읽어 1차 마스킹 누락·과소 마스킹·문맥상 재식별 가능성을 2차 확인한다.
+- Evidence 단계: 정규화 텍스트(`derived_files`)를 생성할 때 별도의 실제 PII Scan과 마스킹을 수행한다.
+- Bundle 단계: Curator가 Bundle 본문을 생성·수정할 때 커밋 전 최종 Scan을 수행한다.
+- 각 단계의 확인을 구분해 기록하며, 커밋 직전 Validator와 Publication Security Review에서 증빙을 확인한다.
 
 ## 탐지 결과 처리
 
 - 패턴이 명확한 경우(정규식 매칭): 값은 `*` 표기로 마스킹하고 `extensions.pii_masked: true`로 기록한다.
 - 패턴이 애매하거나 고위험으로 판단되는 경우(예: private key block 전체, 대량 개인정보 테이블): 자동 마스킹 대신
   Evidence 상태를 `needs_review`로 전환하고 사람 검토를 거친다.
-- 어떤 경우든 Evidence PII Scan을 거친 Evidence Record는 `extensions.pii_scanned: true`를 기록한다. Inbox Sensitive
-  Data Review에서 실제 Scan까지 수행한 경우에만 `sensitivity_review: completed`를 선택하며, 변환 시 이 결정을
-  `pii_scanned: true`로 이어받을 수 있다. Bundle은 별도 `pii_scanned` 플래그를 두지 않고, 최종 결과 상태를
+- Evidence PII Scan을 실제 수행하고 Scanner·버전·시각·결과·검토자·Receipt와 현재 Evidence checksum이
+  결합된 `extensions.pii_scan` 영수증이 있는 Evidence Record만 `extensions.pii_scanned: true`를 기록한다.
+  Inbox Sensitive Data Review의 `completed` 또는 `not_applicable`, 1차·2차
+  마스킹 확인은 이 값을 자동으로 만들지 않는다. Bundle은 별도 `pii_scanned` 플래그를 두지 않고, 최종 결과 상태를
   `extensions.pii_masked`와 `extensions.visibility`로 관리한다.
+- 운영 Agent는 boolean을 직접 편집하지 않고 CLI `record-evidence-pii-scan` 또는 operator MCP
+  `record_evidence_pii_scan`으로 외부 검사 결과를 기록한다. 이 작업은 검사를 실행하지 않는다.
 
 ## 추적 필드
 
 - `extensions.pii_scanned`: Evidence Record의 실제 Evidence PII Scan 수행 여부
 - `extensions.pii_masked`: 마스킹 적용 여부
+- `extensions.pii_scan`: Scanner, 버전, 시각, 결과, 검토자, 외부 Receipt, 원문 checksum을 보존하는 검사 증빙
 - `extensions.visibility`: `internal`(기본값) 또는 `restricted`. MCP 계층은 `restricted` 문서를 기본 조회 결과에서
   제외하거나 별도 권한 확인 후에만 노출해야 한다.
 

@@ -12,6 +12,8 @@ SAFE_IDENTIFIER = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 DEFAULT_ORGANIZATION_ID = "example-org"
 DEFAULT_ORGANIZATION_NAME = "Example Organization"
 DEFAULT_OPERATOR_AGENT = "hermes"
+DEFAULT_WORKFLOW_OWNERS: Tuple[str, ...] = ()
+DEFAULT_PUBLICATION_PATHS: Tuple[str, ...] = ("knowledge",)
 
 
 @dataclass(frozen=True)
@@ -24,11 +26,23 @@ class GraphifySettings:
 
 
 @dataclass(frozen=True)
+class WorkflowSettings:
+    default_owners: Tuple[str, ...] = DEFAULT_WORKFLOW_OWNERS
+
+
+@dataclass(frozen=True)
+class PublicationSettings:
+    allowed_paths: Tuple[str, ...] = DEFAULT_PUBLICATION_PATHS
+
+
+@dataclass(frozen=True)
 class KnowledgeOSSettings:
     organization_id: str = DEFAULT_ORGANIZATION_ID
     organization_name: str = DEFAULT_ORGANIZATION_NAME
     operator_agent: str = DEFAULT_OPERATOR_AGENT
     graphify: GraphifySettings = GraphifySettings()
+    workflow: WorkflowSettings = WorkflowSettings()
+    publication: PublicationSettings = PublicationSettings()
 
 
 def render_settings(
@@ -37,6 +51,8 @@ def render_settings(
     organization_name: str = DEFAULT_ORGANIZATION_NAME,
     operator_agent: str = DEFAULT_OPERATOR_AGENT,
     graphify_enabled: bool = False,
+    workflow_default_owners: Tuple[str, ...] = DEFAULT_WORKFLOW_OWNERS,
+    publication_allowed_paths: Tuple[str, ...] = DEFAULT_PUBLICATION_PATHS,
 ) -> str:
     """Render the initial installation-local configuration."""
     settings = _validate_settings({
@@ -49,6 +65,8 @@ def render_settings(
             "graph_path": "graphify-out/graph.json",
             "source_paths": ["knowledge/bundles"],
         },
+        "workflow": {"default_owners": list(workflow_default_owners)},
+        "publication": {"allowed_paths": list(publication_allowed_paths)},
     })
     payload = {
         "schema_version": 1,
@@ -63,6 +81,12 @@ def render_settings(
             "command": settings.graphify.command,
             "graph_path": settings.graphify.graph_path,
             "source_paths": list(settings.graphify.source_paths),
+        },
+        "workflow": {
+            "default_owners": list(settings.workflow.default_owners),
+        },
+        "publication": {
+            "allowed_paths": list(settings.publication.allowed_paths),
         },
     }
     return yaml.safe_dump(payload, allow_unicode=True, sort_keys=False)
@@ -90,8 +114,15 @@ def _validate_settings(payload: Dict[str, Any]) -> KnowledgeOSSettings:
     organization = payload.get("organization", {})
     agent = payload.get("agent", {})
     graphify = payload.get("graphify", {})
-    if not isinstance(organization, dict) or not isinstance(agent, dict) or not isinstance(graphify, dict):
-        raise ValueError("organization, agent, and graphify settings must be objects")
+    workflow = payload.get("workflow", {})
+    publication = payload.get("publication", {})
+    if any(
+        not isinstance(section, dict)
+        for section in (organization, agent, graphify, workflow, publication)
+    ):
+        raise ValueError(
+            "organization, agent, graphify, workflow, and publication settings must be objects"
+        )
     organization_id = organization.get("id", DEFAULT_ORGANIZATION_ID)
     organization_name = organization.get("name", DEFAULT_ORGANIZATION_NAME)
     operator_agent = agent.get("operator", DEFAULT_OPERATOR_AGENT)
@@ -124,6 +155,19 @@ def _validate_settings(payload: Dict[str, Any]) -> KnowledgeOSSettings:
         for path in source_paths
     ):
         raise ValueError("graphify.source_paths must be project-relative paths")
+    default_owners = workflow.get("default_owners", list(DEFAULT_WORKFLOW_OWNERS))
+    if not isinstance(default_owners, list) or any(
+        not isinstance(owner, str) or not SAFE_IDENTIFIER.fullmatch(owner)
+        for owner in default_owners
+    ):
+        raise ValueError("workflow.default_owners must be safe lowercase identifiers")
+    if len(default_owners) != len(set(default_owners)):
+        raise ValueError("workflow.default_owners must not contain duplicates")
+    allowed_paths = publication.get("allowed_paths", list(DEFAULT_PUBLICATION_PATHS))
+    if allowed_paths != list(DEFAULT_PUBLICATION_PATHS):
+        raise ValueError(
+            "publication.allowed_paths must remain ['knowledge'] to preserve the publication boundary"
+        )
     return KnowledgeOSSettings(
         organization_id=organization_id,
         organization_name=organization_name.strip(),
@@ -135,4 +179,6 @@ def _validate_settings(payload: Dict[str, Any]) -> KnowledgeOSSettings:
             graph_path=graph_path,
             source_paths=tuple(path.strip() for path in source_paths),
         ),
+        workflow=WorkflowSettings(default_owners=tuple(default_owners)),
+        publication=PublicationSettings(allowed_paths=tuple(allowed_paths)),
     )

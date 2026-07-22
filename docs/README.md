@@ -33,6 +33,7 @@
 - `20-runbook-refresh.md`: Runbook 위험 기반 유효기간, 즉시 갱신 Trigger와 Refresh Task SOP
 - `21-runbook-learning.md`: 실제 실행 Outcome 기반 Runbook 성장, 개선 Trigger와 독립 Agent 검증 모델
 - `22-knowledge-quality-and-artifacts.md`: 사용자 레퍼런스 평가, Claim Support, Audit·Inventory, Archive와 산출물 계약
+- `23-operational-improvement-plan.md`: 운영 이슈를 원본 개선·릴리스·운영본 업그레이드로 연결하는 지속 개선 계획
 
 ## 실제 운영 경로
 

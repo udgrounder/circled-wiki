@@ -1,0 +1,15 @@
+# BEGIN circled-wiki:generated-artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+.temp/
+.circled-wiki-backups/
+**/.obsidian/workspace.json
+**/.obsidian/workspaces.json
+**/.obsidian/graph.json
+**/.obsidian/cache/
+**/.obsidian/plugins/*/data.json
+# END circled-wiki:generated-artifacts

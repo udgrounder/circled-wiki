@@ -22,6 +22,8 @@ Evidence를 기존 Bundle과 비교하거나 신규 Draft를 작성한다.
 - Outcome 일반화 가능성
 - 후보 Bundle의 `status`, Owner, review 요청 상태
 - 후보의 제목·요약과 Evidence 제목·intended use 간 의미 관련성, 그리고 적합한 Bundle type
+- Evidence 본문·excerpt·생성할 Bundle 내용을 읽을 때 자격증명·PII 평문과 문맥상 재식별 가능성을 다시 확인
+- Evidence PII Scan 증빙과 마스킹 상태가 실제 원문 checksum에 대응하는지 확인
 
 ## Gates
 
@@ -29,6 +31,7 @@ Evidence를 기존 Bundle과 비교하거나 신규 Draft를 작성한다.
 - Evidence 참조와 source UUID
 - 기존 Bundle 갱신 시 expected revision 일치
 - Draft 후보를 정식 검토 대상으로 넘길 Owner 존재
+- 마스킹 재확인과 Evidence PII Scan 증빙 통과; 증빙이 없거나 의심 값이 남으면 Draft 생성·revision 적용 차단
 
 ## Output
 
@@ -39,10 +42,13 @@ Evidence를 기존 Bundle과 비교하거나 신규 Draft를 작성한다.
 
 ## Failure State
 
-Evidence를 `needs_review`로 유지하고 상충·근거 부족·Owner 부재를 기록한다.
+Evidence를 `needs_review`로 유지하고 상충·근거 부족·Owner 부재를 기록한다. 민감정보 문제는 실제 값을 복사하지 않고
+범주·영향 경로·필요한 보안 검토만 기록한다.
 
 ## Prohibited
 
 - 검토 없이 active 승격
 - 한 번의 Outcome 자동 일반화
 - Evidence 원문 변경
+- Evidence의 평문 자격증명·PII를 Bundle·요약·제안·로그에 복사
+- Scan Receipt 없이 마스킹 확인만으로 Evidence가 발행 가능하다고 판단

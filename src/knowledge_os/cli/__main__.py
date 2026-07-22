@@ -137,6 +137,14 @@ def main() -> int:
     ingest.add_argument("--sensitivity-review", choices=("completed", "required", "not_applicable"), default="required")
     ingest.add_argument("--idempotency-key")
     ingest.add_argument("--content-mode", choices=("external_file", "embedded"), default="external_file")
+    pii_scan = subparsers.add_parser("record-evidence-pii-scan")
+    pii_scan.add_argument("--evidence", required=True)
+    pii_scan.add_argument("--scanner", required=True)
+    pii_scan.add_argument("--scanner-version", required=True)
+    pii_scan.add_argument("--result", choices=("passed", "masked", "needs_review"), required=True)
+    pii_scan.add_argument("--reviewed-by", required=True)
+    pii_scan.add_argument("--receipt", required=True)
+    pii_scan.add_argument("--scanned-at")
     capture = subparsers.add_parser("capture-conversation")
     capture.add_argument("--provider", required=True)
     capture.add_argument("--file", required=True, help="UTF-8 Markdown transcript to capture")
@@ -386,6 +394,7 @@ def main() -> int:
     if args.command == "operational-preflight":
         project = project_root()
         required_assets = (
+            ".circled-wiki/manifest.json",
             ".circled-wiki/OPERATING_RULES.md",
             ".circled-wiki/AGENT_BOOTSTRAP.md",
             ".circled-wiki/AUTONOMOUS_AGENT_STARTUP.md",
@@ -399,14 +408,23 @@ def main() -> int:
             if path.name != "README.md"
         )
         from knowledge_os.config.settings import load_settings
+        from knowledge_os.core.namespace import inspect_organization_namespace
+        from knowledge_os.core.preflight import inspect_runtime_provenance
         settings = load_settings(project)
+        namespace = inspect_organization_namespace(root, settings.organization_id)
+        runtime = inspect_runtime_provenance(project)
         graph_path = project / settings.graphify.graph_path
         graph_command = shutil.which(settings.graphify.command)
         graphify_ready = (
             not settings.graphify.enabled
             or (graph_command is not None and graph_path.is_file())
         )
-        base_ready = not missing and bool(profiles)
+        base_ready = bool(
+            not missing
+            and profiles
+            and namespace["compatible"]
+            and runtime["compatible"]
+        )
         result = {
             "ready": base_ready and graphify_ready,
             "project_root": project.name,
@@ -415,6 +433,8 @@ def main() -> int:
             "organization_id": settings.organization_id,
             "organization_name": settings.organization_name,
             "operator_agent": settings.operator_agent,
+            "organization_namespace": namespace,
+            "runtime": runtime,
             "graphify": {
                 "enabled": settings.graphify.enabled,
                 "ready": graphify_ready,
@@ -428,6 +448,10 @@ def main() -> int:
                 if base_ready and graphify_ready
                 else "install/build Graphify separately or disable it in .circled-wiki/config.yaml"
                 if base_ready and settings.graphify.enabled
+                else "restore the immutable organization.id before operating it"
+                if not namespace["compatible"]
+                else "repair or upgrade the canonical Circled Wiki runtime before operating it"
+                if not runtime["compatible"]
                 else "repair or upgrade Knowledge OS before operating it"
             ),
         }
@@ -448,9 +472,17 @@ def main() -> int:
             sensitivity_review=args.sensitivity_review,
             idempotency_key=args.idempotency_key,
             content_mode=args.content_mode,
-            pii_scanned=args.sensitivity_review == "completed",
+            # Sensitivity review cannot automatically attest an Evidence PII Scan.
+            pii_scanned=False,
         )
         print(result.evidence_id); return 0
+    if args.command == "record-evidence-pii-scan":
+        print(json.dumps(service.record_evidence_pii_scan(
+            args.evidence, scanner=args.scanner,
+            scanner_version=args.scanner_version, result=args.result,
+            reviewed_by=args.reviewed_by, receipt=args.receipt,
+            scanned_at=args.scanned_at,
+        ), ensure_ascii=False, indent=2)); return 0
     if args.command == "capture-conversation":
         content = Path(args.file).read_text(encoding="utf-8")
         try:

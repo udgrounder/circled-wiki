@@ -218,7 +218,8 @@ def ingest_accepted_inbox(knowledge_root: Path, limit: int = 100) -> Dict[str, o
                 idempotency_key=str(data["idempotency_key"]),
                 content_mode="external_file" if is_file else "embedded",
                 capture_fidelity="verbatim",
-                pii_scanned=data.get("sensitivity_review") == "completed",
+                # Inbox review and masking checks do not prove an Evidence PII Scan.
+                pii_scanned=False,
                 capture_details=(
                     capture_details if data.get("content_type") == "conversation" and isinstance(capture_details, dict) else None
                 ),

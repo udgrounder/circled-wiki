@@ -13,9 +13,8 @@ import shutil
 from typing import Any, Callable, Dict, Iterator, List, Optional
 from uuid import uuid4
 
-from knowledge_os.config.settings import organization_id_for
-
 from .frontmatter import parse_markdown, render_markdown
+from .namespace import require_stable_organization_id
 from .evidence import (
     ORIGINAL_CONTENT_END,
     ORIGINAL_CONTENT_START,
@@ -415,6 +414,7 @@ def ingest_evidence(
     if capture_details is not None and not isinstance(capture_details, dict):
         raise ValueError("capture_details must be an object")
 
+    organization_id = require_stable_organization_id(knowledge_root)
     source_checksum = _sha256(source_path)
     if idempotency_key is not None:
         for manifest_path in sorted((knowledge_root / "evidence").rglob("*.md")):
@@ -461,7 +461,6 @@ def ingest_evidence(
     original_name = f"{name}_{source_uuid}{raw_path.suffix.lower()}"
     original_path = evidence_root / original_name
     manifest_path = evidence_root / f"{name}_{source_uuid}.md"
-    organization_id = organization_id_for(knowledge_root)
     evidence_id = f"evidence://{organization_id}/{provider}/{date_path}/{source_uuid}"
     timestamp = now.isoformat(timespec="seconds")
     source_ref = {
@@ -582,6 +581,7 @@ def capture_conversation(
     if not isinstance(idempotency_key, str) or not idempotency_key.strip() or len(idempotency_key) > 200:
         raise ValueError("idempotency_key must be a non-empty string up to 200 characters")
 
+    organization_id = require_stable_organization_id(knowledge_root)
     checksum = _content_checksum(content)
     ingested = _reuse_ingested_capture(
         knowledge_root, provider, idempotency_key.strip(), checksum
@@ -620,7 +620,6 @@ def capture_conversation(
     if artifacts:
         details["artifacts"] = artifacts
     now = captured_at or datetime.now(timezone.utc)
-    organization_id = organization_id_for(knowledge_root)
     intake_id = f"inbox://{organization_id}/{provider}/{intake_uuid}"
     frontmatter = {
         "type": "inbox_item",
@@ -686,6 +685,7 @@ def capture_document(
         raise ValueError("capture_details must be an object")
     if not isinstance(idempotency_key, str) or not idempotency_key.strip() or len(idempotency_key) > 200:
         raise ValueError("idempotency_key must be a non-empty string up to 200 characters")
+    organization_id = require_stable_organization_id(knowledge_root)
     checksum = _content_checksum(content)
     ingested = _reuse_ingested_capture(
         knowledge_root, provider, idempotency_key.strip(), checksum
@@ -709,7 +709,6 @@ def capture_document(
         return CaptureResult(str(existing["id"]), existing_path, checksum, True)
     intake_uuid = str(uuid4())
     now = captured_at or datetime.now(timezone.utc)
-    organization_id = organization_id_for(knowledge_root)
     intake_id = f"inbox://{organization_id}/{provider}/{intake_uuid}"
     path = inbox_root / f"{_slug(title)}-{intake_uuid}.md"
     frontmatter = {
@@ -770,6 +769,7 @@ def capture_file(
         raise ValueError("captured_from is invalid")
     if sensitivity_review not in {"completed", "required", "not_applicable"}:
         raise ValueError("sensitivity_review is invalid")
+    organization_id = require_stable_organization_id(knowledge_root)
     checksum = "sha256:" + hashlib.sha256(payload).hexdigest()
     ingested = _reuse_ingested_capture(
         knowledge_root, provider, idempotency_key.strip(), checksum
@@ -795,7 +795,6 @@ def capture_file(
     payload_name = f"{_slug(Path(original_filename).stem)}-{intake_uuid}{suffix}"
     payload_path = inbox_root / payload_name
     payload_path.write_bytes(payload)
-    organization_id = organization_id_for(knowledge_root)
     intake_id = f"inbox://{organization_id}/{provider}/{intake_uuid}"
     envelope = inbox_root / f"{_slug(Path(original_filename).stem)}-{intake_uuid}.inbox.md"
     frontmatter = {

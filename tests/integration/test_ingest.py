@@ -276,7 +276,7 @@ class IngestEvidenceTests(unittest.TestCase):
                 evidence.frontmatter["extensions"]["checksum_scope"], "original_content"
             )
             self.assertEqual(evidence.frontmatter["extensions"]["capture_fidelity"], "verbatim")
-            self.assertTrue(evidence.frontmatter["extensions"]["pii_scanned"])
+            self.assertFalse(evidence.frontmatter["extensions"]["pii_scanned"])
             self.assertIn(content, evidence.body)
             self.assertEqual(validate_repository(knowledge_root)[0].profile_errors, [])
 

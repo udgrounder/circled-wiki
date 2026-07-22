@@ -23,12 +23,17 @@ BACKUP_ROOT = ".circled-wiki-backups"
 AGENT_ENTRYPOINT_PATH = "AGENTS.md"
 CLAUDE_ENTRYPOINT_PATH = "CLAUDE.md"
 HERMES_ENTRYPOINT_PATH = "HERMES.md"
+GITIGNORE_PATH = ".gitignore"
+GITIGNORE_TEMPLATE_PATH = f"{CONTROL_PLANE}/templates/.gitignore"
 OPERATING_RULES_REFERENCE = f"{CONTROL_PLANE}/OPERATING_RULES.md"
 MANAGED_DIRECTORIES = (
     f"{CONTROL_PLANE}/agent-rules", f"{CONTROL_PLANE}/templates", f"{CONTROL_PLANE}/policies",
     f"{CONTROL_PLANE}/schemas", f"{CONTROL_PLANE}/bin", f"{CONTROL_PLANE}/runtime",
     f"{CONTROL_PLANE}/issues", f"{CONTROL_PLANE}/proposals", f"{CONTROL_PLANE}/history",
 )
+GITIGNORE_BEGIN = "# BEGIN circled-wiki:generated-artifacts"
+GITIGNORE_END = "# END circled-wiki:generated-artifacts"
+LEGACY_GITIGNORE_MARKER = "# circled-wiki:generated-artifacts"
 
 
 def _checksum(content: bytes) -> str:
@@ -111,6 +116,80 @@ def _hermes_entrypoint_action(path: Path) -> str:
     if f"{CONTROL_PLANE}/AUTONOMOUS_AGENT_STARTUP.md" in content:
         return "preserve_existing"
     return "append_operating_reference"
+
+
+def _load_gitignore_template(source_root: Path) -> tuple[str, List[str]]:
+    template = source_root / GITIGNORE_TEMPLATE_PATH
+    if not template.is_file():
+        raise ValueError(f"Circled Wiki Git ignore template is missing: {GITIGNORE_TEMPLATE_PATH}")
+    content = template.read_text(encoding="utf-8")
+    region = _gitignore_region(content)
+    if content.strip() != region:
+        raise ValueError("Circled Wiki Git ignore template must contain only the managed region")
+    block = region + "\n"
+    patterns = [
+        line
+        for line in region.splitlines()
+        if line and not line.startswith("#")
+    ]
+    if not patterns:
+        raise ValueError("Circled Wiki Git ignore template must contain at least one pattern")
+    return block, patterns
+
+
+def _gitignore_action(path: Path, desired_block: str) -> str:
+    if not path.exists():
+        return "create"
+    content = path.read_text(encoding="utf-8")
+    if GITIGNORE_BEGIN in content or GITIGNORE_END in content:
+        current = _gitignore_region(content)
+        return "preserve_existing" if current == desired_block.rstrip("\n") else "replace_generated_artifacts"
+    if LEGACY_GITIGNORE_MARKER in content:
+        return "migrate_legacy_generated_artifacts"
+    return "append_generated_artifacts"
+
+
+def _gitignore_region(content: str) -> str:
+    if content.count(GITIGNORE_BEGIN) != 1 or content.count(GITIGNORE_END) != 1:
+        raise ValueError(".gitignore Circled Wiki managed region markers are incomplete or duplicated")
+    start = content.index(GITIGNORE_BEGIN)
+    end = content.index(GITIGNORE_END, start) + len(GITIGNORE_END)
+    return content[start:end]
+
+
+def _gitignore_missing_patterns(path: Path, desired_patterns: List[str]) -> List[str]:
+    if not path.is_file():
+        return list(desired_patterns)
+    content = path.read_text(encoding="utf-8")
+    if GITIGNORE_BEGIN in content or GITIGNORE_END in content:
+        current_lines = set(_gitignore_region(content).splitlines())
+    elif LEGACY_GITIGNORE_MARKER in content:
+        current_lines = set(_legacy_gitignore_region(content).splitlines())
+    else:
+        current_lines = set()
+    return [pattern for pattern in desired_patterns if pattern not in current_lines]
+
+
+def _legacy_gitignore_region(content: str) -> str:
+    start = content.index(LEGACY_GITIGNORE_MARKER)
+    remainder = content[start:]
+    end = remainder.find("\n\n")
+    return remainder if end == -1 else remainder[:end]
+
+
+def _render_gitignore(content: str, desired_block: str) -> str:
+    if GITIGNORE_BEGIN in content or GITIGNORE_END in content:
+        current = _gitignore_region(content)
+        return content.replace(current, desired_block.rstrip("\n"), 1)
+    if LEGACY_GITIGNORE_MARKER in content:
+        current = _legacy_gitignore_region(content)
+        return content.replace(current, desired_block.rstrip("\n"), 1)
+    prefix = content
+    if prefix and not prefix.endswith("\n"):
+        prefix += "\n"
+    if prefix and not prefix.endswith("\n\n"):
+        prefix += "\n"
+    return prefix + desired_block
 
 
 def _backup_operating_system(target: Path, release: str, control_plane: Path) -> Path:
@@ -228,6 +307,10 @@ def bootstrap_knowledge_root(
     claude_entrypoint_action = _claude_entrypoint_action(claude_entrypoint)
     hermes_entrypoint = target / HERMES_ENTRYPOINT_PATH
     hermes_entrypoint_action = _hermes_entrypoint_action(hermes_entrypoint)
+    gitignore = target / GITIGNORE_PATH
+    gitignore_block, gitignore_patterns = _load_gitignore_template(source_root)
+    gitignore_action = _gitignore_action(gitignore, gitignore_block)
+    gitignore_missing_patterns = _gitignore_missing_patterns(gitignore, gitignore_patterns)
     config_path = target / CONTROL_PLANE / "config.yaml"
     configuration_action = "preserve_existing" if config_path.exists() else "create"
     configuration = render_settings(
@@ -359,6 +442,15 @@ def bootstrap_knowledge_root(
                 if not hermes_entrypoint.read_text(encoding="utf-8").endswith("\n"):
                     output.write("\n")
                 output.write("\n" + _hermes_entrypoint_reference_block())
+        if gitignore_action == "create":
+            gitignore.write_text(gitignore_block, encoding="utf-8")
+        elif gitignore_action in {
+            "append_generated_artifacts",
+            "replace_generated_artifacts",
+            "migrate_legacy_generated_artifacts",
+        }:
+            current = gitignore.read_text(encoding="utf-8") if gitignore.is_file() else ""
+            gitignore.write_text(_render_gitignore(current, gitignore_block), encoding="utf-8")
     states = ("create", "upgrade", "preserve_existing", "unchanged", "preserve_and_propose")
     return {"target": str(target), "applied": apply, "actions": actions,
             "knowledge_action": knowledge_action,
@@ -366,6 +458,8 @@ def bootstrap_knowledge_root(
             "agent_entrypoint_action": agent_entrypoint_action,
             "claude_entrypoint_action": claude_entrypoint_action,
             "hermes_entrypoint_action": hermes_entrypoint_action,
+            "gitignore_action": gitignore_action,
+            "gitignore_missing_patterns": gitignore_missing_patterns,
             "configuration_action": configuration_action,
             "configuration": configuration_report,
             "legacy_migration_required": legacy_migration_required,

@@ -1,13 +1,25 @@
 .DS_Store
-.obsidian/workspace.json
-.obsidian/workspaces.json
-.obsidian/cache/
-.obsidian/plugins/*/data.json
 *.swp
 *.swo
 .venv/
 .runtime/
 graphify-out/
+
+# BEGIN circled-wiki:generated-artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+.temp/
+.circled-wiki-backups/
+**/.obsidian/workspace.json
+**/.obsidian/workspaces.json
+**/.obsidian/graph.json
+**/.obsidian/cache/
+**/.obsidian/plugins/*/data.json
+# END circled-wiki:generated-artifacts
 
 # .raw is an operational staging/quarantine area and can contain sensitive originals.
 # Keep only its explanatory index under version control.

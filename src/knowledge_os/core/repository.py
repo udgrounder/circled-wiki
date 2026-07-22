@@ -7,10 +7,11 @@ import re
 from typing import Any, Dict, Optional
 from uuid import uuid4
 
-from knowledge_os.config.settings import organization_id_for
+from knowledge_os.config.settings import load_settings
 
 from .frontmatter import parse_markdown, render_markdown
 from .models import MarkdownDocument
+from .namespace import require_stable_organization_id
 from .validator import validate_document, validate_repository
 
 
@@ -45,7 +46,10 @@ def create_bundle(
     if evidence is None or evidence.frontmatter.get("type") != "evidence":
         raise ValueError("evidence_id must refer to an existing Evidence Record")
     bundle_uuid = str(uuid4())
-    organization_id = organization_id_for(knowledge_root)
+    settings = load_settings(knowledge_root.resolve().parent)
+    organization_id = require_stable_organization_id(
+        knowledge_root, settings.organization_id
+    )
     bundle_id = f"knowledge://{organization_id}/{domain}/{slug}_{bundle_uuid}"
     bundle_directory = knowledge_root / "bundles" / domain
     if bundle_type == "runbook":
@@ -56,7 +60,7 @@ def create_bundle(
     data = {
         "type": bundle_type, "id": bundle_id, "bundle_uuid": bundle_uuid, "title": title,
         "status": "draft", "summary": summary, "updated_at": now, "evidence": [evidence_id],
-        "owners": [],
+        "owners": list(settings.workflow.default_owners),
         "extensions": {
             "source_uuids": [evidence.frontmatter["source_uuid"]],
             "curated_by": curated_by,

@@ -8,6 +8,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from knowledge_os.cli.__main__ import _bootstrap_configuration, _resolve_capture_file, run_cli
+from knowledge_os.config.settings import render_settings
 
 
 class CliTests(unittest.TestCase):
@@ -91,6 +92,44 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["error"], "operation_failed")
         self.assertEqual(payload["stage"], "find-workflow")
         self.assertIn("the following arguments are required: --request", payload["message"])
+
+    def test_operational_preflight_blocks_changed_organization_namespace(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            for relative in (
+                ".circled-wiki/OPERATING_RULES.md",
+                ".circled-wiki/AGENT_BOOTSTRAP.md",
+                ".circled-wiki/AUTONOMOUS_AGENT_STARTUP.md",
+                ".circled-wiki/bin/knowledge-os.py",
+                ".circled-wiki/runtime/knowledge_os/__init__.py",
+                ".circled-wiki/agent-rules/knowledge-query.md",
+            ):
+                path = project / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("managed asset\n", encoding="utf-8")
+            (project / ".circled-wiki" / "config.yaml").write_text(
+                render_settings(organization_id="beta", organization_name="Beta"),
+                encoding="utf-8",
+            )
+            inbox = project / "knowledge" / "inbox" / "manual" / "existing.md"
+            inbox.parent.mkdir(parents=True)
+            inbox.write_text(
+                "---\ntype: inbox_item\nid: inbox://acme/manual/existing\n---\n",
+                encoding="utf-8",
+            )
+            output = io.StringIO()
+
+            with patch("sys.argv", ["knowledge-os", "operational-preflight"]):
+                with patch("knowledge_os.cli.__main__.project_root", return_value=project):
+                    with patch("sys.stdout", output):
+                        status = run_cli()
+
+        payload = json.loads(output.getvalue())
+        self.assertEqual(status, 1)
+        self.assertFalse(payload["ready"])
+        self.assertFalse(payload["organization_namespace"]["compatible"])
+        self.assertEqual(payload["organization_namespace"]["observed_ids"], ["acme"])
+        self.assertIn("restore the immutable organization.id", payload["next_action"])
 
 
 if __name__ == "__main__":

@@ -29,6 +29,9 @@ class McpServerTests(unittest.TestCase):
     def test_audit_is_available_in_read_only_mode(self):
         names = {tool["name"] for tool in available_tools("read_only")}
         self.assertIn("audit_knowledge", names)
+        self.assertNotIn("record_evidence_pii_scan", names)
+        operator_names = {tool["name"] for tool in available_tools("operator")}
+        self.assertIn("record_evidence_pii_scan", operator_names)
 
     def test_initialize_uses_configured_organization_name(self):
         with tempfile.TemporaryDirectory() as directory:

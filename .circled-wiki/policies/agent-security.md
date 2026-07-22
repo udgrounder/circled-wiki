@@ -44,7 +44,7 @@ Evidence도 제한으로 지정한다.
 
 1. `validate`가 OKF/Profile 오류 없이 통과한다.
 2. Bundle과 Evidence의 양방향 참조가 유지된다.
-3. `restricted` 여부와 Evidence PII Scan 상태를 사람이 또는 Hermes가 검토한다. Git 추적 Evidence는 `extensions.pii_scanned: true`가 아니면 자동 commit을 차단한다.
+3. `restricted` 여부와 Evidence PII Scan 상태를 사람이 또는 Hermes가 검토한다. Git 추적 Evidence는 `extensions.pii_scanned: true`와 현재 checksum에 결합된 유효한 `extensions.pii_scan` 영수증이 모두 없으면 자동 commit을 차단한다.
 4. 원문 URL이 있으면 Bundle/MCP 응답에서 그것을 1차 근거로 표시하고, 로컬 Evidence는 보존·검증용 보조 근거로 표시한다.
 5. 변경 내용, 승인자, 실행 결과를 운영 로그에 남긴다.
 

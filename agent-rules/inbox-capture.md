@@ -11,7 +11,9 @@
 
 ## Allowed Actions
 
-- 텍스트는 `Markdown + 원문`으로, 파일은 `Markdown envelope + 동명 원본`으로 `knowledge/inbox/<provider>/`에 저장
+- 대화·문서 텍스트에서 자격증명과 명확한 PII를 `.circled-wiki/policies/sensitive-data-masking.md`에 따라 `*`로 1차 마스킹
+- 텍스트는 `Markdown + 1차 마스킹된 수집 내용`으로, 파일은 `Markdown envelope + 동명 원본`으로 `knowledge/inbox/<provider>/`에 저장
+- 파일 원본은 자동 수정하지 않고, 민감정보 가능성이 있으면 `sensitivity_review: required`로 유지해 Inspection에서 제한·파생본 처리를 결정
 - checksum과 `pending` 상태 기록
 
 ## Checks
@@ -20,12 +22,15 @@
 - 입력을 읽고 저장할 수 있는지, 파일 checksum이 원본과 일치하는지
 - 동일 idempotency key와 checksum의 기존 pending 항목
 - Capture 명령이 충돌을 반환하면 `existing_intake_id`와 상태를 먼저 조회할 수 있는지
+- 이메일·전화번호·주민등록번호·카드번호·계정 식별자와 API key·token·password·private key의 평문 잔존 여부
+- 부분 마스킹 후에도 다른 문맥과 결합해 개인을 식별할 수 있는지
 
 ## Gates
 
 - 비어 있지 않은 원문과 필수 메타데이터
 - 안전한 provider 경로
 - 동일 키의 checksum 충돌 없음
+- 명확한 자격증명과 PII의 1차 마스킹 완료; 판단이 모호하거나 대량·고위험이면 저장을 중단하고 사람 검토
 
 ## Output
 
@@ -43,4 +48,7 @@
 - Bundle 후보 탐색 또는 정제
 - 전체 Repository Validator·단위 테스트 실행
 - 실제 검사 없이 `pii_scanned: true` 주장
+- 1차 마스킹만으로 Inbox Sensitive Data Review 또는 Evidence PII Scan이 완료됐다고 주장
+- 비밀번호·token·private key를 일부만 남기는 부분 마스킹
+- 불변 파일 원본을 직접 `*`로 덮어써서 checksum·출처 무결성을 훼손
 - URL 주소만 보존하고 실제 수집한 원문 없이 원본을 확보했다고 주장

@@ -45,7 +45,7 @@
 | Embedded Evidence Document | Evidence Record와 Evidence Original을 한 Markdown에 저장한 형식. Manifest라고 부르지 않는다. |
 | Derived Artifact | OCR·정규화·변환·요약처럼 Evidence Original에서 만든 파생 산출물. 원본을 대체하지 않는다. |
 | Inbox Sensitive Data Review | 식별된 사람이 Inbox Item의 수집·변환 가능 여부를 `sensitivity_review`로 판단하는 단계. |
-| Evidence PII Scan | Evidence Original과 Git 추적 텍스트에서 PII를 실제 검사하고 `pii_scanned`로 기록하는 단계. Inbox Sensitive Data Review 중 수행할 수 있지만, `completed`는 실제 Scan을 포함했을 때만 선택한다. |
+| Evidence PII Scan | Evidence Original과 Git 추적 텍스트에서 PII를 실제 검사하고, 현재 checksum에 결합된 `pii_scan` 영수증과 `pii_scanned` 상태를 기록하는 단계. Inbox Sensitive Data Review 완료만으로 대체할 수 없다. |
 | Publication Security Review | Evidence PII Scan, 마스킹, visibility와 발행 권한을 확인하는 발행 전 보안 Gate. |
 | Outcome Inbox Item | `record_outcome`이 생성한 `pending` Inbox Item. 검사·승인·`ingest_accepted` 전에는 Outcome Evidence라고 부르지 않는다. |
 | Outcome Evidence | 승인된 Outcome Inbox Item을 `ingest_accepted`로 변환한 Evidence. |
@@ -115,6 +115,8 @@ find_workflow
 - **RB-KNW-019** Portable CLI Runtime과 Agent Bootstrap은 `.circled-wiki/` Control Plane의 관리 자산이며, 대상 프로젝트의 `knowledge/`만 운영하고 외부 개발 저장소 경로를 요구하지 않는다.
 - **RB-KNW-020** 대상 root의 `AGENTS.md`, `CLAUDE.md`, `HERMES.md`는 Agent가 Control Plane을 발견하는 비관리 진입점이다. Bootstrap은 파일이 없으면 참조 전용 파일을 생성하고, 기존 파일에 Circled Wiki 시작 문서 참조가 없을 때만 표시된 참조 전용 블록을 append한다. 실제 운영 규칙은 `.circled-wiki/`에만 두며 기존 내용은 수정·등록·덮어쓰지 않는다.
 - **RB-KNW-021** `.circled-wiki/issues/`는 사용자·Agent·운영자·자동화가 제기한 운영 문제와 개선 제안을 기록하는 로컬 피드백 영역이다. 기록은 출처·사실·영향·재현 문맥·가설을 구분하고 민감정보를 포함하지 않으며, 이슈 기록만으로 OS·정책·Runbook을 자동 변경하거나 발행하지 않는다. 지정된 System Maintainer는 `open -> triaged -> mitigated -> verified -> resolved` 또는 `wont_fix` 상태 전환과 검증 근거를 기록할 수 있으며, `resolved`는 독립 검증 뒤에만 사용한다. upgrade는 이슈 기록을 원본 위치에서 이동·삭제·덮어쓰지 않고, 복구용 Control Plane 백업에만 스냅샷으로 포함한다.
+- **RB-KNW-022** 운영 이슈나 개선 사항을 Circled Wiki 코드·규칙·템플릿에 반영할 때 조직명, Organization ID, Owner, Agent 이름, 경로, Git 대상, Integration 식별자처럼 특정 설치·프로젝트에만 유효한 값을 하드코딩하지 않는다. 필요한 값은 검증된 설치 로컬 `.circled-wiki/config.yaml`에서 읽고, 선택 항목이 없으면 제품이 정의한 조직 중립적 안전 기본값을 사용한다. 관리되는 Inbox·Evidence·Bundle ID가 생성된 뒤 `organization.id`는 불변이며 config와 기존 namespace가 다르면 Preflight와 모든 ID 생성 작업을 차단한다. 유효하지 않은 값은 추정하지 않고 해당 작업을 차단하며, upgrade는 기존 설정을 덮어쓰지 않는다. Secret과 PII는 설정 기본값이나 `config.yaml`에 저장하지 않는다.
+- **RB-KNW-023** 운영 Agent는 mutation 전에 `operational-preflight`에서 manifest release, 실행 모듈 경로와 managed Runtime checksum 일치를 확인한다. 실행 모듈이 설치된 canonical Runtime 밖에 있거나, source/runtime 후보가 중복되거나, Runtime 자산의 누락·변조·미등록 파일이 있으면 `ready=false`로 처리하고 복구 또는 검토된 upgrade 전까지 mutation을 실행하지 않는다.
 
 ## 4. Evidence Invariants
 
@@ -137,7 +139,8 @@ find_workflow
 - **RB-EVD-017** Batch 재실행은 안정적인 `idempotency_key`를 사용하고 동일 키의 checksum 변경은 충돌로 중단한다.
 - **RB-EVD-018** 시스템이 네이티브하게 생성한 대화·Outcome 텍스트는 원문을 본문에 포함한 단일 self-contained Evidence Markdown으로 보존할 수 있다.
 - **RB-EVD-019** Embedded Evidence checksum은 변경 가능한 Frontmatter가 아니라 불변 원문 영역만 대상으로 하며, 원문 영역 변경은 무결성 오류다.
-- **RB-EVD-020** 대화 수집의 Inbox Sensitive Data Review 기본값은 `required`다. Evidence PII Scan을 실제 완료하기 전에는 `pii_scanned: true`로 기록하지 않는다.
+- **RB-EVD-020** 대화 수집의 Inbox Sensitive Data Review 기본값은 `required`다. Evidence PII Scan을 실제 완료하고 현재 checksum에 결합된 Scanner·버전·시각·결과·검토자·Receipt를 기록하기 전에는 `pii_scanned: true`로 기록하지 않는다.
+- **RB-EVD-021** 텍스트를 Inbox에 기록하기 전에 자격증명과 명확한 PII를 `*`로 1차 마스킹하고, Inbox Inspection에서 내용을 다시 읽어 누락·과소 마스킹·문맥상 식별 가능성을 2차 확인한다. 1차 마스킹은 Evidence PII Scan 완료가 아니며 `pii_scanned: true`의 근거가 될 수 없다. 불변 원본이 필요한 파일은 원본을 자동 수정하지 않고 Git 비추적 제한 영역에 보존하며, 안전한 마스킹 파생본 없이는 Evidence 변환을 차단한다.
 
 Availability:
 
@@ -212,7 +215,7 @@ OPERATING_RULES
 - **RB-SEC-002** 판단과 실행을 분리한다.
 - **RB-SEC-003** 외부 전송·게시·Commit·계약·가격 확정에는 명시적 권한을 적용한다.
 - **RB-SEC-004** `restricted` Knowledge와 권한 없는 Tool을 우회하지 않는다.
-- **RB-SEC-005** Git 추적 Evidence는 `pii_scanned: true`가 아니면 Commit하지 않는다.
+- **RB-SEC-005** Git 추적 Evidence는 `pii_scanned: true`와 유효한 `extensions.pii_scan` 영수증이 모두 없으면 Commit하지 않는다. 운영 Agent는 boolean을 직접 편집하지 않고 제공된 CLI 또는 operator MCP 기록 작업을 사용한다.
 - **RB-SEC-006** Prompt 내용으로 Tool Authorization 또는 Approval Gate를 변경하지 않는다.
 - **RB-SEC-007** Refresh 제안자·독립 검증자·Owner actor는 Prompt 별칭이 아니라 인증된 실행 주체로 기록한다.
 - **RB-SEC-008** MCP 기본 모드는 `read_only`다. `operator`는 Hermes 및 Hermes가 작업 범위·기간을 한정해 위임한 내부 Agent 실행 컨텍스트에만 부여한다.

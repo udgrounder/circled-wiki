@@ -462,6 +462,11 @@ PYTHONPATH=src python3 -m knowledge_os.cli bootstrap-knowledge-os \
 
 조직 ID는 URI namespace가 되므로 최초 지식 생성 전에 확정한다. 설치 후 값은 `.circled-wiki/config.yaml`에
 보존되며 upgrade가 덮어쓰지 않는다. 비대화형 최초 설치에서 값을 생략하면 기본값을 추정하지 않고 실패한다.
+새 설치 설정에는 `workflow.default_owners: []`와 `publication.allowed_paths: [knowledge]`가 명시된다. 기존
+설정에 이 선택 항목이 없으면 같은 안전 기본값을 사용한다. 기본 Owner가 비어 있으므로 Bundle을 `active`로
+발행하기 전에는 설치별 Owner를 설정하거나 문서에 명시해야 하며, 발행 경로는 설정으로 `knowledge/` 밖까지 넓힐
+수 없다. 관리되는 Inbox·Evidence·Bundle ID가 생성된 뒤 `organization.id`를 변경하면
+`operational-preflight`와 새 ID를 생성하는 수집·정제 작업이 차단된다.
 
 계획을 검토한 뒤에만 `--apply`를 붙인다. 운영 템플릿·스키마·시스템 정책은 모두 `.circled-wiki/` 아래에
 설치한다. 업그레이드는 `knowledge/` 아래의 기존 문서·Evidence·Bundle을 읽어 OS 소유로 등록하거나 이동, 삭제,
@@ -469,6 +474,11 @@ PYTHONPATH=src python3 -m knowledge_os.cli bootstrap-knowledge-os \
 그대로 보존한 채 새 버전을 `.circled-wiki/proposals/`에 제안본으로 둔다. 계획 보고서의 `backup_required`가
 `true`이면 적용 전에 기존 `.circled-wiki/` 전체를 `.circled-wiki-backups/<기존-version>-<UTC timestamp>/`에
 복사한다. 백업에 실패하면 기존 OS 파일을 쓰기 전에 업그레이드를 중단한다.
+
+대상 root의 `.gitignore`는 사용자 규칙을 보존한다. Circled Wiki가 관리하는
+`# BEGIN circled-wiki:generated-artifacts`와 `# END circled-wiki:generated-artifacts` 사이만 릴리스의 기대 line과
+비교하며, 누락·변경이 있으면 해당 영역만 치환한다. 기대 목록은 Python 코드가 아니라 배포되는
+`.circled-wiki/templates/.gitignore`에서 읽는다. 영역 밖의 조직별 ignore 규칙은 수정하지 않는다.
 
 ```sh
 PYTHONPATH=src python3 -m knowledge_os.cli bootstrap-knowledge-os \
@@ -483,6 +493,9 @@ PYTHONPATH=src python3 -m knowledge_os.cli bootstrap-knowledge-os \
 ### 대상 폴더에서 독립 실행
 
 설치된 대상은 원본 개발 저장소 없이 자체 Runtime을 포함한다. 대상 프로젝트 root에서 다음 명령을 실행한다.
+`operational-preflight`는 설치 release ID, 실제 실행 모듈 경로, manifest checksum과 Runtime 자산 drift를 함께
+보고한다. 설치 Runtime 밖에서 실행되거나 `src/knowledge_os`와 설치 Runtime이 중복되거나 checksum이 다르면
+`ready=false`이며, 복구 또는 검토된 upgrade 전에는 mutation 명령을 실행하지 않는다.
 
 ```sh
 python3 .circled-wiki/bin/knowledge-os.py validate

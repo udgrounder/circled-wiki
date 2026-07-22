@@ -23,6 +23,12 @@ class BootstrapKnowledgeRootTests(unittest.TestCase):
         (root / ".circled-wiki" / "templates" / "runbook.md").write_text(
             template_content, encoding="utf-8"
         )
+        (root / ".circled-wiki" / "templates" / ".gitignore").write_text(
+            "# BEGIN circled-wiki:generated-artifacts\n"
+            "__pycache__/\n"
+            "# END circled-wiki:generated-artifacts\n",
+            encoding="utf-8",
+        )
         return root
 
     def test_refuses_to_install_into_the_source_project(self):
@@ -49,8 +55,20 @@ class BootstrapKnowledgeRootTests(unittest.TestCase):
             self.assertTrue(applied["applied"])
             self.assertTrue((target / MANIFEST_PATH).is_file())
             self.assertTrue((target / ".circled-wiki" / "OPERATING_RULES.md").is_file())
+            installed_rules = (target / ".circled-wiki" / "OPERATING_RULES.md").read_text(
+                encoding="utf-8"
+            )
+            self.assertIn("RB-KNW-022", installed_rules)
+            self.assertIn("RB-KNW-023", installed_rules)
+            self.assertIn(".circled-wiki/config.yaml", installed_rules)
+            installed_engineering_profile = (
+                target / ".circled-wiki" / "agent-rules" / "repository-engineering.md"
+            ).read_text(encoding="utf-8")
+            self.assertIn("프로젝트 한정 값", installed_engineering_profile)
+            self.assertIn("조직 중립적 안전 기본값", installed_engineering_profile)
             self.assertTrue((target / "knowledge" / "inbox").is_dir())
             self.assertTrue((target / ".circled-wiki" / "templates" / "runbook.md").is_file())
+            self.assertTrue((target / ".circled-wiki" / "templates" / ".gitignore").is_file())
             self.assertTrue((target / ".circled-wiki" / "bin" / "knowledge-os.py").is_file())
             self.assertTrue((target / ".circled-wiki" / "runtime" / "knowledge_os" / "cli" / "__main__.py").is_file())
             self.assertTrue((target / ".circled-wiki" / "AGENT_BOOTSTRAP.md").is_file())
@@ -73,10 +91,137 @@ class BootstrapKnowledgeRootTests(unittest.TestCase):
             hermes_content = (target / "HERMES.md").read_text(encoding="utf-8")
             self.assertIn(".circled-wiki/AUTONOMOUS_AGENT_STARTUP.md", hermes_content)
             self.assertEqual(applied["hermes_entrypoint_action"], "create")
+            self.assertEqual(applied["gitignore_action"], "create")
+            gitignore = (target / ".gitignore").read_text(encoding="utf-8")
+            self.assertIn("# BEGIN circled-wiki:generated-artifacts", gitignore)
+            self.assertIn("# END circled-wiki:generated-artifacts", gitignore)
+            self.assertIn(".circled-wiki-backups/", gitignore)
+            self.assertIn("**/.obsidian/graph.json", gitignore)
             self.assertEqual(applied["configuration_action"], "create")
             self.assertEqual(applied["configuration"]["organization_id"], "example-org")
+            installed_config = (target / ".circled-wiki" / "config.yaml").read_text(
+                encoding="utf-8"
+            )
+            self.assertIn("default_owners: []", installed_config)
+            self.assertIn("allowed_paths:\n  - knowledge", installed_config)
             self.assertFalse((target / ".circled-wiki-backups").exists())
             self.assertEqual(user_note.read_text(encoding="utf-8"), "사용자 원문")
+
+    def test_existing_gitignore_gets_append_only_generated_artifact_rules(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "team-knowledge"
+            target.mkdir()
+            gitignore = target / ".gitignore"
+            gitignore.write_text("team-secret-output/\n", encoding="utf-8")
+
+            first = bootstrap_knowledge_root(target, ROOT, apply=True)
+            first_content = gitignore.read_text(encoding="utf-8")
+            second = bootstrap_knowledge_root(target, ROOT, apply=True)
+
+            self.assertEqual(first["gitignore_action"], "append_generated_artifacts")
+            self.assertEqual(second["gitignore_action"], "preserve_existing")
+            self.assertTrue(first_content.startswith("team-secret-output/\n"))
+            self.assertEqual(first_content.count("# BEGIN circled-wiki:generated-artifacts"), 1)
+            self.assertEqual(first_content.count("# END circled-wiki:generated-artifacts"), 1)
+            self.assertEqual(gitignore.read_text(encoding="utf-8"), first_content)
+
+            subprocess.run(["git", "init", str(target)], check=True, capture_output=True)
+            generated = (
+                target / "src" / "knowledge_os" / "__pycache__" / "module.cpython-311.pyc"
+            )
+            generated.parent.mkdir(parents=True)
+            generated.write_bytes(b"cache")
+            backup = target / ".circled-wiki-backups" / "release" / "manifest.json"
+            backup.parent.mkdir(parents=True)
+            backup.write_text("{}", encoding="utf-8")
+            graph = target / "knowledge" / ".obsidian" / "graph.json"
+            graph.parent.mkdir(parents=True)
+            graph.write_text("{}", encoding="utf-8")
+
+            ignored = subprocess.run(
+                ["git", "-C", str(target), "check-ignore", str(generated), str(backup), str(graph)],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+            self.assertEqual(ignored.returncode, 0, ignored.stderr)
+            self.assertEqual(len(ignored.stdout.splitlines()), 3)
+
+    def test_gitignore_upgrade_replaces_only_the_managed_region_when_lines_differ(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "team-knowledge"
+            target.mkdir()
+            bootstrap_knowledge_root(target, ROOT, apply=True)
+            gitignore = target / ".gitignore"
+            content = gitignore.read_text(encoding="utf-8")
+            content = content.replace(".temp/\n", "obsolete-generated-output/\n")
+            gitignore.write_text("team-before/\n" + content + "team-after/\n", encoding="utf-8")
+
+            plan = bootstrap_knowledge_root(target, ROOT)
+            applied = bootstrap_knowledge_root(target, ROOT, apply=True)
+            updated = gitignore.read_text(encoding="utf-8")
+
+            self.assertEqual(plan["gitignore_action"], "replace_generated_artifacts")
+            self.assertEqual(plan["gitignore_missing_patterns"], [".temp/"])
+            self.assertEqual(applied["gitignore_action"], "replace_generated_artifacts")
+            self.assertTrue(updated.startswith("team-before/\n"))
+            self.assertTrue(updated.endswith("team-after/\n"))
+            self.assertIn(".temp/", updated)
+            self.assertNotIn("obsolete-generated-output/", updated)
+            self.assertEqual(updated.count("# BEGIN circled-wiki:generated-artifacts"), 1)
+            self.assertEqual(updated.count("# END circled-wiki:generated-artifacts"), 1)
+
+    def test_gitignore_upgrade_migrates_the_legacy_single_marker_block(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "team-knowledge"
+            target.mkdir()
+            gitignore = target / ".gitignore"
+            gitignore.write_text(
+                "team-before/\n\n"
+                "# circled-wiki:generated-artifacts\n"
+                "__pycache__/\n"
+                "*.pyc\n\n"
+                "team-after/\n",
+                encoding="utf-8",
+            )
+
+            report = bootstrap_knowledge_root(target, ROOT, apply=True)
+            updated = gitignore.read_text(encoding="utf-8")
+
+            self.assertEqual(report["gitignore_action"], "migrate_legacy_generated_artifacts")
+            self.assertIn("*.py[cod]", report["gitignore_missing_patterns"])
+            self.assertTrue(updated.startswith("team-before/\n"))
+            self.assertTrue(updated.endswith("team-after/\n"))
+            self.assertNotIn("# circled-wiki:generated-artifacts\n", updated)
+            self.assertIn("# BEGIN circled-wiki:generated-artifacts", updated)
+            self.assertIn("# END circled-wiki:generated-artifacts", updated)
+
+    def test_gitignore_expectations_are_read_from_the_template_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = self._make_source(root / "source", "version 1\n")
+            target = root / "target"
+            bootstrap_knowledge_root(target, source, apply=True)
+            template = source / ".circled-wiki" / "templates" / ".gitignore"
+            template.write_text(
+                template.read_text(encoding="utf-8").replace(
+                    "# END circled-wiki:generated-artifacts",
+                    "custom-generated-output/\n# END circled-wiki:generated-artifacts",
+                ),
+                encoding="utf-8",
+            )
+
+            plan = bootstrap_knowledge_root(target, source)
+            applied = bootstrap_knowledge_root(target, source, apply=True)
+
+            self.assertEqual(plan["gitignore_action"], "replace_generated_artifacts")
+            self.assertEqual(plan["gitignore_missing_patterns"], ["custom-generated-output/"])
+            self.assertEqual(applied["gitignore_action"], "replace_generated_artifacts")
+            self.assertIn(
+                "custom-generated-output/",
+                (target / ".gitignore").read_text(encoding="utf-8"),
+            )
 
     def test_first_install_writes_custom_identity_and_preserves_it_on_upgrade(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -146,6 +291,68 @@ class BootstrapKnowledgeRootTests(unittest.TestCase):
             self.assertTrue(payload["graphify"]["enabled"])
             self.assertFalse(payload["graphify"]["ready"])
             self.assertIn("Graphify", payload["next_action"])
+
+    def test_preflight_reports_release_and_blocks_runtime_checksum_drift(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "team-knowledge"
+            bootstrap_knowledge_root(target, ROOT, apply=True)
+            launcher = target / ".circled-wiki" / "bin" / "knowledge-os.py"
+
+            clean = subprocess.run(
+                [sys.executable, str(launcher), "operational-preflight"],
+                cwd=target,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            clean_payload = json.loads(clean.stdout)
+            manifest = json.loads((target / MANIFEST_PATH).read_text(encoding="utf-8"))
+
+            self.assertEqual(clean.returncode, 0, clean.stderr)
+            self.assertTrue(clean_payload["ready"])
+            self.assertTrue(clean_payload["runtime"]["compatible"])
+            self.assertEqual(clean_payload["runtime"]["release_id"], manifest["os_release"])
+            self.assertTrue(clean_payload["runtime"]["executing_canonical_runtime"])
+            self.assertGreater(clean_payload["runtime"]["runtime_asset_count"], 0)
+
+            drifted = target / ".circled-wiki" / "runtime" / "knowledge_os" / "config" / "settings.py"
+            original_runtime_content = drifted.read_text(encoding="utf-8")
+            drifted.write_text(
+                original_runtime_content + "\n# local drift\n",
+                encoding="utf-8",
+            )
+            blocked = subprocess.run(
+                [sys.executable, str(launcher), "operational-preflight"],
+                cwd=target,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            blocked_payload = json.loads(blocked.stdout)
+
+            self.assertEqual(blocked.returncode, 1)
+            self.assertFalse(blocked_payload["ready"])
+            self.assertFalse(blocked_payload["runtime"]["compatible"])
+            self.assertIn(
+                ".circled-wiki/runtime/knowledge_os/config/settings.py",
+                blocked_payload["runtime"]["mismatched_assets"],
+            )
+            self.assertIn("canonical Circled Wiki runtime", blocked_payload["next_action"])
+
+            drifted.write_text(original_runtime_content, encoding="utf-8")
+            (target / "src" / "knowledge_os").mkdir(parents=True)
+            duplicate = subprocess.run(
+                [sys.executable, str(launcher), "operational-preflight"],
+                cwd=target,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            duplicate_payload = json.loads(duplicate.stdout)
+
+            self.assertEqual(duplicate.returncode, 1)
+            self.assertTrue(duplicate_payload["runtime"]["multiple_runtime_candidates"])
+            self.assertFalse(duplicate_payload["runtime"]["compatible"])
 
     def test_existing_agent_entrypoint_without_operating_rules_gets_an_append_only_reference(self):
         with tempfile.TemporaryDirectory() as directory:
