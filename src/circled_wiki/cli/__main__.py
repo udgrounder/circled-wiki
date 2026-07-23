@@ -473,6 +473,7 @@ def main() -> int:
             ".circled-wiki/manifest.json",
             ".circled-wiki/OPERATING_RULES.md",
             ".circled-wiki/AGENT_BOOTSTRAP.md",
+            ".circled-wiki/AGENT_ROUTER.md",
             ".circled-wiki/AUTONOMOUS_AGENT_STARTUP.md",
             ".circled-wiki/config.yaml",
             ".circled-wiki/bin/circled-wiki.py",
@@ -485,10 +486,14 @@ def main() -> int:
         )
         from circled_wiki.config.settings import load_settings
         from circled_wiki.core.namespace import inspect_organization_namespace
-        from circled_wiki.core.preflight import inspect_runtime_provenance
+        from circled_wiki.core.preflight import (
+            inspect_control_plane_readiness,
+            inspect_runtime_provenance,
+        )
         settings = load_settings(project)
         namespace = inspect_organization_namespace(root, settings.organization_id)
         runtime = inspect_runtime_provenance(project)
+        control_plane = inspect_control_plane_readiness(project, profiles)
         graph_path = project / settings.graphify.graph_path
         graph_command = shutil.which(settings.graphify.command)
         graphify_ready = (
@@ -500,6 +505,7 @@ def main() -> int:
             and profiles
             and namespace["compatible"]
             and runtime["compatible"]
+            and control_plane["compatible"]
         )
         result = {
             "ready": base_ready and graphify_ready,
@@ -511,6 +517,7 @@ def main() -> int:
             "operator_agent": settings.operator_agent,
             "organization_namespace": namespace,
             "runtime": runtime,
+            "control_plane": control_plane,
             "graphify": {
                 "enabled": settings.graphify.enabled,
                 "ready": graphify_ready,
@@ -528,6 +535,10 @@ def main() -> int:
                 if not namespace["compatible"]
                 else "repair or upgrade the canonical Circled Wiki runtime before operating it"
                 if not runtime["compatible"]
+                else "review and resolve pending Control Plane proposals before mutation"
+                if control_plane["pending_proposals"]
+                else "repair Control Plane startup, Router, or launcher references before operating it"
+                if not control_plane["compatible"]
                 else "repair or upgrade Circled Wiki before operating it"
             ),
         }

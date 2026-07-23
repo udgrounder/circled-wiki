@@ -425,6 +425,7 @@ def bootstrap_circled_wiki(
     if not isinstance(previous, dict):
         raise ValueError("Circled Wiki manifest assets are invalid")
     actions: List[Dict[str, str]] = []
+    pending_proposals: List[Dict[str, str]] = []
     next_assets: Dict[str, str] = dict(previous)
     assets = _source_assets(source_root)
     writes: List[tuple[Path, bytes]] = []
@@ -439,14 +440,10 @@ def bootstrap_circled_wiki(
         elif current == desired and recorded == desired:
             action = "unchanged"; next_assets[relative] = desired
         elif current == desired:
-            # An older manifest can omit an asset which already exactly matches
-            # the release.  It is safe to adopt that file because no user
-            # content is replaced; later upgrades can now track it normally.
-            # A divergent unrecorded asset continues through the proposal path.
-            if recorded is None:
-                action = "adopt"; next_assets[relative] = desired
-            else:
-                action = "preserve_existing"
+            # The installed content already matches the current release. Adopt
+            # its checksum even when an older manifest recorded a prior
+            # revision; this is how a reviewed proposal becomes resolved.
+            action = "adopt"; next_assets[relative] = desired
         elif relative.startswith(RUNTIME_ASSET_PREFIX):
             # Runtime modules are product code, never installation-local
             # configuration.  Configuration belongs in config.yaml; retaining a
@@ -462,6 +459,11 @@ def bootstrap_circled_wiki(
             writes.append((destination, content))
         elif action == "preserve_and_propose":
             proposal = target / CONTROL_PLANE / "proposals" / f"{relative.replace('/', '__')}.new"
+            pending_proposals.append({
+                "path": relative,
+                "proposal": proposal.relative_to(target).as_posix(),
+                "checksum": desired,
+            })
             if not proposal.exists() or _checksum(proposal.read_bytes()) != desired:
                 writes.append((proposal, content))
     legacy_assets = sorted(
@@ -521,6 +523,7 @@ def bootstrap_circled_wiki(
         or previous != next_assets
         or manifest.get("runtime_profiles") != runtime_profiles
         or manifest.get("router_checksum") != router_checksum
+        or manifest.get("pending_proposals", []) != pending_proposals
     )
     directories_missing = any(not (target / directory).is_dir() for directory in MANAGED_DIRECTORIES)
     os_mutation_required = bool(
@@ -568,6 +571,7 @@ def bootstrap_circled_wiki(
                 "assets": next_assets,
                 "runtime_profiles": runtime_profiles,
                 "router_checksum": router_checksum,
+                "pending_proposals": pending_proposals,
             })
             if backup_path is not None:
                 manifest_payload["last_backup"] = backup_path.relative_to(target).as_posix()
@@ -632,6 +636,7 @@ def bootstrap_circled_wiki(
             "os_release": release,
             "runtime_profiles": runtime_profiles,
             "router_checksum": router_checksum,
+            "pending_proposals": pending_proposals,
             "agent_entrypoint_action": agent_entrypoint_action,
             "claude_entrypoint_action": claude_entrypoint_action,
             "hermes_entrypoint_action": hermes_entrypoint_action,

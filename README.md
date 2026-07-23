@@ -544,7 +544,11 @@ PYTHONPATH=src python3 -m circled_wiki.cli bootstrap-circled-wiki \
 설치된 대상은 원본 개발 저장소 없이 자체 Runtime을 포함한다. 대상 프로젝트 root에서 다음 명령을 실행한다.
 `operational-preflight`는 설치 release ID, 실제 실행 모듈 경로, manifest checksum과 Runtime 자산 drift를 함께
 보고한다. 설치 Runtime 밖에서 실행되거나 `src/circled_wiki`와 설치 Runtime이 중복되거나 checksum이 다르면
-`ready=false`이며, 복구 또는 검토된 upgrade 전에는 mutation 명령을 실행하지 않는다.
+`ready=false`이며, 복구 또는 검토된 upgrade 전에는 mutation 명령을 실행하지 않는다. Upgrade가 사용자 수정
+Control Plane을 보존하고 proposal을 만들면 manifest의 `pending_proposals`에 기록한다. 미해결 proposal이 있거나
+Agent 진입점·Router·canonical launcher 참조가 깨져 있어도 preflight는 `ready=false`로 mutation을 차단한다.
+검토자가 proposal 내용을 대상 파일에 반영한 뒤 bootstrap을 다시 적용하면 현재 release checksum을 채택하고
+해결된 proposal을 manifest 대기 목록에서 제거한다.
 
 ```sh
 python3 .circled-wiki/bin/circled-wiki.py validate

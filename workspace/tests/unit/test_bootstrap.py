@@ -349,6 +349,9 @@ class BootstrapKnowledgeRootTests(unittest.TestCase):
             self.assertEqual(clean.returncode, 0, clean.stderr)
             self.assertTrue(clean_payload["ready"])
             self.assertTrue(clean_payload["runtime"]["compatible"])
+            self.assertTrue(clean_payload["control_plane"]["compatible"])
+            self.assertEqual(clean_payload["control_plane"]["pending_proposals"], [])
+            self.assertEqual(clean_payload["control_plane"]["reference_errors"], [])
             self.assertEqual(clean_payload["runtime"]["release_id"], manifest["os_release"])
             self.assertTrue(clean_payload["runtime"]["executing_canonical_runtime"])
             self.assertGreater(clean_payload["runtime"]["runtime_asset_count"], 0)
@@ -391,6 +394,96 @@ class BootstrapKnowledgeRootTests(unittest.TestCase):
             self.assertEqual(duplicate.returncode, 1)
             self.assertTrue(duplicate_payload["runtime"]["multiple_runtime_candidates"])
             self.assertFalse(duplicate_payload["runtime"]["compatible"])
+
+    def test_preflight_blocks_pending_control_plane_proposal_until_adopted(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "team-knowledge"
+            bootstrap_circled_wiki(target, ROOT, apply=True)
+            startup = target / ".circled-wiki" / "AUTONOMOUS_AGENT_STARTUP.md"
+            startup.write_text(
+                startup.read_text(encoding="utf-8") + "\nLocal override.\n",
+                encoding="utf-8",
+            )
+
+            upgraded = bootstrap_circled_wiki(target, ROOT, apply=True)
+            launcher = target / ".circled-wiki" / "bin" / "circled-wiki.py"
+            blocked = subprocess.run(
+                [sys.executable, str(launcher), "operational-preflight"],
+                cwd=target,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            blocked_payload = json.loads(blocked.stdout)
+
+            self.assertEqual(blocked.returncode, 1)
+            self.assertFalse(blocked_payload["ready"])
+            self.assertFalse(blocked_payload["control_plane"]["compatible"])
+            self.assertEqual(len(upgraded["pending_proposals"]), 1)
+            self.assertEqual(
+                upgraded["pending_proposals"][0]["path"],
+                ".circled-wiki/AUTONOMOUS_AGENT_STARTUP.md",
+            )
+            self.assertIn(
+                "pending Control Plane proposals",
+                blocked_payload["next_action"],
+            )
+
+            proposal = target / upgraded["pending_proposals"][0]["proposal"]
+            startup.write_bytes(proposal.read_bytes())
+            resolved = bootstrap_circled_wiki(target, ROOT, apply=True)
+            ready = subprocess.run(
+                [sys.executable, str(launcher), "operational-preflight"],
+                cwd=target,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            ready_payload = json.loads(ready.stdout)
+
+            startup_action = next(
+                item["action"]
+                for item in resolved["actions"]
+                if item["path"] == ".circled-wiki/AUTONOMOUS_AGENT_STARTUP.md"
+            )
+            self.assertEqual(startup_action, "unchanged")
+            self.assertEqual(resolved["pending_proposals"], [])
+            self.assertEqual(ready.returncode, 0, ready.stderr)
+            self.assertTrue(ready_payload["control_plane"]["compatible"])
+
+    def test_preflight_smoke_checks_agent_router_and_launcher_references(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "team-knowledge"
+            bootstrap_circled_wiki(target, ROOT, apply=True)
+            hermes = target / "HERMES.md"
+            hermes.write_text(
+                hermes.read_text(encoding="utf-8").replace(
+                    ".circled-wiki/AGENT_ROUTER.md",
+                    ".circled-wiki/missing-router.md",
+                ),
+                encoding="utf-8",
+            )
+            launcher = target / ".circled-wiki" / "bin" / "circled-wiki.py"
+
+            result = subprocess.run(
+                [sys.executable, str(launcher), "operational-preflight"],
+                cwd=target,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            payload = json.loads(result.stdout)
+
+            self.assertEqual(result.returncode, 1)
+            self.assertFalse(payload["ready"])
+            self.assertIn(
+                "HERMES.md: missing reference to .circled-wiki/AGENT_ROUTER.md",
+                payload["control_plane"]["reference_errors"],
+            )
+            self.assertIn(
+                "repair Control Plane startup, Router, or launcher references",
+                payload["next_action"],
+            )
 
     def test_existing_agent_entrypoint_without_operating_rules_gets_an_append_only_reference(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -20,6 +20,7 @@
 ## Checks
 
 - manifest, 이전 checksum, Runtime Profile allowlist와 Router
+- manifest에 기록할 미해결 Control Plane proposal과 Agent 진입점·launcher smoke check
 - `knowledge/`, `workspace/`, config와 root Agent 파일의 보존
 - preflight, validate와 backup 결과
 

@@ -2,12 +2,30 @@
 
 import hashlib
 import json
+import os
 from pathlib import Path
-from typing import Dict, List, Set
+from typing import Dict, List, Sequence, Set
 
 
 MANIFEST_PATH = ".circled-wiki/manifest.json"
 RUNTIME_PREFIX = ".circled-wiki/runtime/circled_wiki/"
+PRODUCT_PROFILES = {"bootstrap-circled-wiki.md", "repository-engineering.md"}
+CONTROL_PLANE_REFERENCES = {
+    "AGENTS.md": (".circled-wiki/AGENT_ROUTER.md",),
+    "CLAUDE.md": (".circled-wiki/AGENT_ROUTER.md",),
+    "HERMES.md": (
+        ".circled-wiki/AUTONOMOUS_AGENT_STARTUP.md",
+        ".circled-wiki/AGENT_ROUTER.md",
+    ),
+    ".circled-wiki/AGENT_BOOTSTRAP.md": (
+        ".circled-wiki/AGENT_ROUTER.md",
+        ".circled-wiki/bin/circled-wiki.py",
+    ),
+    ".circled-wiki/AUTONOMOUS_AGENT_STARTUP.md": (
+        ".circled-wiki/AGENT_ROUTER.md",
+        ".circled-wiki/bin/circled-wiki.py",
+    ),
+}
 
 
 def _checksum(path: Path) -> str:
@@ -91,6 +109,92 @@ def inspect_runtime_provenance(project_root: Path) -> Dict[str, object]:
         "compatible": compatible,
     })
     return report
+
+
+def inspect_control_plane_readiness(
+    project_root: Path, profiles: Sequence[str]
+) -> Dict[str, object]:
+    """Check unresolved upgrade proposals and executable operating references."""
+    project = project_root.resolve()
+    manifest_path = project / MANIFEST_PATH
+    pending_proposals: List[Dict[str, str]] = []
+    manifest_errors: List[str] = []
+    if manifest_path.is_file():
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            manifest_errors.append("manifest is not readable JSON")
+        else:
+            raw_proposals = manifest.get("pending_proposals", [])
+            if not isinstance(raw_proposals, list):
+                manifest_errors.append("manifest pending_proposals must be a list")
+            else:
+                for item in raw_proposals:
+                    if not isinstance(item, dict) or any(
+                        not isinstance(item.get(field), str) or not item[field]
+                        for field in ("path", "proposal", "checksum")
+                    ):
+                        manifest_errors.append(
+                            "manifest contains an invalid pending proposal"
+                        )
+                        continue
+                    pending_proposals.append({
+                        "path": item["path"],
+                        "proposal": item["proposal"],
+                        "checksum": item["checksum"],
+                    })
+
+    missing_proposal_files = sorted(
+        item["proposal"]
+        for item in pending_proposals
+        if not (project / item["proposal"]).is_file()
+    )
+    reference_errors: List[str] = []
+    for relative, references in CONTROL_PLANE_REFERENCES.items():
+        path = project / relative
+        if not path.is_file():
+            reference_errors.append(f"{relative}: file is missing")
+            continue
+        content = path.read_text(encoding="utf-8")
+        for reference in references:
+            if reference not in content:
+                reference_errors.append(
+                    f"{relative}: missing reference to {reference}"
+                )
+
+    router = project / ".circled-wiki" / "AGENT_ROUTER.md"
+    if router.is_file():
+        router_content = router.read_text(encoding="utf-8")
+        for profile in profiles:
+            reference = f"agent-rules/{profile}"
+            if reference not in router_content:
+                reference_errors.append(
+                    f".circled-wiki/AGENT_ROUTER.md: missing reference to {reference}"
+                )
+
+    launcher = project / ".circled-wiki" / "bin" / "circled-wiki.py"
+    launcher_executable = launcher.is_file() and os.access(launcher, os.X_OK)
+    if launcher.is_file() and not launcher_executable:
+        reference_errors.append(
+            ".circled-wiki/bin/circled-wiki.py: launcher is not executable"
+        )
+    unexpected_profiles = sorted(set(profiles) & PRODUCT_PROFILES)
+    compatible = not (
+        pending_proposals
+        or missing_proposal_files
+        or reference_errors
+        or unexpected_profiles
+        or manifest_errors
+    )
+    return {
+        "compatible": compatible,
+        "pending_proposals": pending_proposals,
+        "missing_proposal_files": missing_proposal_files,
+        "reference_errors": reference_errors,
+        "unexpected_profiles": unexpected_profiles,
+        "launcher_executable": launcher_executable,
+        "manifest_errors": manifest_errors,
+    }
 
 
 def _is_within(path: Path, root: Path) -> bool:
