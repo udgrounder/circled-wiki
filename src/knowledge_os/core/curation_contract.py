@@ -10,8 +10,8 @@ import re
 from typing import Any, Dict, Iterable, List, Tuple
 
 
-_ACTIONS = {"no_bundle", "policy", "guide", "runbook"}
-_BUNDLE_TYPES = {"policy", "guide", "runbook"}
+_ACTIONS = {"no_bundle", "policy", "guide", "runbook", "reference"}
+_BUNDLE_TYPES = {"policy", "guide", "runbook", "reference"}
 _SAFE_DOMAIN = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 
 
@@ -42,7 +42,7 @@ def validate_curation_output(
         raise ValueError("allowed Evidence IDs must be a non-empty string collection")
     action = payload.get("action")
     if action not in _ACTIONS:
-        raise ValueError("curation action must be no_bundle, policy, guide, or runbook")
+        raise ValueError("curation action must be no_bundle, policy, guide, runbook, or reference")
     if action == "no_bundle":
         rationale = _required_string(payload, "rationale")
         recheck_condition = _required_string(payload, "recheck_condition")

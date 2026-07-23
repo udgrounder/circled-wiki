@@ -9,7 +9,7 @@ from unittest.mock import patch
 from knowledge_os.core.bootstrap import MANIFEST_PATH, bootstrap_knowledge_root
 
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 
 
 class BootstrapKnowledgeRootTests(unittest.TestCase):

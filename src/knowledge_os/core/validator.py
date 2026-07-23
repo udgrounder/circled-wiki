@@ -135,6 +135,8 @@ def _path_kind(path: Path, knowledge_root: Path) -> str:
         return "bundle"
     if relative.parts and relative.parts[0] == "evidence" and path.suffix == ".md":
         return "evidence"
+    if relative.parts and relative.parts[0] == "curation-reviews" and path.suffix == ".md":
+        return "curation_review"
     return "other"
 
 
@@ -178,7 +180,39 @@ def validate_document(path: Path, knowledge_root: Path) -> ValidationResult:
         _validate_bundle(document, result, organization_id, knowledge_root)
     elif kind == "evidence":
         _validate_evidence(document, result, organization_id)
+    elif kind == "curation_review":
+        _validate_curation_review(document, result, knowledge_root)
     return result
+
+
+def _validate_curation_review(document: MarkdownDocument, result: ValidationResult, knowledge_root: Path) -> None:
+    data = document.frontmatter
+    if data.get("type") != "curation_review":
+        result.profile_errors.append("curation review files must have type curation_review")
+    if data.get("status") not in {"pending", "approved", "no_bundle", "needs_changes", "needs_review", "stale", "applied", "archived"}:
+        result.profile_errors.append("curation review status is invalid")
+    for field in ("review_id", "title", "recommendation"):
+        if not _is_nonempty_string(data.get(field)):
+            result.profile_errors.append(f"curation review {field} must be non-empty")
+    if not _is_timestamp(data.get("created_at")):
+        result.profile_errors.append("curation review created_at must be ISO 8601")
+    refs = data.get("evidence_refs")
+    if not isinstance(refs, list) or len(refs) != 1 or not isinstance(refs[0], dict):
+        result.profile_errors.append("curation review must contain exactly one evidence_refs item")
+    else:
+        ref = refs[0]
+        if not _is_nonempty_string(ref.get("evidence_id")):
+            result.profile_errors.append("curation review evidence_id must be non-empty")
+        path = ref.get("path")
+        if not _is_nonempty_string(path) or Path(str(path)).is_absolute() or ".." in Path(str(path)).parts or not str(path).startswith("knowledge/evidence/"):
+            result.profile_errors.append("curation review Evidence path must be a safe knowledge/evidence relative path")
+        if not isinstance(ref.get("checksum"), str) or not re.fullmatch(r"sha256:[0-9a-f]{64}", ref["checksum"]):
+            result.profile_errors.append("curation review Evidence checksum must be sha256")
+    metadata = data.get("extensions", {}).get("curation_review") if isinstance(data.get("extensions"), dict) else None
+    if not isinstance(metadata, dict):
+        result.profile_errors.append("curation review extensions.curation_review must be an object")
+    elif not _is_nonempty_string(metadata.get("idempotency_key")) or not _is_nonempty_string(metadata.get("generated_by")):
+        result.profile_errors.append("curation review idempotency_key and generated_by must be non-empty")
 
 
 def _validate_bundle(
@@ -687,7 +721,7 @@ def _warn_unscoped_extensions(data: Dict[str, Any], result: ValidationResult) ->
 
 def managed_markdown_files(knowledge_root: Path) -> Iterable[Path]:
     """Yield only Markdown files governed by the documented OKF management rule."""
-    for section in ("bundles", "evidence"):
+    for section in ("bundles", "evidence", "curation-reviews"):
         root = knowledge_root / section
         if root.exists():
             yield from sorted(root.rglob("*.md"))
@@ -756,4 +790,18 @@ def validate_repository(knowledge_root: Path) -> List[ValidationResult]:
                         result.profile_errors.append(message)
                     else:
                         result.warnings.append(message)
+        elif kind == "curation_review":
+            refs = document.frontmatter.get("evidence_refs", [])
+            if not isinstance(refs, list) or len(refs) != 1 or not isinstance(refs[0], dict):
+                continue
+            ref = refs[0]
+            evidence_id = str(ref.get("evidence_id", ""))
+            evidence = evidence_by_id.get(evidence_id)
+            if evidence is None:
+                result.profile_errors.append(f"curation review Evidence Record not found: {evidence_id}")
+                continue
+            if ref.get("path") != evidence.path.relative_to(knowledge_root.parent).as_posix():
+                result.profile_errors.append("curation review Evidence path does not match the current Evidence record")
+            if ref.get("checksum") != evidence.frontmatter.get("checksum"):
+                result.profile_errors.append("curation review Evidence checksum does not match the current Evidence record")
     return results

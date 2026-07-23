@@ -293,7 +293,8 @@ cpt-knowledge/
 │       ├── worker/
 │       ├── integrations/
 │       └── config/
-├── tests/
+├── workspace/
+│   └── tests/
 └── pyproject.toml
 ```
 

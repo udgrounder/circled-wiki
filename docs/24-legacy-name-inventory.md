@@ -12,7 +12,7 @@
 | Runtime/agent contracts | `AGENTS.md`, `OPERATING_RULES.md`, `agent-rules/` | Replace product wording, but keep file paths and compatibility command names until deprecation. |
 | Compatibility code | `src/knowledge_os/`, `pyproject.toml`, `knowledge-os` CLI parser and bootstrap runtime | Do not rename without a versioned CLI/package alias and migration test. |
 | Historical/reference material | `docs/source/`, `docs/AI_Knowledge_OS_Build_Plan.md`, older architecture documents | Preserve original quotations; add a Circled Wiki context note only when actively maintained. |
-| Tests | `tests/unit/test_bootstrap.py`, `tests/unit/test_cli.py` | Update display assertions after compatibility alias behavior is specified; retain compatibility-command coverage. |
+| Tests | `workspace/tests/unit/test_bootstrap.py`, `workspace/tests/unit/test_cli.py` | Update display assertions after compatibility alias behavior is specified; retain compatibility-command coverage. |
 
 ## Current inventory
 
@@ -22,7 +22,7 @@ The following tracked files contain `Knowledge OS` or `knowledge-os` outside the
 - `agent-rules/README.md`, `agent-rules/bootstrap-knowledge-os.md`, `agent-rules/repository-engineering.md`, `agent-rules/system-observation.md`
 - `docs/02-architecture.md`, `docs/03-okf-spec.md`, `docs/04-evidence-model.md`, `docs/06-knowledge-service.md`, `docs/08-sync-pipeline.md`, `docs/11-implementation-guidelines.md`, `docs/12-runtime-architecture.md`, `docs/13-future-work.md`, `docs/16-workflow-execution.md`, `docs/17-human-guide.md`, `docs/18-agent-guide.md`, `docs/22-knowledge-quality-and-artifacts.md`, `docs/AI_Knowledge_OS_Build_Plan.md`, `docs/README.md`, `docs/source/chatgpt-llm-wiki-conversation-2026-07-08.md`
 - `pyproject.toml`, `src/knowledge_os/__init__.py`, `src/knowledge_os/cli/__main__.py`, `src/knowledge_os/config/paths.py`, `src/knowledge_os/config/settings.py`, `src/knowledge_os/core/bootstrap.py`
-- `tests/unit/test_bootstrap.py`, `tests/unit/test_cli.py`
+- `workspace/tests/unit/test_bootstrap.py`, `workspace/tests/unit/test_cli.py`
 
 ## Migration acceptance criteria
 

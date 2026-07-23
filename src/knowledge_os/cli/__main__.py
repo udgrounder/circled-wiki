@@ -325,6 +325,13 @@ def main() -> int:
     bundle.add_argument("--body-file", help="UTF-8 Markdown body for a curator-authored draft")
     bundle.add_argument("--curated-by", default="manual")
     subparsers.add_parser("list-curation-candidates")
+    list_reviews = subparsers.add_parser("list-curation-reviews")
+    list_reviews.add_argument("--include-resolved", action="store_true")
+    decide_review = subparsers.add_parser("decide-curation-review")
+    decide_review.add_argument("--review", required=True)
+    decide_review.add_argument("--action", required=True, choices=("approve", "no_bundle", "needs_changes", "needs_review"))
+    decide_review.add_argument("--actor", required=True)
+    decide_review.add_argument("--note", default="")
     curation_batch = subparsers.add_parser("run-configured-curation-batch")
     curation_batch.add_argument("--limit", type=int, default=100)
     review_candidate = subparsers.add_parser("review-curation-candidate")
@@ -729,6 +736,10 @@ def main() -> int:
         }, ensure_ascii=False, indent=2)); return 0
     if args.command == "list-curation-candidates":
         print(json.dumps(service.list_curation_candidates(), ensure_ascii=False, indent=2)); return 0
+    if args.command == "list-curation-reviews":
+        print(json.dumps(service.list_curation_reviews(include_resolved=args.include_resolved), ensure_ascii=False, indent=2)); return 0
+    if args.command == "decide-curation-review":
+        print(json.dumps(service.decide_curation_review(args.review, action=args.action, actor=args.actor, note=args.note), ensure_ascii=False, indent=2)); return 0
     if args.command == "run-configured-curation-batch":
         print(json.dumps(service.run_configured_curation_batch(args.limit), ensure_ascii=False, indent=2)); return 0
     if args.command == "review-curation-candidate":

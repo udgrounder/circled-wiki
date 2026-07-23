@@ -24,6 +24,7 @@ from .curation import (
     materialize_curation_candidate, run_configured_curation,
     run_configured_curation_batch,
 )
+from .curation_reviews import decide_curation_review, generate_curation_review, list_curation_reviews
 from .curation_contract import validate_curation_output
 from .config_audit import audit_hardcoded_install_values
 from .search import search_knowledge
@@ -123,6 +124,12 @@ class KnowledgeService:
     def list_curation_candidates(self) -> List[Dict[str, object]]:
         """Return Draft Bundles that need curation review; active knowledge is excluded."""
         return list_curation_candidates(self.knowledge_root)
+
+    def list_curation_reviews(self, *, include_resolved: bool = False) -> List[Dict[str, object]]:
+        return list_curation_reviews(self.knowledge_root, include_resolved=include_resolved)
+
+    def decide_curation_review(self, review_id: str, *, action: str, actor: str, note: str = "") -> Dict[str, object]:
+        return decide_curation_review(self.knowledge_root, review_id, action=action, actor=actor, note=note)
 
     def review_curation_candidate(
         self, bundle_id: str, *, action: str, actor: str, note: str = "",

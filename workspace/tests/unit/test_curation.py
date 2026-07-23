@@ -16,6 +16,7 @@ from knowledge_os.core.candidates import list_curation_candidates
 from knowledge_os.core.repository import apply_bundle_revision, find_document_by_id
 from knowledge_os.core.validator import validate_document
 from knowledge_os.core.candidates import promote_curation_candidate, review_curation_candidate
+from knowledge_os.core.curation_reviews import decide_curation_review, list_curation_reviews
 
 
 class CurationMaterializationTests(unittest.TestCase):
@@ -181,7 +182,7 @@ class CurationMaterializationTests(unittest.TestCase):
             self.assertEqual(attempt["receipt"]["status"], "invalid_json")
             self.assertNotIn("not-json", str(attempt))
 
-    def test_configured_adapter_records_typed_receipt_on_created_candidate(self):
+    def test_configured_adapter_creates_review_then_approval_creates_candidate(self):
         with tempfile.TemporaryDirectory() as directory:
             root, evidence_id = self._evidence(directory)
             config = root.parent / ".circled-wiki" / "config.yaml"
@@ -201,13 +202,51 @@ class CurationMaterializationTests(unittest.TestCase):
                 with patch("knowledge_os.core.curation.subprocess.run", return_value=completed):
                     result = run_configured_curation(root, evidence_id)
 
-            candidate = find_document_by_id(root, result["bundle_id"])
+            self.assertEqual(result["action"], "created_review")
+            self.assertEqual(list_curation_candidates(root), [])
+            review = list_curation_reviews(root)[0]
+            self.assertEqual(review["recommendation"], "create_draft_bundle")
+            self.assertEqual(review["evidence_refs"][0]["evidence_id"], evidence_id)
+            with patch("knowledge_os.core.curation.propose_update", return_value={"recommended_action": "create_draft_bundle", "blocking_conditions": []}):
+                with patch("knowledge_os.core.curation.subprocess.run", return_value=completed):
+                    repeated = run_configured_curation(root, evidence_id)
+            self.assertEqual(repeated["action"], "reused_review")
+            self.assertEqual(len(list_curation_reviews(root)), 1)
+            applied = decide_curation_review(root, review["review_id"], action="approve", actor="reviewer")
+            self.assertEqual(applied["status"], "applied")
+            self.assertEqual(applied["result"]["action"], "created")
+            candidate = find_document_by_id(root, applied["result"]["bundle_id"])
             receipt = candidate.frontmatter["extensions"]["curation"]["receipt"]
-            self.assertEqual(result["action"], "created")
             self.assertEqual(receipt["provider"], "test")
             self.assertEqual(receipt["model"], "curated")
             self.assertEqual(receipt["status"], "completed")
             self.assertIn("completed_at", receipt)
+
+    def test_opted_in_high_confidence_reference_can_create_draft_without_review(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, evidence_id = self._evidence(directory)
+            config = root.parent / ".circled-wiki" / "config.yaml"
+            config.parent.mkdir(exist_ok=True)
+            config.write_text(
+                "schema_version: 1\ncuration:\n"
+                "  enabled: true\n  provider: test\n  model: reference\n  command: adapter\n"
+                "  auto_materialize_reference: true\n",
+                encoding="utf-8",
+            )
+            output = {
+                "action": "reference", "domain": "marketing", "bundle_type": "reference",
+                "title": "Campaign reference", "summary": "Reference summary.", "body": "# Reference",
+                "evidence_ids": [evidence_id], "confidence": "high", "existing_bundle_candidates": [],
+            }
+            completed = type("Completed", (), {"stdout": json.dumps(output)})()
+            proposal = {"recommended_action": "create_draft_bundle", "blocking_conditions": [], "candidate_bundles": []}
+            with patch("knowledge_os.core.curation.propose_update", return_value=proposal):
+                with patch("knowledge_os.core.curation.subprocess.run", return_value=completed):
+                    result = run_configured_curation(root, evidence_id)
+            self.assertEqual(result["action"], "created")
+            self.assertEqual(list_curation_reviews(root), [])
+            candidate = find_document_by_id(root, result["bundle_id"])
+            self.assertEqual(candidate.frontmatter["type"], "reference")
 
     def test_validator_rejects_curation_receipt_for_another_evidence_checksum(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -13,7 +13,7 @@ from knowledge_os.config.settings import render_settings
 
 class CliTests(unittest.TestCase):
     def test_project_exposes_circled_wiki_cli_alias(self):
-        project = Path(__file__).resolve().parents[2]
+        project = Path(__file__).resolve().parents[3]
         metadata = (project / "pyproject.toml").read_text(encoding="utf-8")
         self.assertIn('circled-wiki = "knowledge_os.cli.__main__:main"', metadata)
 

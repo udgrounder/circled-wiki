@@ -13,7 +13,7 @@ dependencies = ["PyYAML>=6.0"]
 dev = ["pytest>=8.0"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["workspace/tests"]
 pythonpath = ["src"]
 
 [project.scripts]
@@ -24,4 +24,4 @@ circled-wiki = "knowledge_os.cli.__main__:main"
 where = ["src"]
 
 [tool.unittest]
-start-directory = "tests"
+start-directory = "workspace/tests"

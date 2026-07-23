@@ -68,7 +68,7 @@ knowledge-os-spec/
 
 knowledge-os/
   src/
-  tests/
+  workspace/tests/
   docs/
   pyproject.toml
 ```
