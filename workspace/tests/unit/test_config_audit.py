@@ -2,8 +2,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from knowledge_os.config.settings import render_settings
-from knowledge_os.core.config_audit import audit_hardcoded_install_values
+from circled_wiki.config.settings import render_settings
+from circled_wiki.core.config_audit import audit_hardcoded_install_values
 
 
 class HardcodedInstallValueAuditTests(unittest.TestCase):

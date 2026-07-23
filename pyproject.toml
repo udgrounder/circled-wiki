@@ -17,8 +17,8 @@ testpaths = ["workspace/tests"]
 pythonpath = ["src"]
 
 [project.scripts]
-knowledge-os = "knowledge_os.cli.__main__:main"
-circled-wiki = "knowledge_os.cli.__main__:main"
+circled-wiki = "circled_wiki.cli.__main__:main"
+circled-wiki-product = "circled_wiki.product_cli:run_product_cli"
 
 [tool.setuptools.packages.find]
 where = ["src"]

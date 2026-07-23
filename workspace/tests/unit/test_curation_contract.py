@@ -1,6 +1,6 @@
 import unittest
 
-from knowledge_os.core.curation_contract import validate_curation_output
+from circled_wiki.core.curation_contract import validate_curation_output
 
 
 EVIDENCE_ID = "evidence://example-org/manual/2026/07/22/11111111-1111-1111-1111-111111111111"

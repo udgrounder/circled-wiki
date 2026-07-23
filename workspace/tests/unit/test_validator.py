@@ -3,8 +3,8 @@ import unittest
 import uuid
 from pathlib import Path
 
-from knowledge_os.core.frontmatter import render_markdown
-from knowledge_os.core.validator import validate_document, validate_repository
+from circled_wiki.core.frontmatter import render_markdown
+from circled_wiki.core.validator import validate_document, validate_repository
 
 
 class ValidatorTests(unittest.TestCase):

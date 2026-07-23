@@ -231,7 +231,7 @@ CLI는 사람과 스크립트가 쓰기 위한 얇은 shell이어야 한다.
 2. 원본을 `knowledge/inbox/`에 적재한다.
 3. 외부 객체와 revision을 식별하는 `idempotency_key`로 `ingest_evidence`를 호출한다.
 4. Hermes Curator가 `propose_update` 결과를 검토한다.
-5. 신규 지식은 `create_draft_bundle`, 기존 지식은 `apply_bundle_revision`으로 반영한다.
+5. 신규 `policy`·`decision`·`spec`·`reference`는 `create_draft_bundle`으로 Draft를 만들 수 있다. Guide/Manual·Runbook은 Curation Review와 독립 Owner 승인으로만 Draft를 만들고, 기존 Bundle은 상태 전환 없이 `apply_bundle_revision`으로 갱신한다.
 6. 검증 후 발행한다.
 
 Hermes 운영 서버는 대상 Repository를 인식하고 작업한다. 수집·정제 결과는 Repository의 `knowledge/`에 반영한 뒤 Validator를 통과한 변경만 Git commit/push 대상으로 만든다. Git은 지식 라이브러리의 복원, 공유, 변경 이력 및 백업 계층으로 사용한다.
@@ -273,8 +273,8 @@ Hermes 운영 서버는 대상 Repository를 인식하고 작업한다. 수집·
 cpt-knowledge/
 ├── AGENTS.md
 ├── README.md
-├── docs/
-├── .knowledge-os/
+├── .circled-wiki/
+│   ├── AGENT_ROUTER.md
 │   ├── templates/
 │   ├── schemas/
 │   └── policies/
@@ -285,37 +285,31 @@ cpt-knowledge/
 │   ├── evidence/
 │   ├── inbox/
 │   └── .raw/
-├── src/
-│   └── knowledge_os/
-│       ├── core/
-│       ├── cli/
-│       ├── mcp/
-│       ├── worker/
-│       ├── integrations/
-│       └── config/
 ├── workspace/
-│   └── tests/
-└── pyproject.toml
+│   └── issues/
+└── .runtime/
 ```
 
 이 구조에서:
 
 - `knowledge/`는 실제 Obsidian Vault
-- `.knowledge-os/`는 업그레이드 가능한 운영 Control Plane
-- `.knowledge-os-backups/`는 업그레이드 직전 Control Plane의 버전별 복구 스냅샷
-- `.knowledge-os/runtime/`은 대상 폴더에서 독립 실행하는 CLI 구현
-- `.knowledge-os/bin/knowledge-os.py`는 대상 프로젝트 root를 선택하는 portable launcher
-- `.knowledge-os/AGENT_BOOTSTRAP.md`는 AI Agent의 규칙·Profile·CLI 시작 계약
-- `.knowledge-os/AUTONOMOUS_AGENT_STARTUP.md`는 단일 머신 자율형 Agent의 초기 기동·답변·복구 계약
-- `.knowledge-os/config.yaml`은 설치별 organization namespace·operator Agent·선택적 Graphify 설정
-- `.knowledge-os/GRAPHIFY.md`는 별도 설치되는 파생 그래프의 MCP 연결과 공식 근거 재검증 경계
+- `.circled-wiki/`는 업그레이드 가능한 운영 Control Plane
+- `.circled-wiki-backups/`는 업그레이드 직전 Control Plane의 버전별 복구 스냅샷
+- `.circled-wiki/runtime/`은 대상 폴더에서 독립 실행하는 CLI 구현
+- `.circled-wiki/bin/circled-wiki.py`는 대상 프로젝트 root를 선택하는 portable launcher
+- `.circled-wiki/AGENT_ROUTER.md`는 설치본 Runtime 작업의 canonical Router
+- `.circled-wiki/AGENT_BOOTSTRAP.md`는 AI Agent의 규칙·Profile·CLI 시작 계약
+- `.circled-wiki/AUTONOMOUS_AGENT_STARTUP.md`는 단일 머신 자율형 Agent의 초기 기동·답변·복구 계약
+- `.circled-wiki/config.yaml`은 설치별 organization namespace·operator Agent·선택적 Graphify 설정
+- `.circled-wiki/GRAPHIFY.md`는 별도 설치되는 파생 그래프의 MCP 연결과 공식 근거 재검증 경계
 - root `AGENTS.md`는 Agent 자동 발견용 비관리 진입점이며, 기존 조직 파일을 보존한다.
-- `.knowledge-os/issues/`는 사용자·Agent·운영자·자동화의 시스템 개선 이슈를 저장하는 로컬 피드백 영역
+- `workspace/`는 운영 Issue, Agent 기록과 설치별 작업 자료를 저장하는 사용자 소유 Working Plane
+- `workspace/issues/`는 사용자·Agent·운영자·자동화의 시스템 개선 이슈를 저장하는 피드백 영역
 - 루트 저장소 전체는 Git 복원 단위
 - `docs/`는 설계 기준 문서
 - `src/`는 운영 시스템 구현체
 - `knowledge/.raw/`는 처리 중 원본 작업의 staging area
-- OS 업그레이드는 `knowledge/` 아래를 변경하지 않는다.
+- OS 업그레이드와 Control Plane backup은 `knowledge/`와 `workspace/` 아래를 변경·포함하지 않는다.
 - 기존 OS를 변경하는 업그레이드는 백업 성공을 선행 Gate로 사용한다.
 
 경로 원칙:
@@ -403,7 +397,7 @@ worker -> core
 | 사용자 레퍼런스 제출 | `submit-runbook-reference` | `submit_runbook_reference` | - |
 | 사용자 레퍼런스 평가 | `record-reference-assessment` | `record_reference_assessment` | - |
 | Evidence 수집 | `ingest-evidence` | `ingest_evidence` | 지정 Batch·사용자·Hermes |
-| Draft Bundle 생성 | `create-bundle` | `create_draft_bundle` | - |
+| Draft Bundle 생성 | `create-bundle` | `create_draft_bundle` | `policy`·`decision`·`spec`·`reference`만 직접 생성 가능. Guide/Manual·Runbook은 Curation Review 필요 |
 | Bundle revision 적용 | - | `apply_bundle_revision` | - |
 | Runbook revision 확인 | `confirm-runbook-revision` | `confirm_runbook_revision` | - |
 | 지식 품질 감사 | `audit-knowledge` | `audit_knowledge` | `run_maintenance` 포함 |

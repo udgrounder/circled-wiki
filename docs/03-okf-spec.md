@@ -34,7 +34,7 @@
 - 조직 특화 필드는 `extensions` 아래에만 추가한다.
 - 공식 Bundle은 Markdown과 YAML Frontmatter 기반으로 저장한다. 여기서 Bundle은 Example Organization Profile의 단일 공식
   지식 문서이며, 디렉터리 단위인 표준 OKF Bundle과 구분한다.
-- `knowledge/bundles/`, Evidence Record와 `.knowledge-os/templates/`, `.knowledge-os/schemas/`, `.knowledge-os/policies/`의 관리 문서는 Markdown + YAML Frontmatter를 사용한다.
+- `knowledge/bundles/`, Evidence Record와 `.circled-wiki/templates/`, `.circled-wiki/schemas/`, `.circled-wiki/policies/`의 관리 문서는 Markdown + YAML Frontmatter를 사용한다.
 - `inbox/`, `.raw/`, `evidence/`는 원본 수집/처리/보존 구간이므로 비Markdown 파일을 포함할 수 있다.
 - 본 저장소는 `Bundle 본문 + Frontmatter + Evidence 참조`를 하나의 최소 지식 단위로 본다.
 - 개념 하나는 파일 하나로 표현한다.
@@ -290,7 +290,7 @@ extensions:
   review_requested: false
 ```
 
-`visibility`와 `pii_masked`의 세부 규칙은 `.knowledge-os/policies/sensitive-data-masking.md`를 따른다.
+`visibility`와 `pii_masked`의 세부 규칙은 `.circled-wiki/policies/sensitive-data-masking.md`를 따른다.
 
 `review_requested`는 이미 `active`인 Bundle의 내용에 문제가 있다고 사람 또는 Agent가 판단했을 때 사후적으로 켜는 플래그다. `updated_at` 나이와는 무관하다. 세부 흐름은 `docs/05-hermes-architecture.md` 7절을 따른다.
 
@@ -449,12 +449,12 @@ lifecycle 상태다.
 - Evidence URI가 저장소 내 객체와 연결 가능함
 - External-file Evidence Manifest가 같은 basename의 원본 파일명을 `original_file`로 기록함
 - Evidence 원본 파일이 10MB 이하이면 Git 추적 대상이고, 10MB 초과이면 `original_file_git_tracked: false` 및 `extensions.storage` 정보가 있음
-- Bundle Frontmatter는 `.knowledge-os/schemas/bundle.schema.json`을 통과해야 함
-- Evidence Record Frontmatter는 호환성 파일명인 `.knowledge-os/schemas/evidence-manifest.schema.json`을 통과해야 함
+- Bundle Frontmatter는 `.circled-wiki/schemas/bundle.schema.json`을 통과해야 함
+- Evidence Record Frontmatter는 호환성 파일명인 `.circled-wiki/schemas/evidence-manifest.schema.json`을 통과해야 함
 - `id`의 마지막 UUID 세그먼트와 `bundle_uuid` 필드 값이 일치함
 - 파일명의 `_{bundle_uuid}` 부분과 `bundle_uuid` 필드 값이 일치함
 - (방어적 점검) `knowledge/bundles/**/*.md` 전체에서 동일한 `id` 또는 동일한 `bundle_uuid`를 가진 문서가 두 개 이상 존재하지 않음
-- `.knowledge-os/policies/sensitive-data-masking.md` 기준의 민감정보 마스킹 검토를 거쳤음(`extensions.pii_masked`)
+- `.circled-wiki/policies/sensitive-data-masking.md` 기준의 민감정보 마스킹 검토를 거쳤음(`extensions.pii_masked`)
 
 ## 13. 적합성 등급
 

@@ -171,7 +171,7 @@ product-agent-rules/
 ├── system-issue-triage.md
 ├── release-preparation.md
 ├── deployment-coordination.md
-└── bootstrap-knowledge-os.md
+└── bootstrap-circled-wiki.md
 ```
 
 - 루트 `AGENTS.md`는 원본 프로젝트용 Router다.
@@ -229,7 +229,7 @@ agent-rules/
 ```
 
 - 기존 `OPERATING_RULES.md`와 `agent-rules/`는 Runtime 운영 규약의 배포 원본으로 유지한다.
-- `repository-engineering`과 `bootstrap-knowledge-os`는 `product-agent-rules/`로 이동한다.
+- `repository-engineering`과 `bootstrap-circled-wiki`는 `product-agent-rules/`로 이동한다.
 - 설치본은 `.circled-wiki/AGENT_ROUTER.md`를 명시적 Router로 사용한다.
 - 설치본 root의 `AGENTS.md`, `CLAUDE.md`, `HERMES.md`는 Router가 아니라 참조 전용 shim으로 유지한다.
 - Startup 문서가 root shim에 Routing Table이 있다고 가정하지 않게 한다.
@@ -359,8 +359,8 @@ Agent cache처럼 비추적이어야 하는 자료를 구분할 수 있다.
 | 운영 Issue 신규 유입·분류·재현 가능성 평가 | `system-issue-triage` |
 | 릴리스 후보 생성·manifest·호환성·회귀 검증 | `release-preparation` |
 | 지정 설치본에 install·upgrade·rollback 계획 | `deployment-coordination` |
-| 신규 설치·기존 Control Plane upgrade 실행 | `bootstrap-knowledge-os` |
-| 기존 설치에 사용자 Working Plane 최초 초기화 | `bootstrap-knowledge-os`의 승인된 `initialize-operational-workspace` 경로 |
+| 신규 설치·기존 Control Plane upgrade 실행 | `bootstrap-circled-wiki` |
+| 기존 설치에 사용자 Working Plane 최초 초기화 | `bootstrap-circled-wiki`의 승인된 `initialize-operational-workspace` 경로 |
 
 추가 규칙:
 
@@ -917,7 +917,7 @@ acceptance:
    - `system-observation`이 Runtime Router에 없으면 실패한다.
    - 설치본 Startup 문서가 실제 존재하는 `.circled-wiki/AGENT_ROUTER.md`를 참조해야 한다.
    - 설치본 Profile 목록에 `repository-engineering`이 있으면 실패한다.
-   - 설치본 Profile 목록에 `bootstrap-knowledge-os`가 있으면 실패한다.
+   - 설치본 Profile 목록에 `bootstrap-circled-wiki`가 있으면 실패한다.
    - 원본 Router가 Runtime 콘텐츠 운영 Profile을 직접 라우팅하면 실패한다.
    - 운영 Issue 수집 요청이 `operational-issue-intake`를 거치지 않으면 실패한다.
    - 사용자 검토 전 Workspace Issue Item을 Triage 또는 Archive하면 실패한다.
@@ -941,7 +941,7 @@ acceptance:
 
 1. `PRODUCT_ENGINEERING_RULES.md`를 생성한다.
 2. `product-agent-rules/README.md`와 Product Profile 5개를 생성한다.
-3. 기존 `repository-engineering.md`와 `bootstrap-knowledge-os.md`의 내용을 Product Profile로 이전·보강한다.
+3. 기존 `repository-engineering.md`와 `bootstrap-circled-wiki.md`의 내용을 Product Profile로 이전·보강한다.
 4. 루트 `AGENTS.md`를 Product Router로 변경한다.
 5. 루트 `CLAUDE.md`, `HERMES.md`가 원본 프로젝트에서 어떤 Router를 읽는지 명시한다.
 6. Runtime 규칙을 원본 제품 작업의 기본 지침으로 사용하지 않게 한다.
@@ -967,7 +967,7 @@ acceptance:
 2. `system-observation`을 Runtime Routing Table에 추가한다.
 3. `runtime-upgrade-verification` Profile을 추가한다.
 4. `.circled-wiki/AUTONOMOUS_AGENT_STARTUP.md`와 `.circled-wiki/AGENT_BOOTSTRAP.md`가 새 Router를 직접 참조하게 한다.
-5. `src/knowledge_os/core/bootstrap.py`의 `_source_assets`가 Runtime Profile allowlist만 패키징하도록 변경한다.
+5. `src/circled_wiki/core/bootstrap.py`의 `_source_assets`가 Runtime Profile allowlist만 패키징하도록 변경한다.
 6. 신규 설치에서는 root `AGENTS.md`, `CLAUDE.md`, `HERMES.md`가 없을 때 참조 전용 shim을 생성한다.
 7. 기존 root Agent 파일에는 표시된 참조 블록이 없을 때만 idempotent append하고, 기존 내용·순서·소유권은 보존한다.
 8. upgrade가 root Agent 파일을 수정하거나 manifest 관리 자산으로 등록하지 않는지 검증한다.
@@ -1011,10 +1011,10 @@ acceptance:
 
 - `workspace/issue/README.md`
 - `product-agent-rules/operational-issue-intake.md`
-- 필요 시 `src/knowledge_os/core/issue_workspace.py`
-- `src/knowledge_os/core/observations.py`
-- `src/knowledge_os/core/bootstrap.py`
-- `src/knowledge_os/cli/__main__.py`
+- 필요 시 `src/circled_wiki/core/issue_workspace.py`
+- `src/circled_wiki/core/observations.py`
+- `src/circled_wiki/core/bootstrap.py`
+- `src/circled_wiki/cli/__main__.py`
 - 운영 `workspace/issues/README.md` 초기 안내 Template 또는 Runtime 생성 계약
 - legacy `.circled-wiki/issues/README.md`
 - 필요 시 신규 `workspace/tests/unit/test_issue_workspace.py`
@@ -1111,7 +1111,7 @@ status: planned # applied | failed | rolled_back | verification_pending | verifi
 1. `README.md`의 Agent·설치·운영 이슈 안내를 새 역할 모델에 맞춘다.
 2. `docs/18-agent-guide.md`에는 Runtime Agent만 설명하고 Product Agent 지침은 별도 문서로 연결한다.
 3. `docs/23-operational-improvement-plan.md`의 역할 모델과 완료 체크리스트를 새 규범 지침에 연결한다.
-4. `docs/12-runtime-architecture.md`의 legacy `.knowledge-os/` 경로를 현재 `.circled-wiki/`와 정합하게 정리한다.
+4. `docs/12-runtime-architecture.md`의 legacy `.circled-wiki/` 경로를 현재 `.circled-wiki/`와 정합하게 정리한다.
 5. `OPERATING_RULES.md`에 운영 `workspace/`의 사용자 소유·비공식 지식·upgrade 불변식을 추가한다.
 6. 기존 설치 upgrade 시 새 `AGENT_ROUTER.md`가 추가되고 사용자 root Agent 파일은 보존되는지 확인한다.
 7. 기존 설치에 잘못 배포된 Product Profile은 다음 정책으로 처리한다.
@@ -1214,7 +1214,7 @@ status: planned # applied | failed | rolled_back | verification_pending | verifi
 
 ```sh
 PYTHONPATH=src python3 -m unittest discover -s workspace/tests -q
-PYTHONPATH=src python3 -m knowledge_os.cli validate
+PYTHONPATH=src python3 -m circled_wiki.cli validate
 git diff --check
 ```
 
@@ -1237,7 +1237,7 @@ git diff --check
 - 새 `.circled-wiki/AGENT_ROUTER.md`가 canonical Runtime Router가 된다.
 - root Agent 파일은 참조 shim으로 유지하며 기존 조직 지침을 덮어쓰지 않는다. 참조 블록이 없을 때만 한 번 append하고,
   이후 upgrade는 `.circled-wiki/` Runtime 자산만 갱신한다.
-- 기존 `.circled-wiki/agent-rules/repository-engineering.md`와 `bootstrap-knowledge-os.md`가 관리 checksum과 일치하면
+- 기존 `.circled-wiki/agent-rules/repository-engineering.md`와 `bootstrap-circled-wiki.md`가 관리 checksum과 일치하면
   release 제거 목록에 포함할 수 있다.
 - 사용자가 수정한 Profile은 자동 삭제하지 않고 `.circled-wiki/proposals/`에 정리 제안을 둔다.
 - Runtime Agent가 legacy Product Profile을 선택하지 않도록 새 Router와 Startup 규칙이 우선한다.
@@ -1333,7 +1333,7 @@ git diff --check
 ## 16. 진행 TODO 보드
 
 **마지막 갱신:** 2026-07-23  
-**현재 상태:** 계획 수립 완료. 제품·Bootstrap·Runtime 구현 작업은 아직 시작하지 않음.
+**현재 상태:** 독립 Agent 감사에서 발견된 Bootstrap allowlist, Issue 이동 원자성, legacy 경계, Archive receipt 검증 보완 진행 중.
 
 각 `AR-xx`는 독립적으로 상태를 갱신한다. 상위 P0/P1/P2 체크는 하위 TODO가 모두 `[x]`일 때만 완료로 바꾼다.
 상세 범위와 완료 Gate는 [구현 단계](#11-구현-단계)를 따른다.
@@ -1341,44 +1341,60 @@ git diff --check
 ### P0 — Router와 배포 권한 경계
 
 - [ ] **P0 완료 조건:** AR-01~AR-08의 Gate 통과
-- [ ] **AR-01** 현재 Router/Profile/Bootstrap 배포 inventory와 실패 테스트 추가
-- [ ] **AR-02** `system-observation` Runtime 라우팅 누락 수정
-- [ ] **AR-03** `.circled-wiki/AGENT_ROUTER.md` 도입과 Startup 참조 수정
-- [ ] **AR-04** Product Router와 `PRODUCT_ENGINEERING_RULES.md` 분리
-- [ ] **AR-05** Product Profile과 Runtime Profile 디렉터리 분리
-- [ ] **AR-06** Bootstrap Runtime Profile allowlist 구현
-- [ ] **AR-07** 신규 설치·upgrade에서 Product Profile 미배포 검증
-- [ ] **AR-08** 운영 `workspace/` Working Plane 생성·소유권·upgrade 불변식 구현
+- [x] **AR-01** 현재 Router/Profile/Bootstrap 배포 inventory와 실패 테스트 추가
+- [x] **AR-02** `system-observation` Runtime 라우팅 누락 수정
+- [x] **AR-03** `.circled-wiki/AGENT_ROUTER.md` 도입과 Startup 참조 수정
+- [x] **AR-04** Product Router와 `PRODUCT_ENGINEERING_RULES.md` 분리
+- [x] **AR-05** Product Profile과 Runtime Profile 디렉터리 분리
+- [~] **AR-06** Bootstrap Runtime Profile allowlist 구현
+- [~] **AR-07** 신규 설치·upgrade에서 Product Profile 미배포 검증
+- [x] **AR-08** 운영 `workspace/` Working Plane 생성·소유권·upgrade 불변식 구현
 
 ### P1 — 운영 피드백과 제품 개선
 
 - [ ] **P1 완료 조건:** AR-09~AR-19의 Gate 통과
-- [ ] **AR-09** `workspace/issue/inbox/`·`archived/` 구조와 Workspace Issue Item 계약 도입
-- [ ] **AR-10** `operational-issue-intake` Profile과 명시적 사용자 수집 Gate 도입
-- [ ] **AR-11** 사용자 검토 receipt와 Inbox→Archive 원자적 이동 구현
-- [ ] **AR-12** Archive 유사 이력 조회·관계 판정·과거 해결/회귀 테스트 연결 구현
-- [ ] **AR-13** `system-issue-triage` Profile 도입
-- [ ] **AR-14** Issue 분류·release observed·안전한 Handoff 계약 구현
-- [ ] **AR-15** 운영 Issue 기반 변경의 회귀 테스트 Gate 추가
-- [ ] **AR-16** `release-preparation` Profile과 Release Receipt 정의
-- [ ] **AR-17** `deployment-coordination` Profile과 Deployment Receipt 정의
-- [ ] **AR-18** `runtime-upgrade-verification` Profile과 Verification Receipt 정의
-- [ ] **AR-19** `verified/resolved`의 실제 release·독립 검증 Gate 연결
+- [x] **AR-09** `workspace/issue/inbox/`·`archived/` 구조와 Workspace Issue Item 계약 도입
+- [x] **AR-10** `operational-issue-intake` Profile과 명시적 사용자 수집 Gate 도입
+- [~] **AR-11** 사용자 검토 receipt와 Inbox→Archive 원자적 이동 구현
+- [~] **AR-12** Archive 유사 이력 조회·관계 판정·과거 해결/회귀 테스트 연결 구현
+- [x] **AR-13** `system-issue-triage` Profile 도입
+- [x] **AR-14** Issue 분류·release observed·안전한 Handoff 계약 구현
+- [x] **AR-15** 운영 Issue 기반 변경의 회귀 테스트 Gate 추가
+- [x] **AR-16** `release-preparation` Profile과 Release Receipt 정의
+- [x] **AR-17** `deployment-coordination` Profile과 Deployment Receipt 정의
+- [x] **AR-18** `runtime-upgrade-verification` Profile과 Verification Receipt 정의
+- [~] **AR-19** `verified/resolved`의 실제 release·독립 검증 Gate 연결
 
 ### P2 — 호환성·문서·운영 전환
 
 - [ ] **P2 완료 조건:** AR-20~AR-24의 Gate 통과
-- [ ] **AR-20** legacy 설치 Profile·`.circled-wiki/issues/` migration과 preserve/proposal 처리
-- [ ] **AR-21** README, Agent Guide, 운영 개선 계획과 새 규범 지침 동기화
-- [ ] **AR-22** 합성 End-to-End Issue Intake→History Review→Release→Upgrade→Verify→Archive 테스트
-- [ ] **AR-23** canary 설치의 `knowledge/`·`workspace/` 보존과 rollback rehearsal
-- [ ] **AR-24** 전체 테스트·Validator·diff check와 독립 완료 감사
+- [~] **AR-20** legacy 설치 Profile·`.circled-wiki/issues/` migration과 preserve/proposal 처리
+- [x] **AR-21** README, Agent Guide, 운영 개선 계획과 새 규범 지침 동기화
+- [x] **AR-22** 합성 End-to-End Issue Intake→History Review→Release→Upgrade→Verify→Archive 테스트
+- [x] **AR-23** canary 설치의 `knowledge/`·`workspace/` 보존과 rollback rehearsal
+- [~] **AR-24** 전체 테스트·Validator·diff check와 독립 완료 감사
+- [~] **AR-25** Bundle Curation Review·독립 승인·Promotion Gate 규범화 및 우회 경로 차단
 
 ### 16.4 진행 로그
 
 | 날짜 | TODO | 상태 | 변경·검증 근거 | 다음 단계 또는 차단 사유 |
 | --- | --- | --- | --- | --- |
 | 2026-07-23 | 계획서 | `[x]` | 역할 분리, Workspace, 참조 shim, Issue 수명주기와 수용 기준을 계획서에 기록 | AR-01부터 구현 착수 |
+| 2026-07-23 | AR-01 | `[~]` | 기존 Router·Profile·Bootstrap·관련 테스트 inventory 확인 시작 | 누락된 역방향 Router·배포 경계 실패 테스트 추가 |
+| 2026-07-23 | AR-01~AR-08 | `[x]` | Product/Runtime Router·Profile 분리, Runtime allowlist, root shim Router 참조, 신규 `workspace/`와 upgrade/backup 불변 테스트 구현 | P1 Issue 흐름 구현 |
+| 2026-07-23 | AR-09~AR-15, AR-19 | `[x]` | Git committed/clean Gate, 원자적 intake, review receipt, 유사 Archive, Triage, version Archive와 실제 배포·독립 검증 Gate 테스트 통과 | Receipt artifact 형식 완성 |
+| 2026-07-23 | AR-16~AR-18 | `[~]` | Product/Runtime Profile과 manifest의 Router checksum·Runtime Profile inventory 구현 | Release·Deployment·Verification Receipt의 typed artifact와 교차 검증 추가 |
+| 2026-07-23 | AR-20~AR-24 | `[~]` | legacy Issue 제자리 호환, 문서 동기화, 175 unit tests와 Validator `invalid=0` 확인 | 합성 release/upgrade E2E, rollback rehearsal와 최종 diff 감사 |
+| 2026-07-23 | AR-16~AR-18 | `[x]` | immutable typed Release·Deployment·Verification Receipt, user-plane action 차단과 독립 actor·release 교차 검증 구현 | AR-19 종료 Gate와 합성 E2E 연결 |
+| 2026-07-23 | AR-20~AR-23 | `[x]` | legacy Profile 보존 proposal·경고, 명시적 Issue migration, 합성 Issue→upgrade→verify→archive와 Control Plane rollback rehearsal 통과 | 최종 통합 감사 |
+| 2026-07-23 | AR-24 | `[x]` | 183 unit tests 통과, Validator `validated=18 invalid=0`, `git diff --check` 및 untracked whitespace 검사 통과; 독립 actor·receipt Gate 회귀 테스트 포함 | 사용자 검토·Commit 여부 결정 |
+| 2026-07-23 | 독립 Agent 감사 | `[~]` | 읽기 전용 독립 Agent가 전체 테스트·Validator·diff check 통과를 재확인했으나, Archive receipt 실재성 검증 누락, legacy read-only 경계 해석, 이동 후 write 실패 시 원본 보존 불충분, canonical key traversal, unknown legacy Profile allowlist 누락을 발견 | 사용자 결정: receipt·canonical key는 허용, legacy는 Runtime 운영 중에만 read-only로 규범 명확화; 원자적 이동·allowlist·CLI 범위 재검토 |
+| 2026-07-23 | 독립 감사 후속 | `[~]` | 사용자 결정에 따라 legacy는 Runtime 운영 중에만 read-only로 수정했고, Product Workspace CLI(`circled-wiki-product`)로 intake·review·triage·archive·receipt 명령을 추가했다. unknown legacy Profile 일반 정리는 별도 작업으로 보류했다. | 이동 후 원문 metadata 변경·실패 복구 방식은 사용자 최종 결정 대기 |
+| 2026-07-23 | 제품 명칭 전면 전환 | `[x]` | 사용자 승인에 따라 문서·규칙·CLI·portable launcher·Python package·Runtime 경로·테스트·historical 문서를 `Circled Wiki`/`circled_wiki`로 전면 rename하고 이전 식별자와 migration 지원을 제거했다. | 전체 검증 및 명칭 inventory 확인 |
+| 2026-07-23 | AR-25 | `[~]` | `RB-CUR-001`~`RB-CUR-009`와 Runtime Curation·Publication Profile을 명시했다. 일반 revision의 모든 상태 전환을 차단하고, Runtime CLI의 직접 `create-bundle`을 거부했으며, configured curation은 항상 `curation-reviews` 카드를 생성하도록 변경했다. Promotion은 Review 결정, 현재 Evidence checksum, PII Scan Receipt를 다시 검증한다. 189 tests·Validator·diff check 통과. | 설치본 upgrade, 실제 Review→독립 승인→Promotion E2E 및 독립 검증 필요 |
+| 2026-07-23 | AR-25 독립 감사 | `[~]` | 독립 읽기 전용 감사는 불합격. MCP `create_draft_bundle`과 `materialize_curation_candidate`가 Review 카드 없이 Draft를 만들 수 있고, Validator가 `extensions.curation` 없는 active Bundle의 provenance를 요구하지 않음을 확인했다. Reviewer의 Owner·위임 권한 검증과 오래된 CLI 문서 정합성도 누락됐다. | MCP·Service·materialize Draft 경로를 Review 카드 승인 경로로 통합하고, active provenance Validator·Owner 검증·문서·회귀/E2E를 보완한 뒤 재감사 필요 |
+| 2026-07-23 | AR-25 규칙 정정 | `[~]` | 사용자 확인에 따라 `policy`·`decision`·`spec`·`reference` Draft 직접 생성은 허용하고, `guide`(Manual 성격)·`runbook`만 Curation Review·독립 Owner 승인 대상으로 규정했다. CLI·MCP·Service 제한과 README·Human Guide·MCP/Runtime 문서를 같은 범위로 정정했으며, Runtime Service/MCP의 직접 candidate materialization도 비활성화했다. 189 tests·Validator·diff check 통과. | active provenance Validator·Owner/위임 검증과 설치본 remediation·독립 재감사 필요 |
+| 2026-07-23 | 규칙 정합성 감사 | `[~]` | Product/Runtime Router·Profile과 Curation·Publication 규칙을 대조했다. 직접 생성 허용 범위와 모든 active 전환의 Review·Owner·Security Gate가 충돌하던 부분을 정정했다. | 코드의 direct Draft→Review→Promotion 경로, active provenance Validator, Owner/위임 검증을 구현하고 재감사 필요 |
 
 ## 17. 단계별 수용 기준
 

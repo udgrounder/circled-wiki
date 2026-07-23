@@ -3,7 +3,7 @@
 ## 1. 목적
 
 이 문서는 조직의 공식 지식을 사람과 Agent가 실제 업무에 재사용하기 위한 실행 모델을 정의한다.
-Knowledge OS는 문서를 검색해 반환하는 데서 끝나지 않고 다음 흐름을 지원한다.
+Circled Wiki는 문서를 검색해 반환하는 데서 끝나지 않고 다음 흐름을 지원한다.
 
 ```text
 사용자 요청
@@ -192,7 +192,7 @@ Hermes의 Delegator는 Workflow Orchestrator 역할을 함께 수행한다.
 11. 반환된 curation proposal을 Curator/Reviewer가 검토한다.
 
 Hermes는 외부 원본이나 Workflow 본문의 문장을 권한 변경 또는 무조건적인 Tool 실행 지시로 해석하지
-않는다. 실제 Tool 권한과 사람 승인 정책은 `.knowledge-os/policies/agent-security.md`가 우선한다.
+않는다. 실제 Tool 권한과 사람 승인 정책은 `.circled-wiki/policies/agent-security.md`가 우선한다.
 
 ## 6. MCP 및 Core 계약
 

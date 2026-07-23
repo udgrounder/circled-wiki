@@ -2,14 +2,14 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from knowledge_os.config.settings import load_settings, render_settings, settings_semantic_checksum
-from knowledge_os.core.ingest import capture_document, capture_file, ingest_evidence
-from knowledge_os.core.namespace import inspect_organization_namespace
-from knowledge_os.core.repository import (
+from circled_wiki.config.settings import load_settings, render_settings, settings_semantic_checksum
+from circled_wiki.core.ingest import capture_document, capture_file, ingest_evidence
+from circled_wiki.core.namespace import inspect_organization_namespace
+from circled_wiki.core.repository import (
     backfill_evidence_links, create_bundle, find_document_by_id, migrate_document_ids,
 )
-from knowledge_os.core.frontmatter import parse_markdown, render_markdown
-from knowledge_os.core.validator import validate_document
+from circled_wiki.core.frontmatter import parse_markdown, render_markdown
+from circled_wiki.core.validator import validate_document
 
 
 class SettingsTests(unittest.TestCase):

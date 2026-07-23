@@ -1,6 +1,6 @@
 # Operational issue records
 
-이 폴더는 Knowledge OS를 운영하면서 발생한 오류, 불편, 누락된 자동화, 개선 제안을 기록하는 로컬 피드백 영역이다.
+이 폴더는 Circled Wiki를 운영하면서 발생한 오류, 불편, 누락된 자동화, 개선 제안을 기록하는 로컬 피드백 영역이다.
 각 이슈는 OS 개선 검토의 입력일 뿐, 자동 수정·자동 발행·정책 변경의 승인 근거는 아니다.
 
 ## Record an issue
@@ -8,7 +8,7 @@
 프로젝트 root에서 다음 명령을 실행한다.
 
 ```sh
-python3 .circled-wiki/bin/knowledge-os.py record-system-issue \
+python3 .circled-wiki/bin/circled-wiki.py record-system-issue \
   --title "Inbox inspection command returned an unclear error" \
   --summary "The operator could not identify the failed intake item." \
   --reported-by "user-id-or-operator-id" \
@@ -19,7 +19,7 @@ python3 .circled-wiki/bin/knowledge-os.py record-system-issue \
   --actual "Only a generic error was returned." \
   --reproduction "Run inspect-inbox with a malformed item." \
   --improvement-hint "Include intake ID and a safe recovery hint." \
-  --related-path ".circled-wiki/runtime/knowledge_os/worker/jobs.py"
+  --related-path ".circled-wiki/runtime/circled_wiki/worker/jobs.py"
 ```
 
 직접 Markdown을 만들 때는 `.circled-wiki/templates/system-issue.md` 형식을 사용한다.
@@ -30,7 +30,7 @@ Issue는 `open -> triaged -> mitigated -> verified -> resolved` 순서로 상태
 `open` 또는 `triaged`에서 `wont_fix`로 전환한다. 상태 전환에는 담당자, 안전한 근거와 검증 결과를 남긴다.
 
 ```sh
-python3 .circled-wiki/bin/knowledge-os.py update-system-issue \
+python3 .circled-wiki/bin/circled-wiki.py update-system-issue \
   --issue "issue-<timestamp>-<id>" \
   --status triaged \
   --actor "system-maintainer" \

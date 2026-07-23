@@ -5,18 +5,18 @@ import json
 from unittest.mock import patch
 from pathlib import Path
 
-from knowledge_os.core.curation import materialize_curation_candidate
-from knowledge_os.core.curation import run_configured_curation, run_configured_curation_batch
-from knowledge_os.core.curation_contract import validate_curation_output
-from knowledge_os.core.ingest import ingest_evidence
-from knowledge_os.core.frontmatter import render_markdown
-from knowledge_os.core.pii import record_pii_scan_receipt
-from knowledge_os.core.service import KnowledgeService
-from knowledge_os.core.candidates import list_curation_candidates
-from knowledge_os.core.repository import apply_bundle_revision, find_document_by_id
-from knowledge_os.core.validator import validate_document
-from knowledge_os.core.candidates import promote_curation_candidate, review_curation_candidate
-from knowledge_os.core.curation_reviews import (
+from circled_wiki.core.curation import materialize_curation_candidate
+from circled_wiki.core.curation import run_configured_curation, run_configured_curation_batch
+from circled_wiki.core.curation_contract import validate_curation_output
+from circled_wiki.core.ingest import ingest_evidence
+from circled_wiki.core.frontmatter import render_markdown
+from circled_wiki.core.pii import record_pii_scan_receipt
+from circled_wiki.core.service import KnowledgeService
+from circled_wiki.core.candidates import list_curation_candidates
+from circled_wiki.core.repository import apply_bundle_revision, find_document_by_id
+from circled_wiki.core.validator import validate_document
+from circled_wiki.core.candidates import promote_curation_candidate, review_curation_candidate
+from circled_wiki.core.curation_reviews import (
     decide_curation_review,
     generate_curation_review,
     list_curation_reviews,
@@ -51,26 +51,24 @@ class CurationMaterializationTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "PII Scan Receipt"):
                 materialize_curation_candidate(root, evidence.evidence_id, self._output(evidence.evidence_id), generated_by="curator", curation_receipt="test://curation")
 
-    def test_service_is_the_external_adapter_write_boundary(self):
+    def test_service_rejects_direct_candidate_materialization(self):
         with tempfile.TemporaryDirectory() as directory:
             root, evidence_id = self._evidence(directory)
-            result = KnowledgeService(root).materialize_curation_candidate(
-                evidence_id, output={"action": "runbook", "domain": "marketing", "bundle_type": "runbook", "title": "SNS campaign launch", "summary": "Launch a campaign.", "body": "# Steps", "evidence_ids": [evidence_id]},
-                generated_by="curator", curation_receipt="test://curation",
-            )
-            self.assertEqual(result["action"], "created")
-            candidate = list_curation_candidates(root)[0]
-            self.assertEqual(candidate["recommendation"], "runbook")
-            self.assertEqual(candidate["confidence"], "")
+            with self.assertRaisesRegex(ValueError, "direct candidate materialization is disabled"):
+                KnowledgeService(root).materialize_curation_candidate(
+                    evidence_id, output={"action": "runbook", "domain": "marketing", "bundle_type": "runbook", "title": "SNS campaign launch", "summary": "Launch a campaign.", "body": "# Steps", "evidence_ids": [evidence_id]},
+                    generated_by="curator", curation_receipt="test://curation",
+                )
+            self.assertEqual(list_curation_candidates(root), [])
 
-    def test_general_revision_api_cannot_promote_curation_candidate(self):
+    def test_general_revision_api_cannot_promote_any_draft_bundle(self):
         with tempfile.TemporaryDirectory() as directory:
             root, evidence_id = self._evidence(directory)
             result = materialize_curation_candidate(root, evidence_id, self._output(evidence_id), generated_by="curator", curation_receipt="test://curation")
             bundle = find_document_by_id(root, result["bundle_id"])
             proposed = dict(bundle.frontmatter)
             proposed["status"] = "active"
-            with self.assertRaisesRegex(ValueError, "Owner and Security"):
+            with self.assertRaisesRegex(ValueError, "status transitions require"):
                 apply_bundle_revision(root, bundle_id=result["bundle_id"], expected_revision=1, proposed_frontmatter=proposed, body=bundle.body, actor="reviewer")
 
     def test_configured_owner_with_security_receipt_promotes_approved_candidate(self):
@@ -79,7 +77,14 @@ class CurationMaterializationTests(unittest.TestCase):
             config = root.parent / ".circled-wiki" / "config.yaml"
             config.parent.mkdir(exist_ok=True)
             config.write_text("schema_version: 1\napproval:\n  knowledge_owner: alice\n", encoding="utf-8")
-            created = materialize_curation_candidate(root, evidence_id, self._output(evidence_id, "guide"), generated_by="curator", curation_receipt="test://curation")
+            review = generate_curation_review(
+                root, evidence_id, self._output(evidence_id, "guide"),
+                generated_by="curator", curation_receipt="test://curation",
+            )
+            applied = decide_curation_review(
+                root, review["review_id"], action="approve", actor="reviewer",
+            )
+            created = applied["result"]
             review_curation_candidate(root, created["bundle_id"], action="approve", actor="reviewer")
             with self.assertRaisesRegex(ValueError, "configured knowledge-owner"):
                 promote_curation_candidate(root, created["bundle_id"], actor="mallory", security_receipt="security://1")
@@ -202,8 +207,8 @@ class CurationMaterializationTests(unittest.TestCase):
                 "evidence_ids": [evidence_id],
             }
             completed = type("Completed", (), {"stdout": json.dumps(output)})()
-            with patch("knowledge_os.core.curation.propose_update", return_value={"recommended_action": "create_draft_bundle", "blocking_conditions": []}):
-                with patch("knowledge_os.core.curation.subprocess.run", return_value=completed):
+            with patch("circled_wiki.core.curation.propose_update", return_value={"recommended_action": "create_draft_bundle", "blocking_conditions": []}):
+                with patch("circled_wiki.core.curation.subprocess.run", return_value=completed):
                     result = run_configured_curation(root, evidence_id)
 
             self.assertEqual(result["action"], "created_review")
@@ -211,8 +216,8 @@ class CurationMaterializationTests(unittest.TestCase):
             review = list_curation_reviews(root)[0]
             self.assertEqual(review["recommendation"], "create_draft_bundle")
             self.assertEqual(review["evidence_refs"][0]["evidence_id"], evidence_id)
-            with patch("knowledge_os.core.curation.propose_update", return_value={"recommended_action": "create_draft_bundle", "blocking_conditions": []}):
-                with patch("knowledge_os.core.curation.subprocess.run", return_value=completed):
+            with patch("circled_wiki.core.curation.propose_update", return_value={"recommended_action": "create_draft_bundle", "blocking_conditions": []}):
+                with patch("circled_wiki.core.curation.subprocess.run", return_value=completed):
                     repeated = run_configured_curation(root, evidence_id)
             self.assertEqual(repeated["action"], "reused_review")
             self.assertEqual(len(list_curation_reviews(root)), 1)
@@ -248,7 +253,7 @@ class CurationMaterializationTests(unittest.TestCase):
             review_path = root.parent / created["path"]
 
             with patch(
-                "knowledge_os.core.curation.materialize_curation_candidate",
+                "circled_wiki.core.curation.materialize_curation_candidate",
                 side_effect=ValueError("fixture failure"),
             ):
                 with self.assertRaisesRegex(ValueError, "fixture failure"):
@@ -263,7 +268,7 @@ class CurationMaterializationTests(unittest.TestCase):
                 "pending",
             )
 
-    def test_opted_in_high_confidence_reference_can_create_draft_without_review(self):
+    def test_high_confidence_reference_still_requires_curation_review(self):
         with tempfile.TemporaryDirectory() as directory:
             root, evidence_id = self._evidence(directory)
             config = root.parent / ".circled-wiki" / "config.yaml"
@@ -281,13 +286,12 @@ class CurationMaterializationTests(unittest.TestCase):
             }
             completed = type("Completed", (), {"stdout": json.dumps(output)})()
             proposal = {"recommended_action": "create_draft_bundle", "blocking_conditions": [], "candidate_bundles": []}
-            with patch("knowledge_os.core.curation.propose_update", return_value=proposal):
-                with patch("knowledge_os.core.curation.subprocess.run", return_value=completed):
+            with patch("circled_wiki.core.curation.propose_update", return_value=proposal):
+                with patch("circled_wiki.core.curation.subprocess.run", return_value=completed):
                     result = run_configured_curation(root, evidence_id)
-            self.assertEqual(result["action"], "created")
-            self.assertEqual(list_curation_reviews(root), [])
-            candidate = find_document_by_id(root, result["bundle_id"])
-            self.assertEqual(candidate.frontmatter["type"], "reference")
+            self.assertEqual(result["action"], "created_review")
+            self.assertEqual(len(list_curation_reviews(root)), 1)
+            self.assertEqual(list_curation_candidates(root), [])
 
     def test_validator_rejects_curation_receipt_for_another_evidence_checksum(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -323,7 +327,7 @@ class CurationMaterializationTests(unittest.TestCase):
                 encoding="utf-8",
             )
             with patch(
-                "knowledge_os.core.curation.propose_update",
+                "circled_wiki.core.curation.propose_update",
                 return_value={"recommended_action": "review_existing_bundle", "blocking_conditions": ["existing_bundle"]},
             ):
                 result = run_configured_curation(root, evidence_id)

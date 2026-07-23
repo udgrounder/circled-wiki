@@ -1,14 +1,15 @@
 # Autonomous Agent Startup
 
-이 파일은 설치된 단일 머신에서 Knowledge OS를 운영하는 자율형 Agent의 초기 기동 계약이다. 시작 프롬프트에는
+이 파일은 설치된 단일 머신에서 Circled Wiki를 운영하는 자율형 Agent의 초기 기동 계약이다. 시작 프롬프트에는
 "프로젝트 root의 `.circled-wiki/AUTONOMOUS_AGENT_STARTUP.md`를 먼저 읽고 따르라"고 지정한다.
 
 ## Startup Sequence
 
 1. `.circled-wiki/config.yaml`을 읽어 조직 ID, 운영 Agent, Graphify 사용 여부, Curation 활성화 여부와 `approval.knowledge_owner`를 확인한다.
 2. `.circled-wiki/OPERATING_RULES.md`를 읽는다.
-3. 요청을 root `AGENTS.md` Routing Table로 분류하고 해당 `.circled-wiki/agent-rules/*.md` 하나만 읽는다.
-4. `python3 .circled-wiki/bin/knowledge-os.py operational-preflight`를 실행한다.
+3. `.circled-wiki/AGENT_ROUTER.md` Routing Table로 요청을 분류하고 해당
+   `.circled-wiki/agent-rules/*.md` 하나만 읽는다.
+4. `python3 .circled-wiki/bin/circled-wiki.py operational-preflight`를 실행한다.
 5. 질문 처리에는 Knowledge MCP 또는 portable CLI의 `search`, `read-bundle`, `prepare_context`를 사용한다.
 6. 운영 변경이 필요한 경우에만 operator MCP를 사용하며, 단계별 Profile과 Gate를 분리한다.
 
@@ -25,7 +26,8 @@ Preflight가 실패하면 지식 파일을 직접 우회 수정하지 않는다.
 - Curation은 `materialize_curation_candidate`의 typed 결과 경계로만 Draft를 만들며, Evidence·Bundle frontmatter를 직접 편집하지 않는다.
 - 하위 Agent는 읽기 전용 문맥만 `prepare_context`로 받고, operator 권한·작업 범위·기간이 명시적으로 위임된 경우에만 변경 Tool을 쓴다.
 - `approved` Draft의 Active 승격은 설정된 `approval.knowledge_owner`만 `promote_curation_candidate`로 실행하며, 독립된 Security receipt가 필요하다.
-- `knowledge/`는 Source of Truth이고 `.runtime/`, 검색 인덱스, Graphify graph는 파생 상태다.
+- `knowledge/`는 공식 지식의 Source of Truth다. `workspace/`는 Agent 기록·Issue·백업을 위한 사용자 소유
+  Working Plane이며 공식 지식이 아니다. 둘 다 OS upgrade가 수정하지 않는다.
 
 ## Answer Contract
 
@@ -49,7 +51,7 @@ Graphify는 별도 설치하는 선택적 파생 인덱스다. `.circled-wiki/co
 - API key나 토큰은 프로젝트 설정·문서·graph output에 저장하지 않는다.
 - Graphify가 없거나 실패해도 Knowledge MCP/CLI의 공식 조회 흐름은 계속 사용할 수 있어야 한다.
 
-Graphify 설치와 MCP 등록은 `.circled-wiki/GRAPHIFY.md`를 따른다. Knowledge OS bootstrap은 Graphify 패키지나
+Graphify 설치와 MCP 등록은 `.circled-wiki/GRAPHIFY.md`를 따른다. Circled Wiki bootstrap은 Graphify 패키지나
 외부 자격증명을 설치하지 않는다.
 
 ## Shutdown and Recovery

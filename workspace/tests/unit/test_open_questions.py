@@ -3,7 +3,7 @@ import unittest
 import json
 from pathlib import Path
 
-from knowledge_os.core.open_questions import (
+from circled_wiki.core.open_questions import (
     claim_slack_decision_delivery, list_open_questions, queue_slack_decision,
     reconcile_open_question_deliveries, record_open_question, resolve_open_question,
 )

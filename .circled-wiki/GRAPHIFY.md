@@ -1,6 +1,6 @@
 # Optional Graphify Integration
 
-Graphify는 Knowledge OS와 별도로 설치·업그레이드하는 선택적 로컬 지식 그래프다. Knowledge OS의 Source of Truth나
+Graphify는 Circled Wiki와 별도로 설치·업그레이드하는 선택적 로컬 지식 그래프다. Circled Wiki의 Source of Truth나
 발행 Gate를 대체하지 않는다.
 
 ## Install Separately
@@ -13,7 +13,7 @@ uv tool install graphifyy
 graphify install
 ```
 
-설치 명령은 Knowledge OS bootstrap이 자동 실행하지 않는다. 버전, 라이선스, 외부 LLM 사용 여부와 데이터 반출
+설치 명령은 Circled Wiki bootstrap이 자동 실행하지 않는다. 버전, 라이선스, 외부 LLM 사용 여부와 데이터 반출
 정책을 운영자가 확인한 뒤 실행한다.
 
 ## Build and Serve
@@ -30,7 +30,7 @@ stdio MCP 예시:
   "mcpServers": {
     "circled-wiki": {
       "command": "python3",
-      "args": ["-m", "knowledge_os.mcp.server"],
+      "args": ["-m", "circled_wiki.mcp.server"],
       "cwd": ".",
       "env": {
         "PYTHONPATH": ".circled-wiki/runtime",

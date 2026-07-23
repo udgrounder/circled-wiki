@@ -81,7 +81,7 @@ project-root/
 ├── AGENTS.md
 ├── README.md
 ├── docs/
-├── .knowledge-os/
+├── .circled-wiki/
 │   ├── templates/
 │   ├── schemas/
 │   └── policies/
@@ -134,22 +134,22 @@ knowledge/
 └── .raw/
 ```
 
-운영 템플릿·스키마·시스템 기본 정책은 Obsidian Vault 밖의 `.knowledge-os/` Control Plane에 둔다.
+운영 템플릿·스키마·시스템 기본 정책은 Obsidian Vault 밖의 `.circled-wiki/` Control Plane에 둔다.
 OS 업그레이드는 이 Control Plane만 변경하며 `knowledge/` Data Plane은 수정하지 않는다. 기존 Control Plane을
-변경할 때는 프로젝트 root의 `.knowledge-os-backups/<기존-version>-<UTC timestamp>/`에 전체 스냅샷을 먼저
+변경할 때는 프로젝트 root의 `.circled-wiki-backups/<기존-version>-<UTC timestamp>/`에 전체 스냅샷을 먼저
 생성하고, 백업 실패 시 변경을 시작하지 않는다.
 
-`.knowledge-os/runtime/`에는 대상 프로젝트에서 직접 실행하는 CLI Runtime을, `.knowledge-os/bin/knowledge-os.py`에는
-프로젝트 root를 자동 선택하는 Launcher를 둔다. Agent는 `.knowledge-os/AGENT_BOOTSTRAP.md`에서 시작해 전역 규칙과
+`.circled-wiki/runtime/`에는 대상 프로젝트에서 직접 실행하는 CLI Runtime을, `.circled-wiki/bin/circled-wiki.py`에는
+프로젝트 root를 자동 선택하는 Launcher를 둔다. Agent는 `.circled-wiki/AGENT_BOOTSTRAP.md`에서 시작해 전역 규칙과
 요청별 Profile을 적용한다. root `AGENTS.md`는 이 시작 문서를 Agent가 자동 발견하도록 연결하는 비관리 shim이며,
 존재할 때는 조직 소유 파일로 보존한다.
 
-최초 설치는 `.knowledge-os/config.yaml`에 organization ID·표시 이름·operator Agent와 선택적 Graphify 설정을
+최초 설치는 `.circled-wiki/config.yaml`에 organization ID·표시 이름·operator Agent와 선택적 Graphify 설정을
 기록한다. organization ID는 Knowledge·Evidence·Inbox URI namespace이며 설치 후 upgrade가 설정 파일을 덮어쓰지
-않는다. 자율형 Agent는 `.knowledge-os/AUTONOMOUS_AGENT_STARTUP.md`에서 시작하고 Graphify는 별도 설치된 파생
+않는다. 자율형 Agent는 `.circled-wiki/AUTONOMOUS_AGENT_STARTUP.md`에서 시작하고 Graphify는 별도 설치된 파생
 인덱스로만 사용한다.
 
-`.knowledge-os/issues/`는 운영 중 발견된 문제와 사용자 피드백을 개선 검토용으로 보관하는 로컬 피드백 영역이다.
+`.circled-wiki/issues/`는 운영 중 발견된 문제와 사용자 피드백을 개선 검토용으로 보관하는 로컬 피드백 영역이다.
 이 영역은 OS template와 분리되며 기존 이슈 기록은 업그레이드로 덮어쓰지 않는다.
 
 OKF 관점의 해석은 다음과 같다.

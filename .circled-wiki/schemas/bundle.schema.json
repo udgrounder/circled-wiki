@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": ".circled-wiki/schemas/bundle.schema.json",
-  "title": "Knowledge OS OKF Bundle Frontmatter",
+  "title": "Circled Wiki OKF Bundle Frontmatter",
   "type": "object",
   "additionalProperties": true,
   "required": [

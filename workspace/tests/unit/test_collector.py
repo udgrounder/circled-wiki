@@ -2,9 +2,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from knowledge_os.core.frontmatter import parse_markdown
-from knowledge_os.core.service import KnowledgeService
-from knowledge_os.integrations.collector import CollectedItem, collect_items
+from circled_wiki.core.frontmatter import parse_markdown
+from circled_wiki.core.service import KnowledgeService
+from circled_wiki.integrations.collector import CollectedItem, collect_items
 
 
 class CollectorAdapterTests(unittest.TestCase):

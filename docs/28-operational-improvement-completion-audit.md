@@ -21,7 +21,7 @@
 ## Current verification
 
 - Unit/integration suite: `PYTHONPATH=src python3 -m unittest discover -s workspace/tests` — 158 tests passing.
-- Repository validation: `PYTHONPATH=src python3 -m knowledge_os.cli validate` — `validated=32 invalid=0`.
+- Repository validation: `PYTHONPATH=src python3 -m circled_wiki.cli validate` — `validated=32 invalid=0`.
 - Patch hygiene: `git diff --check` passes.
 
 ## Test-installation evidence

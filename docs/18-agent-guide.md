@@ -1,4 +1,4 @@
-# AI Agent를 위한 Knowledge OS 및 Workflow 실행 가이드
+# AI Agent를 위한 Circled Wiki 및 Workflow 실행 가이드
 
 ## 1. 목적과 적용 대상
 
@@ -6,6 +6,11 @@
 따라 작업을 수행하고, 결과를 Evidence로 환류하기 위한 실행 계약이다.
 
 Agent는 이 문서보다 저장소의 보안 정책, Validator 결과, 활성 Runbook의 명시적 승인 지점을 우선한다.
+
+이 문서는 설치된 Wiki의 Runtime Agent에만 적용한다. Circled Wiki 제품 코드·설치·release·deployment와 운영
+Issue intake·triage는 source repository의 `AGENTS.md`, `PRODUCT_ENGINEERING_RULES.md`,
+`product-agent-rules/`를 따른다. Runtime Agent는 운영 Issue를 `workspace/issues/`에 기록할 수 있지만 제품
+수정이나 upgrade를 자동 시작하지 않는다.
 
 ## 2. 핵심 규칙
 
@@ -70,7 +75,7 @@ find_workflow
 - 사용자가 최신화 확인을 요청하면 유효기간과 관계없이 `prepare_runbook_refresh`를 호출한다.
 - 사용자가 더 좋은 레퍼런스를 제공하면 원본을 Evidence로 수집하고 `submit_runbook_reference`를 호출한다.
 - 원본 수집은 inbox 상대경로로 `ingest_evidence`를 호출하고, Batch 항목에는 안정적인 `idempotency_key`를 사용한다.
-- 신규 Bundle은 `create_draft_bundle`, 기존 Bundle은 읽은 revision을 `expected_revision`으로 전달해 `apply_bundle_revision`을 호출한다.
+- 신규 `policy`·`decision`·`spec`·`reference` Bundle은 `create_draft_bundle`을 사용할 수 있다. `guide`(Manual 성격 문서 포함)와 `runbook`은 Curation Review·독립 Owner 승인으로만 Draft를 생성한다. 기존 Bundle revision은 읽은 revision을 `expected_revision`으로 전달하되 상태 전환에는 사용하지 않는다.
 - 사용자 레퍼런스를 권위 있는 사실로 자동 간주하지 말고 출처·최신성·적용 범위·충돌을 비교한다.
 - Candidate Evidence는 `record_reference_assessment`로 평가하고 평가자와 검증자를 분리한다.
 - 정책·보안·가격·법률·외부 등록 요건·성과 수치는 Claim Support 상태를 표시하고 필요하면 `validate_claim_support`를 호출한다.
@@ -234,7 +239,7 @@ Validation step에서는 Runbook의 `completion_criteria`를 항목별로 확인
 | 작업 문맥 구성 | `prepare_context` | 없음 |
 | 지식 수정 후보 | `propose_update` | 없음 |
 | Evidence 수집 | `ingest_evidence` | Evidence 생성 |
-| Draft Bundle 생성 | `create_draft_bundle` | Bundle·Evidence 역참조 |
+| Draft Bundle 생성 | `create_draft_bundle` | `policy`·`decision`·`spec`·`reference`만 직접 생성. Guide/Manual·Runbook은 Curation Review 필요 |
 | Bundle revision 적용 | `apply_bundle_revision` | Bundle·Evidence 역참조 |
 | Workflow 검색 | `find_workflow` | 없음 |
 | Task 생성 | `prepare_task` | `.runtime/` |
@@ -285,7 +290,7 @@ Validation step에서는 Runbook의 `completion_criteria`를 항목별로 확인
   `pii_scanned: true`로 기록하거나 Commit하면 안 된다.
 - `publish_changes`는 Workflow 실행 완료와 별개다. Validator와 민감정보 게이트를 통과한 지식 변경에만 사용한다.
 
-세부 정책은 [Agent and Knowledge Security Policy](../.knowledge-os/policies/agent-security.md)를 따른다.
+세부 정책은 [Agent and Knowledge Security Policy](../.circled-wiki/policies/agent-security.md)를 따른다.
 
 ## 8. 오류 및 예외 처리
 
@@ -337,4 +342,4 @@ Outcome Evidence를 검토할 때 다음 기준으로 개선 후보를 제안한
 - [Knowledge MCP 설계](07-mcp-spec.md)
 - [Hermes 아키텍처](05-hermes-architecture.md)
 - [사람 사용자 가이드](17-human-guide.md)
-- [Agent 및 지식 보안 정책](../.knowledge-os/policies/agent-security.md)
+- [Agent 및 지식 보안 정책](../.circled-wiki/policies/agent-security.md)

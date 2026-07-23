@@ -1,7 +1,7 @@
 ---
 type: template
 title: System Issue Template
-description: Knowledge OS 운영 문제와 사용자 피드백 기록 형식
+description: Circled Wiki 운영 문제와 사용자 피드백 기록 형식
 tags: [template, system-issue, operations]
 timestamp: 2026-07-15T00:00:00+09:00
 ---

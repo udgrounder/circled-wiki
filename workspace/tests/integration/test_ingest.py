@@ -6,8 +6,8 @@ import threading
 import unittest
 from pathlib import Path
 
-from knowledge_os.core.frontmatter import parse_markdown, render_markdown
-from knowledge_os.core.ingest import (
+from circled_wiki.core.frontmatter import parse_markdown, render_markdown
+from circled_wiki.core.ingest import (
     CaptureIdempotencyConflict,
     MAX_GIT_EVIDENCE_BYTES,
     accept_conversation_intake,
@@ -16,13 +16,13 @@ from knowledge_os.core.ingest import (
     capture_file,
     ingest_evidence,
 )
-from knowledge_os.core.repository import apply_bundle_revision, create_bundle
-from knowledge_os.core.curator import propose_update
-from knowledge_os.core.search import search_knowledge
-from knowledge_os.core.service import KnowledgeService
-from knowledge_os.core.validator import validate_repository
-from knowledge_os.integrations.channel import answer_knowledge_query, prepare_channel_workflow
-from knowledge_os.worker.jobs import ingest_accepted_inbox, inspect_inbox
+from circled_wiki.core.repository import apply_bundle_revision, create_bundle
+from circled_wiki.core.curator import propose_update
+from circled_wiki.core.search import search_knowledge
+from circled_wiki.core.service import KnowledgeService
+from circled_wiki.core.validator import validate_repository
+from circled_wiki.integrations.channel import answer_knowledge_query, prepare_channel_workflow
+from circled_wiki.worker.jobs import ingest_accepted_inbox, inspect_inbox
 
 
 class IngestEvidenceTests(unittest.TestCase):
@@ -187,7 +187,20 @@ class IngestEvidenceTests(unittest.TestCase):
                     "review_on_feedback": True,
                 },
             }
-            active = apply_bundle_revision(
+            with self.assertRaisesRegex(ValueError, "status transitions require"):
+                apply_bundle_revision(
+                    knowledge_root,
+                    bundle_id=str(draft.frontmatter["id"]),
+                    expected_revision=1,
+                    proposed_frontmatter=approved,
+                    body="# Procedure\n\n1. 원문을 검색한다.\n2. 검토한다.\n3. 출처와 함께 답변한다.\n",
+                    actor="simulated-human-owner",
+                )
+            # This test's remaining channel assertions need an existing legacy
+            # active Runbook fixture; construct it explicitly rather than using
+            # the production revision API as a promotion shortcut.
+            approved["status"] = "draft"
+            updated = apply_bundle_revision(
                 knowledge_root,
                 bundle_id=str(draft.frontmatter["id"]),
                 expected_revision=1,
@@ -195,6 +208,10 @@ class IngestEvidenceTests(unittest.TestCase):
                 body="# Procedure\n\n1. 원문을 검색한다.\n2. 검토한다.\n3. 출처와 함께 답변한다.\n",
                 actor="simulated-human-owner",
             )
+            fixture_data = dict(updated.frontmatter)
+            fixture_data["status"] = "active"
+            updated.path.write_text(render_markdown(fixture_data, updated.body), encoding="utf-8")
+            active = parse_markdown(updated.path)
             self.assertEqual(active.frontmatter["status"], "active")
             self.assertEqual(active.frontmatter["extensions"]["updated_by"], "simulated-human-owner")
             self.assertEqual(KnowledgeService(knowledge_root).propose_pending()["proposal_count"], 0)
@@ -645,7 +662,7 @@ class IngestEvidenceTests(unittest.TestCase):
                 )
             invalid = dict(updated["frontmatter"])
             invalid["status"] = "active"
-            with self.assertRaisesRegex(ValueError, "validation failed"):
+            with self.assertRaisesRegex(ValueError, "status transitions require"):
                 service.apply_bundle_revision(
                     str(draft["id"]), expected_revision=2, frontmatter=invalid,
                     body="invalid activation", actor="hermes-curator",

@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from knowledge_os.core.frontmatter import FrontmatterError, parse_markdown, render_markdown
+from circled_wiki.core.frontmatter import FrontmatterError, parse_markdown, render_markdown
 
 
 class FrontmatterTests(unittest.TestCase):

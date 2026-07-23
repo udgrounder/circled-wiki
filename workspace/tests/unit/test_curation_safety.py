@@ -1,6 +1,6 @@
 import unittest
 
-from knowledge_os.core.curation_safety import curation_body_safety_errors
+from circled_wiki.core.curation_safety import curation_body_safety_errors
 
 
 class CurationSafetyTests(unittest.TestCase):

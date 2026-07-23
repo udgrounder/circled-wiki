@@ -2,12 +2,13 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from knowledge_os.core.candidates import promote_curation_candidate, review_curation_candidate
-from knowledge_os.core.curation import materialize_curation_candidate
-from knowledge_os.core.curation_contract import validate_curation_output
-from knowledge_os.core.ingest import ingest_evidence
-from knowledge_os.core.pii import record_pii_scan_receipt
-from knowledge_os.core.service import KnowledgeService
+from circled_wiki.core.candidates import promote_curation_candidate, review_curation_candidate
+from circled_wiki.core.curation import materialize_curation_candidate
+from circled_wiki.core.curation_contract import validate_curation_output
+from circled_wiki.core.curation_reviews import decide_curation_review, generate_curation_review
+from circled_wiki.core.ingest import ingest_evidence
+from circled_wiki.core.pii import record_pii_scan_receipt
+from circled_wiki.core.service import KnowledgeService
 
 
 class KoreanQueryQualityTests(unittest.TestCase):
@@ -25,7 +26,13 @@ class KoreanQueryQualityTests(unittest.TestCase):
                 "summary": "캠페인 목표와 채널을 정하는 방법", "body": "# SNS 마케팅\n\n목표와 고객을 먼저 정한다.",
                 "evidence_ids": [evidence.evidence_id],
             }, [evidence.evidence_id])
-            created = materialize_curation_candidate(root, evidence.evidence_id, output, generated_by="curator", curation_receipt="test://curation")
+            review = generate_curation_review(
+                root, evidence.evidence_id, output,
+                generated_by="curator", curation_receipt="test://curation",
+            )
+            created = decide_curation_review(
+                root, review["review_id"], action="approve", actor="reviewer",
+            )["result"]
             review_curation_candidate(root, created["bundle_id"], action="approve", actor="reviewer")
             promote_curation_candidate(root, created["bundle_id"], actor="owner", security_receipt="security://1")
             service = KnowledgeService(root)

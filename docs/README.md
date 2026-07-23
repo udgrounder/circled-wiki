@@ -1,4 +1,4 @@
-# AI Knowledge OS 문서 인덱스
+# AI Circled Wiki 문서 인덱스
 
 이 디렉터리는 Example Organization의 `AI Knowledge Operating System` 구축을 위한 기획 및 설계 문서 세트다.
 

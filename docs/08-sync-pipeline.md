@@ -32,7 +32,7 @@
 - 지정 Batch는 자체 스케줄·watermark로 변경분을 수집하고 안정적인 `idempotency_key`를 전달한다.
 - 수집 시 `source_ref`, `why_collected`, `intended_use`를 확보한다.
 - 이 단계에서는 Evidence를 생성하거나 정제하지 않는다.
-- Knowledge OS는 Provider 스케줄러를 소유하지 않고 공통 Capture 이후만 책임진다.
+- Circled Wiki는 Provider 스케줄러를 소유하지 않고 공통 Capture 이후만 책임진다.
 
 ### 단계 2: Inbox 검사와 승인
 

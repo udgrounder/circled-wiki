@@ -27,6 +27,8 @@
 - Publication Security Review
 - 승인 상태와 발행 권한
 - 기존 staged 변경 없음
+- 현재 Evidence checksum, 생성 actor와 다른 승인 Owner 기록. `runbook`·Manual 성격 `guide`와 직접 생성 Draft의 active 전환에는 `curation_review` Review ID 필수
+- active 전환이면 전용 Promotion Gate의 Security Receipt와 PII Scan Receipt
 
 ## Output
 
@@ -39,5 +41,7 @@ Draft를 유지하고 발행 차단 원인과 수정 조건을 기록한다.
 ## Prohibited
 
 - Gate 우회
+- 일반 Bundle 생성·revision API로 `draft -> active`를 전환
+- Review가 필요한 유형 또는 직접 생성 Draft의 active 전환에 Review 카드·독립 Owner 승인 없이 active 상태를 주장
 - 미검토·`needs_review` 자료 발행
 - 승인 없는 외부 게시·Commit

@@ -26,7 +26,8 @@ inbox-capture
   -> publication
 ```
 
-`knowledge-query`, `workflow-execution`, `repository-engineering`, `bootstrap-knowledge-os`는 요청 목적에 따라 독립적으로 선택한다.
+`knowledge-query`, `workflow-execution`, `system-observation`, `runtime-upgrade-verification`은 요청 목적에 따라
+독립적으로 선택한다. 제품 개발·설치·배포 Profile은 source repository의 `product-agent-rules/`에만 둔다.
 한 Agent가 여러 단계를 수행하더라도 단계별 Profile과 Gate를 순서대로 적용해야 한다.
 
 ## Responsibility Matrix
@@ -38,8 +39,8 @@ inbox-capture
 | Evidence Ingest | Ingest Worker | Knowledge Operator | Inspector | Curator |
 | Curation | Curator Agent | Knowledge Owner | Domain Reviewer | Publisher |
 | Publication | Publisher | 승인된 Owner | Security Reviewer | Runtime Consumer |
-| Repository Engineering | Repository Agent | 변경 요청 사용자 | 관련 Maintainer | 운영 Agent |
-| OS Bootstrap·Upgrade | Bootstrap Agent | 대상 폴더 사용자 | OS Maintainer | Knowledge Owner |
+| System Observation | Runtime Agent | 설치본 Operator | System Maintainer | Product Maintainer |
+| Runtime Upgrade Verification | 독립 Runtime Verifier | Deployment Owner | System Maintainer | Product Maintainer |
 
 같은 실행 주체가 여러 역할을 맡더라도 Profile을 합치지 않는다. Approval이 필요한 단계에서는 제안자와
 승인자를 분리한다.

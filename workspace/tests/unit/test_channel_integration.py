@@ -1,6 +1,6 @@
 import unittest
 
-from knowledge_os.integrations.channel import answer_knowledge_query, prepare_channel_workflow
+from circled_wiki.integrations.channel import answer_knowledge_query, prepare_channel_workflow
 
 
 class _Service:

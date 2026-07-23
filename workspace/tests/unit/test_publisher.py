@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from knowledge_os.core.publisher import PublishError, push_committed_changes
+from circled_wiki.core.publisher import PublishError, push_committed_changes
 
 
 class PushPublicationTests(unittest.TestCase):
@@ -32,7 +32,7 @@ class PushPublicationTests(unittest.TestCase):
                 subprocess.CompletedProcess([], 0, stdout="origin\n", stderr=""),
                 subprocess.CompletedProcess([], 0, stdout="", stderr=""),
             ]
-            with patch("knowledge_os.core.publisher._git", side_effect=responses) as git:
+            with patch("circled_wiki.core.publisher._git", side_effect=responses) as git:
                 result = push_committed_changes(project, "abc")
 
             self.assertTrue(result["pushed"])
@@ -55,7 +55,7 @@ class PushPublicationTests(unittest.TestCase):
                 subprocess.CompletedProcess([], 0, stdout="origin\n", stderr=""),
                 subprocess.CalledProcessError(1, ["git", "push"]),
             ]
-            with patch("knowledge_os.core.publisher._git", side_effect=responses):
+            with patch("circled_wiki.core.publisher._git", side_effect=responses):
                 with self.assertRaisesRegex(PublishError, "commit_pending_push receipt recorded"):
                     push_committed_changes(project, "abc")
 
@@ -77,6 +77,6 @@ class PushPublicationTests(unittest.TestCase):
                 subprocess.CompletedProcess([], 0, stdout="abc\n", stderr=""),
                 subprocess.CompletedProcess([], 0, stdout="feature\n", stderr=""),
             ]
-            with patch("knowledge_os.core.publisher._git", side_effect=responses):
+            with patch("circled_wiki.core.publisher._git", side_effect=responses):
                 with self.assertRaisesRegex(PublishError, "current branch"):
                     push_committed_changes(project, "abc")

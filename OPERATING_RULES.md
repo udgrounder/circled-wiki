@@ -1,10 +1,10 @@
-# Knowledge OS Operating Rules
+# Circled Wiki Operating Rules
 
 **Status:** Normative  
-**Applies to:** Hermes, Codex, Claude, Knowledge MCP consumers, Repository Agents  
-**Operational dependency:** 이 파일과 `AGENTS.md`가 선택한 작업별 `agent-rules/` Profile
+**Applies to:** 설치된 Wiki의 Hermes, Codex, Claude와 Knowledge MCP consumers
+**Operational dependency:** 이 파일과 `.circled-wiki/AGENT_ROUTER.md`가 선택한 작업별 `agent-rules/` Profile
 
-이 문서는 Knowledge OS 전역 불변식과 우선순위의 단일 기준이다. Runtime Agent는 `docs/`를 읽지 않고 이 문서,
+이 문서는 Circled Wiki 전역 불변식과 우선순위의 단일 기준이다. Runtime Agent는 `docs/`를 읽지 않고 이 문서,
 현재 작업에 선택된 `agent-rules/` Profile, Knowledge MCP가 반환한 공식 Bundle만 사용한다. Profile은 전역
 규칙을 완화하지 않고 단계별 입력·Check·Gate·출력을 구체화한다. 하단 Reference는 설계 추적성과 규약
 유지보수용이며 운영 중 추가 로딩 대상이 아니다.
@@ -16,12 +16,11 @@
 | Knowledge Query | 정책·사실·과거 결정 조회 | Knowledge MCP | Read-only |
 | Workflow Execution | 단계·승인·산출물이 있는 업무 | Workflow MCP Tools | `.runtime/`, Outcome Inbox Item |
 | Knowledge Curation | Evidence 기반 지식 개선 | Curator·Validator | 검증된 `knowledge/` 변경 |
-| Repository Engineering | 사용자가 구현·문서 변경 요청 | Repository Tools | 사용자 승인 Scope |
 
 - **RB-MODE-001** Runtime Agent는 Repository 파일을 직접 수정하지 않는다.
-- **RB-MODE-002** Repository Agent만 사용자 승인 Scope에서 파일을 수정할 수 있다.
+- **RB-MODE-002** 제품 코드·배포 변경은 source repository의 Product Agent에게 전달하고 Runtime Agent가 직접 수행하지 않는다.
 - **RB-MODE-003** Runtime Agent는 `docs/`를 Operational Context로 로드하지 않는다.
-- **RB-MODE-004** Repository Engineering에서만 구현 판단에 필요한 `docs/`를 선택적으로 참조할 수 있다.
+- **RB-MODE-004** Runtime Agent는 제품 source repository의 `docs/`와 Product Profile을 권한 근거로 사용하지 않는다.
 
 ## 1.1 Terminology Contract
 
@@ -89,7 +88,7 @@ find_workflow
 - **RB-ROUTE-010** 사용자·지정 Batch·Hermes가 수집한 원본은 `knowledge/inbox/` 아래에서만 ingest한다.
 - **RB-ROUTE-011** Inbox 수집은 전체 저장소 테스트나 Bundle 정제를 실행하지 않는다. `inspect_inbox`는 읽기 전용, `review_inbox_sensitivity`는 식별된 사람의 민감성 결정, `accept_inbox`는 검사 Gate, `ingest_accepted`는 Evidence 변환만 담당하며 `propose_pending`이 정제를 별도로 수행한다.
 - **RB-ROUTE-012** Inbox 입력은 `knowledge/inbox/<provider>/`에 소스별로 분리하며 시스템 수집기는 provider 폴더를 자동 생성한다.
-- **RB-ROUTE-013** Agent는 `AGENTS.md` Routing Table에서 현재 작업 Profile을 선택하고 해당 `agent-rules/` 파일의 Check·Gate·금지 사항만 추가 적용한다.
+- **RB-ROUTE-013** Agent는 `.circled-wiki/AGENT_ROUTER.md` Routing Table에서 현재 작업 Profile을 선택하고 해당 `agent-rules/` 파일의 Check·Gate·금지 사항만 추가 적용한다.
 - **RB-ROUTE-014** 대상 프로젝트를 운영하는 Agent는 요청 처리 전 선택한 Profile을 적용하고, CLI 실패·Validator 오류·예상과 다른 결과·사용자 문제 제기를 발견하면 민감정보를 제외한 `record-system-issue` 기록을 남긴다. 이슈 기록은 자동 수정 권한이 아니며, 기록 또는 복구가 실패하면 완료를 주장하지 않고 원인을 보고한다.
 
 ## 3. Knowledge Invariants
@@ -111,11 +110,12 @@ find_workflow
 - **RB-KNW-015** Inventory와 Audit은 Frontmatter에서 재생성하는 파생 데이터이며 별도 Source of Truth가 아니다.
 - **RB-KNW-016** Archive는 파일 경로를 이동하지 않고 `status: archived`와 사유·복구 조건으로 표현한다.
 - **RB-KNW-017** 운영 템플릿·스키마·시스템 기본 정책은 `.circled-wiki/` Control Plane에 두며 upgrade는 `knowledge/` Data Plane을 수정하지 않는다.
-- **RB-KNW-018** 기존 Control Plane을 변경하는 upgrade는 먼저 `.circled-wiki-backups/<기존-version>-<UTC timestamp>/`에 `.circled-wiki/` 전체를 백업하며, 백업 실패 시 시작하지 않는다. 기존 `.knowledge-os/` 설치는 같은 Gate를 통과한 뒤 `.circled-wiki/`로 이전한다.
-- **RB-KNW-019** Portable CLI Runtime과 Agent Bootstrap은 `.circled-wiki/` Control Plane의 관리 자산이며, 대상 프로젝트의 `knowledge/`만 운영하고 외부 개발 저장소 경로를 요구하지 않는다.
-- **RB-KNW-020** 대상 root의 `AGENTS.md`, `CLAUDE.md`, `HERMES.md`는 Agent가 Control Plane을 발견하는 비관리 진입점이다. Bootstrap은 파일이 없으면 참조 전용 파일을 생성하고, 기존 파일에 Circled Wiki 시작 문서 참조가 없을 때만 표시된 참조 전용 블록을 append한다. 실제 운영 규칙은 `.circled-wiki/`에만 두며 기존 내용은 수정·등록·덮어쓰지 않는다.
+- **RB-KNW-018** 기존 Control Plane을 변경하는 upgrade는 먼저 `.circled-wiki-backups/<기존-version>-<UTC timestamp>/`에 `.circled-wiki/` 전체를 백업하며, 백업 실패 시 시작하지 않는다. 기존 `.circled-wiki/` 설치는 같은 Gate를 통과한 뒤 `.circled-wiki/`로 이전한다.
+- **RB-KNW-019** Portable CLI Runtime, Agent Router와 Bootstrap은 `.circled-wiki/` Control Plane의 관리 자산이며, 대상 프로젝트의 `knowledge/`와 `workspace/`만 운영하고 외부 개발 저장소 경로를 요구하지 않는다.
+- **RB-KNW-020** 대상 root의 `AGENTS.md`, `CLAUDE.md`, `HERMES.md`는 Agent가 Control Plane을 발견하는 비관리 진입점이다. Bootstrap은 파일이 없으면 `.circled-wiki/AGENT_ROUTER.md`와 시작 문서를 가리키는 참조 전용 파일을 생성하고, 기존 파일에 Circled Wiki 참조가 없을 때만 표시된 참조 전용 블록을 append한다. 실제 운영 규칙은 `.circled-wiki/`에만 두며 기존 내용은 수정·등록·덮어쓰지 않는다.
 - **RB-KNW-024** `knowledge/` 루트의 진입 문서는 `README.md`로 관리한다. 1-depth 폴더는 목적·하위 폴더 설명용 `README.md`와 탐색용 `index.md`를 사용자 관리 문서로 둘 수 있다. 자동화는 그보다 깊은 폴더의 index·README를 생성·갱신·삭제하지 않고 기존 문서는 사용자 관리 문서로 보존한다. `knowledge/inbox/`와 그 provider 하위 폴더는 처리 대기 입력 영역이므로 깊이와 무관하게 Bootstrap·수집·검사·변환·정제 작업의 index·README 생성·갱신·삭제 대상에서 제외한다.
-- **RB-KNW-021** `.circled-wiki/issues/`는 사용자·Agent·운영자·자동화가 제기한 운영 문제와 개선 제안을 기록하는 로컬 피드백 영역이다. 기록은 출처·사실·영향·재현 문맥·가설을 구분하고 민감정보를 포함하지 않으며, 이슈 기록만으로 OS·정책·Runbook을 자동 변경하거나 발행하지 않는다. 지정된 System Maintainer는 `open -> triaged -> mitigated -> verified -> resolved` 또는 `wont_fix` 상태 전환과 검증 근거를 기록할 수 있으며, `resolved`는 독립 검증 뒤에만 사용한다. upgrade는 이슈 기록을 원본 위치에서 이동·삭제·덮어쓰지 않고, 복구용 Control Plane 백업에만 스냅샷으로 포함한다.
+- **RB-KNW-021** `workspace/issues/`는 사용자·Agent·운영자·자동화가 제기한 운영 문제와 개선 제안을 기록하는 사용자 소유 피드백 영역이다. 기록은 출처·사실·영향·재현 문맥·가설을 구분하고 민감정보를 포함하지 않으며, 이슈 기록만으로 OS·정책·Runbook을 자동 변경하거나 발행하지 않는다. 지정된 System Maintainer는 `open -> triaged -> mitigated -> verified -> resolved` 또는 `wont_fix` 상태 전환과 검증 근거를 기록할 수 있으며, `resolved`는 독립 검증 뒤에만 사용한다. Runtime Agent는 운영 중 legacy `.circled-wiki/issues/`를 읽기와 기존 상태 갱신 전용으로 취급하며 일반 upgrade가 이동하지 않는다. 다만 Product Agent는 사용자가 특정 Issue의 수집 또는 migration을 명시적으로 요청하고 Git Gate를 통과한 경우에만 Product Workspace 또는 canonical `workspace/issues/`로 이동할 수 있다.
+- **RB-KNW-025** `workspace/`는 Issue, 사용자 작업, 자율형 Agent 기록과 설치별 백업을 위한 Working Plane이다. 공식 Knowledge가 아니며 manifest 관리 자산, release package 또는 Control Plane backup에 포함하지 않는다. 최초 설치는 빈 root만 생성하고 이후 upgrade·rollback은 내부 파일·폴더를 생성·수정·이동·삭제하지 않는다.
 - **RB-KNW-022** 운영 이슈나 개선 사항을 Circled Wiki 코드·규칙·템플릿에 반영할 때 조직명, Organization ID, Owner, Agent 이름, 경로, Git 대상, Integration 식별자처럼 특정 설치·프로젝트에만 유효한 값을 하드코딩하지 않는다. 필요한 값은 검증된 설치 로컬 `.circled-wiki/config.yaml`에서 읽고, 선택 항목이 없으면 제품이 정의한 조직 중립적 안전 기본값을 사용한다. 관리되는 Inbox·Evidence·Bundle ID가 생성된 뒤 `organization.id`는 불변이며 config와 기존 namespace가 다르면 Preflight와 모든 ID 생성 작업을 차단한다. 유효하지 않은 값은 추정하지 않고 해당 작업을 차단하며, upgrade는 기존 설정을 덮어쓰지 않는다. Secret과 PII는 설정 기본값이나 `config.yaml`에 저장하지 않는다.
 - **RB-KNW-023** 운영 Agent는 mutation 전에 `operational-preflight`에서 manifest release, 실행 모듈 경로와 managed Runtime checksum 일치를 확인한다. 실행 모듈이 설치된 canonical Runtime 밖에 있거나, source/runtime 후보가 중복되거나, Runtime 자산의 누락·변조·미등록 파일이 있으면 `ready=false`로 처리하고 복구 또는 검토된 upgrade 전까지 mutation을 실행하지 않는다.
 
@@ -239,6 +239,31 @@ Evidence -> Curator -> Validator -> Reviewer -> Security Gate -> Commit
 - **RB-PUB-009** Bundle 변경은 현재 `knowledge_revision`을 사전 조건으로 사용하며 stale revision 변경을 거부한다.
 - **RB-PUB-010** Bundle과 Evidence 역참조는 하나의 변경 단위로 검증하고 실패 시 변경 전 상태로 원복한다.
 
+### 9.1 Bundle Curation and Activation Contract
+
+아래 Contract는 가상·테스트 데이터를 포함한 모든 신규 Bundle과 `draft -> active` 전환에 적용한다.
+도구가 직접 파일 생성 또는 revision 적용을 허용해도 이 Contract를 우회할 권한은 생기지 않는다.
+
+```text
+accepted Evidence + valid PII Scan
+  -> Curation Review 카드 생성 (knowledge/curation-reviews/)
+  -> 생성자와 다른 Owner의 검토·승인
+  -> Draft Bundle 생성 또는 revision 제안
+  -> Security Receipt + 전체 Validator
+  -> 전용 Promotion Gate로 active 전환
+  -> 선택적 Git Commit / Push
+```
+
+- **RB-CUR-001** `runbook`과 Manual 성격의 `guide` 신규 Bundle 정제 제안은 Evidence checksum, 생성 actor와 제안 내용을 가진 `curation_review` 카드로 먼저 기록한다. `policy`, `decision`, `spec`, `reference` Draft는 Evidence·PII Gate를 통과하면 직접 생성할 수 있다.
+- **RB-CUR-002** `runbook`과 Manual 성격의 `guide` Draft는 Review 카드와 연결된 Owner가 있을 때만 생성할 수 있다. 기본 Owner 설정은 후보를 배정할 수 있을 뿐, 검토·승인을 자동으로 기록하지 않는다.
+- **RB-CUR-003** Review 승인 actor는 Review 생성 actor와 달라야 하며, Bundle Owner 또는 명시적으로 위임된 승인자여야 한다.
+- **RB-CUR-004** Review가 필요한 유형에서 카드가 없거나 Evidence checksum이 달라 stale 상태이면 Draft 생성·revision·Promotion을 중단한다.
+- **RB-CUR-005** `draft -> active` 상태 전환은 전용 Promotion Gate만 수행한다. 일반 Bundle 생성·revision API와 직접 Frontmatter 변경은 active 전환 수단이 아니다.
+- **RB-CUR-006** 모든 active Bundle에는 승인 Owner·시각, Security Receipt, 현재 Evidence checksum과 PII Scan Receipt를 검증 가능한 provenance로 남긴다. `runbook`과 Manual 성격의 `guide`에는 생성 전 Review ID가 필수다. 직접 생성 가능한 `policy`, `decision`, `spec`, `reference`도 `draft -> active` 전환 전에 checksum 결합 Review와 독립 Owner 승인을 추가로 받아야 한다.
+- **RB-CUR-007** 가상·테스트 Evidence도 같은 Gate를 적용한다. 테스트 목적이라는 이유로 Review, 독립 승인, 보안 검증 또는 Validator를 생략할 수 없다.
+- **RB-CUR-008** Gate 중 하나라도 누락되면 Bundle은 `draft` 또는 `needs_review`로 유지한다. Agent는 도구가 허용하더라도 상태를 직접 보정하거나 self-approval하지 않는다.
+- **RB-CUR-009** Curation 또는 Promotion CLI가 Contract와 다르게 동작하거나 우회 경로를 허용하면 Runtime Agent는 active 전환을 중단하고 `workspace/issues/`에 관찰 사실을 기록한다.
+
 ## 10. Failure Policy
 
 | Condition | Required Action |
@@ -258,7 +283,7 @@ Evidence -> Curator -> Validator -> Reviewer -> Security Gate -> Commit
 Repository Engineering 변경 후 실행한다.
 
 ```sh
-PYTHONPATH=src python3 -m knowledge_os.cli validate
+PYTHONPATH=src python3 -m circled_wiki.cli validate
 PYTHONPATH=src python3 -m unittest discover -s workspace/tests -q
 ```
 
@@ -269,13 +294,13 @@ PYTHONPATH=src python3 -m unittest discover -s workspace/tests -q
 | Rule Domain | Design Reference |
 | --- | --- |
 | Vision·Architecture | `docs/01-vision.md`, `docs/02-architecture.md`, `docs/12-runtime-architecture.md` |
-| OKF·Profile | `docs/03-okf-spec.md`, `.knowledge-os/schemas/` |
+| OKF·Profile | `docs/03-okf-spec.md`, `.circled-wiki/schemas/` |
 | Evidence·Ingest | `docs/04-evidence-model.md`, `docs/08-sync-pipeline.md` |
 | Hermes·Service·MCP | `docs/05-hermes-architecture.md`, `docs/06-knowledge-service.md`, `docs/07-mcp-spec.md` |
 | Workflow·Task·Feedback | `docs/16-workflow-execution.md`, `docs/19-knowledge-governance.md`, `docs/20-runbook-refresh.md`, `docs/21-runbook-learning.md` |
-| Quality·Audit·Artifact | `docs/22-knowledge-quality-and-artifacts.md`, `.knowledge-os/templates/claim-support.md` |
+| Quality·Audit·Artifact | `docs/22-knowledge-quality-and-artifacts.md`, `.circled-wiki/templates/claim-support.md` |
 | Human·Agent Guide | `docs/17-human-guide.md`, `docs/18-agent-guide.md` |
-| Security | `.knowledge-os/policies/agent-security.md`, `.knowledge-os/policies/sensitive-data-masking.md` |
+| Security | `.circled-wiki/policies/agent-security.md`, `.circled-wiki/policies/sensitive-data-masking.md` |
 | Roadmap·Deferred Scope | `docs/09-development-roadmap.md`, `docs/13-future-work.md`, `docs/15-implementation-plan.md` |
 
 전역 운영 규약 변경 시 관련 Reference와 Validator/Test 영향을 확인한다. 설계 문서 변경이 운영 규칙에 영향을 주면

@@ -3,15 +3,15 @@ import unittest
 import subprocess
 from pathlib import Path
 
-from knowledge_os.core.ingest import accept_conversation_intake, capture_conversation
-from knowledge_os.worker.jobs import (
+from circled_wiki.core.ingest import accept_conversation_intake, capture_conversation
+from circled_wiki.worker.jobs import (
     MaintenanceReport,
     ingest_accepted_inbox,
     inspect_inbox,
     run_curation_batch,
     run_maintenance,
 )
-from knowledge_os.core.publisher import PublishError, _require_sensitive_data_review, publish_changes
+from circled_wiki.core.publisher import PublishError, _require_sensitive_data_review, publish_changes
 
 
 class WorkerJobTests(unittest.TestCase):

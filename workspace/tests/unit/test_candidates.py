@@ -3,12 +3,12 @@ import unittest
 from datetime import datetime, timezone
 from pathlib import Path
 
-from knowledge_os.core.candidates import curation_backlog_metrics, curation_candidate_digest, curation_daily_transitions, list_curation_candidates, review_curation_candidate
-from knowledge_os.core.frontmatter import parse_markdown, render_markdown
-from knowledge_os.core.ingest import ingest_evidence
-from knowledge_os.core.repository import create_bundle, find_document_by_id
-from knowledge_os.core.service import KnowledgeService
-from knowledge_os.core.validator import validate_document, validate_repository
+from circled_wiki.core.candidates import curation_backlog_metrics, curation_candidate_digest, curation_daily_transitions, list_curation_candidates, review_curation_candidate
+from circled_wiki.core.frontmatter import parse_markdown, render_markdown
+from circled_wiki.core.ingest import ingest_evidence
+from circled_wiki.core.repository import create_bundle, find_document_by_id
+from circled_wiki.core.service import KnowledgeService
+from circled_wiki.core.validator import validate_document, validate_repository
 
 
 class CurationCandidateTests(unittest.TestCase):

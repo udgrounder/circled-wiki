@@ -2,7 +2,7 @@
 
 ## Trigger
 
-Knowledge OS 운영 중 오류, 비정상 결과, 반복 수작업, 모호한 Agent 동작, 누락된 검증 또는 개선 기회를 발견했을 때,
+Circled Wiki 운영 중 오류, 비정상 결과, 반복 수작업, 모호한 Agent 동작, 누락된 검증 또는 개선 기회를 발견했을 때,
 또는 사용자가 대화·채널·문서에서 문제점과 개선 요청을 제기했을 때 사용한다.
 
 ## Input
@@ -14,11 +14,12 @@ Knowledge OS 운영 중 오류, 비정상 결과, 반복 수작업, 모호한 Ag
 
 ## Allowed Actions
 
-- `.circled-wiki/issues/`에 `record-system-issue`로 `Status: open` 기록 생성
+- `workspace/issues/`에 `record-system-issue`로 `Status: open` 기록 생성
 - 사용자 제기 내용은 `--reported-from user`로 원문 취지를 사실·요청·가설로 구분해 기록
 - CLI 실패, Validator 오류, 예상과 다른 결과는 `--reported-from agent` 또는 실제 발생 주체로 기록하고 완료·해결을 주장하지 않음
 - 사실·기대 결과·실제 결과·재현 문맥·개선 가설을 구분해 기록
-- 같은 이슈의 기존 기록을 찾아 링크로 연결
+- 같은 이슈의 기존 `workspace/issues/` 기록과 legacy `.circled-wiki/issues/` 기록을 읽기 전용으로 찾아 연결
+- 현재 설치 release와 `operational-preflight` 요약을 안전한 범위에서 기록
 
 ## Checks
 
@@ -35,9 +36,9 @@ Knowledge OS 운영 중 오류, 비정상 결과, 반복 수작업, 모호한 Ag
 
 ## Output
 
-- `.circled-wiki/issues/<issue-id>-<slug>.md`의 `Status: open` 기록
+- `workspace/issues/<issue-id>-<slug>.md`의 `Status: open` 기록
 - 이후 Repository Engineering 또는 Owner 검토가 사용할 개선 후보
-- 원본 위치에 유지되는 이슈 기록과 업그레이드 직전 복구 스냅샷
+- Product Workspace로 이동되기 전까지 원본 위치에 유지되는 이슈 기록
 
 ## Failure State
 
@@ -48,3 +49,4 @@ Knowledge OS 운영 중 오류, 비정상 결과, 반복 수작업, 모호한 Ag
 - API key, token, password, PII, 고객 원문 기록
 - 이슈를 근거로 한 자동 코드·정책·Runbook 변경
 - 기존 이슈의 해결 상태를 승인 없이 `resolved`로 변경
+- 제품 수정, config 변경 또는 upgrade 자동 시작

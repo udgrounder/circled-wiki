@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": ".circled-wiki/schemas/evidence-manifest.schema.json",
-  "title": "Knowledge OS Evidence Record Frontmatter",
+  "title": "Circled Wiki Evidence Record Frontmatter",
   "type": "object",
   "additionalProperties": true,
   "required": [

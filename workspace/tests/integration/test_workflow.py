@@ -6,11 +6,11 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from uuid import uuid4
 
-from knowledge_os.core.frontmatter import parse_markdown, render_markdown
-from knowledge_os.core.evidence import evidence_original_bytes
-from knowledge_os.core.service import KnowledgeService
-from knowledge_os.core.validator import validate_document
-from knowledge_os.integrations.channel import answer_knowledge_query, prepare_channel_workflow
+from circled_wiki.core.frontmatter import parse_markdown, render_markdown
+from circled_wiki.core.evidence import evidence_original_bytes
+from circled_wiki.core.service import KnowledgeService
+from circled_wiki.core.validator import validate_document
+from circled_wiki.integrations.channel import answer_knowledge_query, prepare_channel_workflow
 
 
 class WorkflowExecutionTests(unittest.TestCase):

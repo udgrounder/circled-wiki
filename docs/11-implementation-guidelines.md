@@ -60,13 +60,13 @@ Python 프로젝트 골격을 생성해.
 규모가 커질 경우 아래 분리도 고려한다.
 
 ```text
-knowledge-os-spec/
+circled-wiki-spec/
   docs/
   AGENTS.md
   decisions/
   roadmap/
 
-knowledge-os/
+circled-wiki/
   src/
   workspace/tests/
   docs/

@@ -201,7 +201,7 @@ source_ref:
 - Evidence는 삭제보다 상태 변경을 우선한다.
 - 원본 파일은 수정하지 않고 새 스냅샷이 필요하면 같은 `source_uuid`의 revision 또는 새 Evidence 정책으로 처리한다.
 - Git으로 추적되는 Evidence 원본은 저장소 복원 시 함께 복원된다. Git에서 제외된 대용량 원본은 manifest의 `source_ref`, `checksum`, `original_file`, `extensions.storage` 정보를 통해 재확보할 수 있어야 한다.
-- 민감정보 포함 가능성이 있으면 `.knowledge-os/policies/sensitive-data-masking.md` 기준으로 Git 추적 가능 여부를 판단한다. 원본의 증거성은 유지하되, 민감 원본을 Git에 올려서는 안 된다.
+- 민감정보 포함 가능성이 있으면 `.circled-wiki/policies/sensitive-data-masking.md` 기준으로 Git 추적 가능 여부를 판단한다. 원본의 증거성은 유지하되, 민감 원본을 Git에 올려서는 안 된다.
 - 동일 입력 중복 수집 여부를 checksum으로 판단할 수 있다.
 - `capture_context.reuse_value`, `retention_class`, `sensitivity_review`는 수집 가치와 보존·민감정보 검토 상태를 분류한다.
 - 이 분류는 Evidence 진실성 점수가 아니며 출처 권위와 최신성 평가는 Refresh Task의 Reference Assessment에서 수행한다.

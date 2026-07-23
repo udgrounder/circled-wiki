@@ -4,9 +4,9 @@ import hashlib
 from pathlib import Path
 from uuid import uuid4
 
-from knowledge_os.core.frontmatter import parse_markdown, render_markdown
-from knowledge_os.core.governance import audit_knowledge, list_knowledge_inventory, validate_claim_support
-from knowledge_os.core.search import search_knowledge
+from circled_wiki.core.frontmatter import parse_markdown, render_markdown
+from circled_wiki.core.governance import audit_knowledge, list_knowledge_inventory, validate_claim_support
+from circled_wiki.core.search import search_knowledge
 
 
 class GovernanceTests(unittest.TestCase):

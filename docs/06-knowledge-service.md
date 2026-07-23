@@ -27,7 +27,7 @@ prepare_context(task, references)
 read_bundle(bundle_id)
 propose_update(evidence_id)
 ingest_evidence(inbox_path, provider, capture_context, idempotency_key)
-create_draft_bundle(bundle_fields, evidence_id, actor)
+create_draft_bundle(bundle_fields, evidence_id, actor)  # policy|decision|spec|reference Draft만
 apply_bundle_revision(bundle_id, expected_revision, frontmatter, body, actor)
 validate_okf(bundle_document)
 rebuild_indexes(scope)
@@ -45,6 +45,9 @@ get_task(task_id)
 record_refresh_decision(task_id, decision, rationale, evidence_ids, actor)
 record_outcome(task_id, outcome)
 ```
+
+`guide`(Manual 성격 문서 포함)와 `runbook`은 `curation-reviews` 카드와 생성자와 다른 Owner의 승인 뒤에만
+Draft로 materialize한다. 어떤 일반 API도 `draft -> active` 상태 전환을 수행하지 않는다.
 
 Workflow API는 공식 Runbook 정의와 실행 중 Task 상태를 분리한다. Runbook은 Git의
 `knowledge/bundles/<domain>/runbooks/`에,
@@ -84,7 +87,7 @@ MVP 검색 실행 정책:
 - Search Orchestrator가 OS와 사용 가능한 명령을 감지한다.
 - 1순위는 모든 OS에서 `rg`다.
 - `rg`가 없으면 macOS/Linux는 `grep`, Windows는 PowerShell `Select-String`으로 fallback한다.
-- 지식 검색 대상은 `knowledge/bundles/**/*.md`, `knowledge/evidence/**/*.md`다. `.knowledge-os/`의 template·schema·system policy는 실행 규약과 검증 자산이며 조직 지식 검색 결과에 포함하지 않는다.
+- 지식 검색 대상은 `knowledge/bundles/**/*.md`, `knowledge/evidence/**/*.md`다. `.circled-wiki/`의 template·schema·system policy는 실행 규약과 검증 자산이며 조직 지식 검색 결과에 포함하지 않는다.
 - `knowledge/evidence/`의 비Markdown 원본 파일은 검색 대상에서 제외하고, 같은 basename의 `.md` manifest만 검색한다.
 - OS 명령 결과는 Core에서 공통 결과 형식으로 정규화한다.
 

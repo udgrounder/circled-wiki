@@ -62,7 +62,7 @@ Validator와 Owner 승인을 계속 거친다.
 
 `prepare_context`는 이 계약을 Agent에 전달하고 `validate_claim_support`는 계약 구조와 Evidence 참조·원본
 무결성을 읽기 전용으로 검사한다. Evidence가 Claim을 의미적으로 입증하는지는 별도 Reviewer가 판단한다. 공식 지식 Bundle로 승격할 때는
-[Claim Support Template](../.knowledge-os/templates/claim-support.md)의 Markdown 구획을 사용한다.
+[Claim Support Template](../.circled-wiki/templates/claim-support.md)의 Markdown 구획을 사용한다.
 
 ## 5. 검색, Archive와 Inventory
 

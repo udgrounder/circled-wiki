@@ -2,11 +2,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from knowledge_os.core.frontmatter import parse_markdown, render_markdown
-from knowledge_os.core.ingest import ingest_evidence
-from knowledge_os.core.pii import PiiScanResult, record_pii_scan_receipt, scan_and_record_pii_receipt
-from knowledge_os.core.publisher import PublishError, _require_sensitive_data_review
-from knowledge_os.core.validator import validate_document
+from circled_wiki.core.frontmatter import parse_markdown, render_markdown
+from circled_wiki.core.ingest import ingest_evidence
+from circled_wiki.core.pii import PiiScanResult, record_pii_scan_receipt, scan_and_record_pii_receipt
+from circled_wiki.core.publisher import PublishError, _require_sensitive_data_review
+from circled_wiki.core.validator import validate_document
 
 
 class PiiScanReceiptTests(unittest.TestCase):

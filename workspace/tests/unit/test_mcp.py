@@ -3,8 +3,8 @@ import tempfile
 import json
 from pathlib import Path
 
-from knowledge_os.core.service import KnowledgeService
-from knowledge_os.mcp.server import available_tools, handle_request
+from circled_wiki.core.service import KnowledgeService
+from circled_wiki.mcp.server import available_tools, handle_request
 
 
 class McpServerTests(unittest.TestCase):
@@ -84,7 +84,7 @@ class McpServerTests(unittest.TestCase):
                 "jsonrpc": "2.0", "id": 6, "method": "tools/call",
                 "params": {"name": "create_draft_bundle", "arguments": {
                     "domain": "operations", "slug": "pilot-guide", "title": "Pilot Guide",
-                    "bundle_type": "guide", "summary": "Pilot summary",
+                    "bundle_type": "policy", "summary": "Pilot summary",
                     "evidence_id": evidence["evidence_id"], "body": "# Guide\n\nDraft.\n",
                     "actor": "hermes-curator",
                 }},
