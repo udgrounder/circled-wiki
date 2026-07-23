@@ -7,7 +7,12 @@ import argparse
 from pathlib import Path
 from unittest.mock import patch
 
-from knowledge_os.cli.__main__ import _bootstrap_configuration, _resolve_capture_file, run_cli
+from knowledge_os.cli.__main__ import (
+    _bootstrap_configuration,
+    _resolve_capture_file,
+    main,
+    run_cli,
+)
 from knowledge_os.config.settings import render_settings
 
 
@@ -97,6 +102,17 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["error"], "operation_failed")
         self.assertEqual(payload["stage"], "find-workflow")
         self.assertIn("the following arguments are required: --request", payload["message"])
+
+    def test_ingest_help_explains_required_inbox_routing(self):
+        output = io.StringIO()
+        with patch("sys.argv", ["knowledge-os", "ingest-evidence", "--help"]):
+            with patch("sys.stdout", output):
+                with self.assertRaises(SystemExit) as raised:
+                    main()
+
+        self.assertEqual(raised.exception.code, 0)
+        self.assertIn("inside knowledge/inbox/", output.getvalue())
+        self.assertIn("capture-file", output.getvalue())
 
     def test_operational_preflight_blocks_changed_organization_namespace(self):
         with tempfile.TemporaryDirectory() as directory:

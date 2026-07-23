@@ -114,7 +114,7 @@ def generate_curation_review(
 
 
 def decide_curation_review(knowledge_root: Path, review_id: str, *, action: str, actor: str, note: str = "") -> Dict[str, object]:
-    """Record a human decision and materialize only an explicitly approved new Draft."""
+    """Record a human decision and remove a consumed review after Draft creation."""
     if action not in {"approve", "no_bundle", "needs_changes", "needs_review"}:
         raise ValueError("action must be approve, no_bundle, needs_changes, or needs_review")
     if not actor.strip():
@@ -139,6 +139,7 @@ def decide_curation_review(knowledge_root: Path, review_id: str, *, action: str,
         raise ValueError("review output is missing")
     output = validate_curation_output(payload, [evidence_ref["evidence_id"]])
     recommendation = data.get("recommendation")
+    delete_review_after_decision = False
     if action == "approve" and recommendation == "update_existing":
         current = find_document_by_id(knowledge_root, str(data.get("target_bundle_id") or ""))
         expected = data.get("expected_knowledge_revision")
@@ -158,6 +159,7 @@ def decide_curation_review(knowledge_root: Path, review_id: str, *, action: str,
             receipt_metadata=metadata.get("receipt") if isinstance(metadata.get("receipt"), dict) else None,
         )
         data["status"] = "applied"
+        delete_review_after_decision = True
     elif action == "no_bundle":
         from .curation import materialize_curation_candidate
         no_bundle = output if output.action == "no_bundle" else CurationOutput(
@@ -174,6 +176,50 @@ def decide_curation_review(knowledge_root: Path, review_id: str, *, action: str,
     data["decided_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
     data["decided_by"] = actor.strip()
     data["decision_note"] = note
+    if delete_review_after_decision:
+        current_evidence = find_document_by_id(knowledge_root, evidence_ref["evidence_id"])
+        bundle = find_document_by_id(knowledge_root, str(result.get("bundle_id", "")))
+        if current_evidence is None or bundle is None:
+            raise ValueError("created Draft and Evidence must remain available before review cleanup")
+        original_evidence = current_evidence.path.read_text(encoding="utf-8")
+        original_bundle = bundle.path.read_text(encoding="utf-8")
+        evidence_data = dict(current_evidence.frontmatter)
+        evidence_extensions = dict(evidence_data.get("extensions", {}))
+        evidence_extensions.pop("curation_review", None)
+        evidence_data["extensions"] = evidence_extensions
+        bundle_data = dict(bundle.frontmatter)
+        bundle_extensions = dict(bundle_data.get("extensions", {}))
+        curation = dict(bundle_extensions.get("curation", {}))
+        curation["review_decision"] = {
+            "review_id": review_id,
+            "decided_at": data["decided_at"],
+            "decided_by": data["decided_by"],
+            "decision_note": note,
+        }
+        bundle_extensions["curation"] = curation
+        bundle_data["extensions"] = bundle_extensions
+        try:
+            bundle.path.write_text(render_markdown(bundle_data, bundle.body), encoding="utf-8")
+            validation = validate_document(bundle.path, knowledge_root)
+            if not validation.is_valid:
+                raise ValueError(
+                    "approved Draft validation failed: "
+                    + "; ".join(validation.profile_errors)
+                )
+            current_evidence.path.write_text(
+                render_markdown(evidence_data, current_evidence.body), encoding="utf-8"
+            )
+            path.unlink()
+        except Exception:
+            bundle.path.write_text(original_bundle, encoding="utf-8")
+            current_evidence.path.write_text(original_evidence, encoding="utf-8")
+            raise
+        return {
+            "review_id": review_id,
+            "status": data["status"],
+            "review_deleted": True,
+            "result": result,
+        }
     path.write_text(render_markdown(data, document.body), encoding="utf-8")
     evidence_data = dict(evidence.frontmatter)
     extensions = dict(evidence_data.get("extensions", {}))

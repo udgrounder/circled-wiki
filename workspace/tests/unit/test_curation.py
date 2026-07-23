@@ -16,7 +16,11 @@ from knowledge_os.core.candidates import list_curation_candidates
 from knowledge_os.core.repository import apply_bundle_revision, find_document_by_id
 from knowledge_os.core.validator import validate_document
 from knowledge_os.core.candidates import promote_curation_candidate, review_curation_candidate
-from knowledge_os.core.curation_reviews import decide_curation_review, list_curation_reviews
+from knowledge_os.core.curation_reviews import (
+    decide_curation_review,
+    generate_curation_review,
+    list_curation_reviews,
+)
 
 
 class CurationMaterializationTests(unittest.TestCase):
@@ -212,15 +216,52 @@ class CurationMaterializationTests(unittest.TestCase):
                     repeated = run_configured_curation(root, evidence_id)
             self.assertEqual(repeated["action"], "reused_review")
             self.assertEqual(len(list_curation_reviews(root)), 1)
+            review_path = root.parent / review["path"]
+            self.assertTrue(review_path.is_file())
             applied = decide_curation_review(root, review["review_id"], action="approve", actor="reviewer")
             self.assertEqual(applied["status"], "applied")
+            self.assertTrue(applied["review_deleted"])
             self.assertEqual(applied["result"]["action"], "created")
+            self.assertFalse(review_path.exists())
+            self.assertEqual(list_curation_reviews(root, include_resolved=True), [])
             candidate = find_document_by_id(root, applied["result"]["bundle_id"])
             receipt = candidate.frontmatter["extensions"]["curation"]["receipt"]
             self.assertEqual(receipt["provider"], "test")
             self.assertEqual(receipt["model"], "curated")
             self.assertEqual(receipt["status"], "completed")
             self.assertIn("completed_at", receipt)
+            decision = candidate.frontmatter["extensions"]["curation"]["review_decision"]
+            self.assertEqual(decision["review_id"], review["review_id"])
+            self.assertEqual(decision["decided_by"], "reviewer")
+            evidence = find_document_by_id(root, evidence_id)
+            self.assertIn(candidate.frontmatter["id"], evidence.frontmatter["curated_into"])
+            self.assertNotIn("curation_review", evidence.frontmatter["extensions"])
+
+    def test_failed_review_approval_preserves_review_card(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, evidence_id = self._evidence(directory)
+            output = self._output(evidence_id, kind="guide")
+            created = generate_curation_review(
+                root, evidence_id, output,
+                generated_by="curator", curation_receipt="test://curation",
+            )
+            review_path = root.parent / created["path"]
+
+            with patch(
+                "knowledge_os.core.curation.materialize_curation_candidate",
+                side_effect=ValueError("fixture failure"),
+            ):
+                with self.assertRaisesRegex(ValueError, "fixture failure"):
+                    decide_curation_review(
+                        root, created["review_id"], action="approve", actor="reviewer"
+                    )
+
+            self.assertTrue(review_path.is_file())
+            evidence = find_document_by_id(root, evidence_id)
+            self.assertEqual(
+                evidence.frontmatter["extensions"]["curation_review"]["status"],
+                "pending",
+            )
 
     def test_opted_in_high_confidence_reference_can_create_draft_without_review(self):
         with tempfile.TemporaryDirectory() as directory:

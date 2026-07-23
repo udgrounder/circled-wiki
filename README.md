@@ -192,6 +192,7 @@ PYTHONPATH=src python3 -m knowledge_os.cli review-curation-candidate \
 
 외부 Curator가 야간에 처리한 결과는 Bundle 대신 Git 추적 검토카드 `knowledge/curation-reviews/`에 먼저 저장된다.
 카드는 Evidence ID·상대 경로·checksum을 함께 기록하며, `approve` 전에는 Bundle을 만들지 않는다.
+신규 Draft Bundle 생성 승인이 성공하면 승인 정보는 Bundle의 Curation metadata로 옮기고 소비된 검토카드는 삭제한다.
 
 ```sh
 PYTHONPATH=src python3 -m knowledge_os.cli list-curation-reviews
@@ -376,8 +377,8 @@ printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' \
 1. 사용자·지정 Batch·Hermes가 원본을 `knowledge/inbox/<provider>/`에 넣는다.
 2. 대화는 `capture_conversation`, URL에서 가져온 텍스트·HTML은 `capture_document`, PDF·Word·기타 파일은 `capture_file`로 적재한 뒤 `inspect_inbox`, 필요 시 `review_inbox_sensitivity`, `accept_inbox`, `ingest_accepted`를 순서대로 실행한다. URL만 저장하지 않고, 수집기가 실제로 읽은 원문과 URL·locator를 함께 보존한다.
 3. `propose_pending` 또는 `propose_update`로 기존 Bundle 후보와 신규 초안을 검토한다.
-4. LLM/하위 Agent Curation 결과는 먼저 Git 추적 검토카드로 저장한다. 사용자 reviewer가 `decide_curation_review`로 승인한 신규 후보만 PII-cleared Draft를 만들며, 기존 Bundle 보완은 expected revision을 확인한 별도 `apply_bundle_revision`으로만 적용한다.
-5. 검토카드는 `list_curation_reviews`로 확인하고, 이미 생성된 Draft 후보는 `list_curation_candidates`와 `review_curation_candidate`로 검토한다. Active 전환은 설정된 `approval.knowledge_owner`가 독립된 Security receipt와 함께 `promote_curation_candidate`로만 수행한다.
+4. LLM/하위 Agent Curation 결과는 먼저 Git 추적 검토카드로 저장한다. 사용자 reviewer가 `decide_curation_review`로 승인한 신규 후보만 PII-cleared Draft를 만들며, 생성 성공 후 승인 기록은 Draft로 이동하고 소비된 검토카드는 삭제한다. 기존 Bundle 보완은 expected revision을 확인한 별도 `apply_bundle_revision`으로만 적용한다.
+5. 미처리 검토카드는 `list_curation_reviews`로 확인하고, 이미 생성된 Draft 후보는 `list_curation_candidates`와 `review_curation_candidate`로 검토한다. Active 전환은 설정된 `approval.knowledge_owner`가 독립된 Security receipt와 함께 `promote_curation_candidate`로만 수행한다.
 6. `validate_result` 또는 CLI `validate`와 보안 게이트가 통과하면 Hermes가 변경된 `knowledge/`를 자동 Git commit하고 결과를 로그에 남긴다.
 7. 사용자 작업 요청은 `find_workflow`와 `prepare_task`로 실행하고, 종료 결과는 `record_outcome`으로 `pending` Inbox에 환류한다. 이후에도 같은 `inspect_inbox -> review_inbox_sensitivity -> accept_inbox -> ingest_accepted -> propose_pending` 흐름을 적용한다.
 
@@ -409,7 +410,7 @@ Draft Bundle은 기본 질의·Workflow 실행 대상이 아니다. Agent는 공
 | `create_draft_bundle` | Evidence 기반 신규 Draft 생성 | `knowledge/bundles/`, Evidence 역참조 |
 | `materialize_curation_candidate` | typed 외부 Curator 결과로 PII 통과 Draft 생성 또는 재사용 | `knowledge/bundles/`, Evidence 역참조 |
 | `list_curation_reviews` | Git 추적 검토카드와 Evidence 위치·상태 확인 | 없음 |
-| `decide_curation_review` | 승인·불필요·수정 요청을 기록하고 승인된 신규 후보만 Draft 생성 | 검토카드, Evidence, 필요 시 Draft Bundle |
+| `decide_curation_review` | 승인·불필요·수정 요청을 기록하고 승인된 신규 후보만 Draft 생성; 생성 성공 시 소비된 카드 삭제 | 검토카드, Evidence, 필요 시 Draft Bundle |
 | `list_curation_candidates` | Draft 후보와 검토 상태 확인 | 없음 |
 | `review_curation_candidate` | 후보 검토·승인·거절·병합 기록 | `knowledge/bundles/` |
 | `promote_curation_candidate` | 설정 Owner와 Security receipt로 approved 후보 Active 승격 | `knowledge/bundles/` |

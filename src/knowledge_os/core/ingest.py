@@ -459,8 +459,11 @@ def ingest_evidence(
     evidence_root = knowledge_root / "evidence" / provider / date_path
     evidence_root.mkdir(parents=True, exist_ok=True)
     original_name = f"{name}_{source_uuid}{raw_path.suffix.lower()}"
+    manifest_name = f"{name}_{source_uuid}.md"
+    if original_name == manifest_name:
+        original_name += ".original"
     original_path = evidence_root / original_name
-    manifest_path = evidence_root / f"{name}_{source_uuid}.md"
+    manifest_path = evidence_root / manifest_name
     evidence_id = f"evidence/{organization_id}/{manifest_path.name}"
     timestamp = now.isoformat(timespec="seconds")
     source_ref = {
@@ -529,7 +532,11 @@ def ingest_evidence(
         manifest_path.unlink(missing_ok=True)
         if content_mode == "external_file" and original_path.is_file():
             shutil.move(str(original_path), str(raw_path))
-        raise ValueError("manifest validation failed: " + "; ".join(validation.profile_errors))
+        errors = validation.okf_errors + validation.profile_errors
+        raise ValueError(
+            "manifest validation failed: "
+            + "; ".join(errors or ["validator returned no diagnostic details"])
+        )
     if content_mode == "embedded":
         raw_path.unlink(missing_ok=True)
     return IngestResult(source_uuid, original_path, manifest_path, evidence_id)

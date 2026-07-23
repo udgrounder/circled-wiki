@@ -130,7 +130,14 @@ def main() -> int:
     bootstrap.add_argument("--graphify", choices=("enabled", "disabled"))
     ingest = subparsers.add_parser("ingest-evidence")
     ingest.add_argument("--provider", required=True)
-    ingest.add_argument("--file", required=True)
+    ingest.add_argument(
+        "--file",
+        required=True,
+        help=(
+            "Source path inside knowledge/inbox/; use capture-document or "
+            "capture-file before ingesting external input"
+        ),
+    )
     ingest.add_argument("--title")
     ingest.add_argument("--why-collected", required=True)
     ingest.add_argument("--intended-use", action="append", required=True)

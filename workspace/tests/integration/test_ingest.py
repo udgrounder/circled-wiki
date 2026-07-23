@@ -96,6 +96,40 @@ class IngestEvidenceTests(unittest.TestCase):
                 evidence_by_title["의사결정 기록 Word"].frontmatter["extensions"]["content_mode"], "external_file"
             )
 
+    def test_markdown_file_original_does_not_overwrite_evidence_manifest(self):
+        with tempfile.TemporaryDirectory() as temp_directory:
+            knowledge_root = Path(temp_directory) / "knowledge"
+            content = b"# Synthetic fixture\n\nNo personal data.\n"
+            captured = capture_file(
+                knowledge_root,
+                content,
+                "safe-fixture.md",
+                "fixture-test",
+                title="Safe Markdown fixture",
+                why_collected="Markdown file ingest regression",
+                intended_use=["integration-test"],
+                idempotency_key="safe-markdown-fixture-v1",
+                sensitivity_review="not_applicable",
+            )
+            accept_conversation_intake(
+                knowledge_root, captured.intake_id, "simulated-human-reviewer"
+            )
+
+            ingested = ingest_accepted_inbox(knowledge_root)
+
+            self.assertEqual(ingested["ingested_count"], 1)
+            self.assertEqual(ingested["failed_count"], 0)
+            evidence = parse_markdown(
+                knowledge_root.parent / ingested["items"][0]["evidence_path"]
+            )
+            self.assertEqual(evidence.frontmatter["type"], "evidence")
+            self.assertTrue(evidence.frontmatter["original_file"].endswith(".md.original"))
+            original = evidence.path.parent / evidence.frontmatter["original_file"]
+            self.assertEqual(original.read_bytes(), content)
+            self.assertTrue(
+                all(result.is_valid for result in validate_repository(knowledge_root))
+            )
+
             # Simulate the curator's judgment that all four sources support one
             # reusable customer-support Runbook, then simulate owner review.
             evidence_ids = [item["evidence_id"] for item in ingested["items"]]
