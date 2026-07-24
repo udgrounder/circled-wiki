@@ -45,13 +45,13 @@ class ValidatorTests(unittest.TestCase):
             render_markdown(
                 {
                     "type": "policy",
-                    "id": f"knowledge://example-org/cs/refund_{bundle_uuid}",
+                    "id": f"bundle/example-org/refund_{bundle_uuid}.md",
                     "bundle_uuid": bundle_uuid,
                     "title": "Refund",
                     "status": "draft",
                     "summary": "Refund policy",
                     "updated_at": "2026-07-10T10:00:00+09:00",
-                    "evidence": [f"evidence://example-org/manual/2026/07/10/{evidence_uuid}"],
+                    "evidence": [f"evidence/example-org/refund-source_{evidence_uuid}.md"],
                     "extensions": {"knowledge_revision": 1},
                 }
             ),
@@ -109,7 +109,7 @@ class ValidatorTests(unittest.TestCase):
         result = validate_document(path, self.root)
 
         self.assertIn(
-            "Runbook must be stored in bundles/<domain>/runbooks/",
+            "Runbook must be stored in bundles/<domain>/runbooks/ or bundles/archive/<domain>/runbooks/",
             result.profile_errors,
         )
 

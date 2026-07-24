@@ -159,7 +159,15 @@ Task Outcome
 - Draft, Deprecated, Archived Bundle은 명시적 상태 필터 또는 ID 조회로만 사용한다.
 - Inventory는 Frontmatter와 Runtime Task에서 계산하며 별도 수동 문서를 Source of Truth로 만들지 않는다.
 - Audit은 Owner, 검토 기한, Evidence 가용성, 양방향 참조, Inquiry와 장기 열린 Task를 읽기 전용으로 검사한다.
-- Archive는 파일 이동 없이 `status: archived`와 `extensions.archive`로 표현한다.
+- Archive는 `status: archived`와 `extensions.archive`로 표현하고 `knowledge/bundles/archive/<domain>/`으로 이동한다. ID는 유지한다.
+
+### Archive 절차
+
+1. 중복·병합·폐기 여부와 복구 필요 조건을 Reviewer가 확인한다.
+2. `extensions.archive`에 `archived_at`, `archived_by`, `reason`, `restore_condition`을 기록한다.
+3. Bundle을 `knowledge/bundles/archive/<domain>/`으로 이동한다. Runbook은 `archive/<domain>/runbooks/` 구조를 유지한다.
+4. 전체 Validator로 ID·Evidence 양방향 참조를 검증하고, 기본 검색과 Operational Context에서 제외되는지 확인한다.
+5. 복구는 Reviewer 승인 후 원래 도메인 경로로 되돌리고 상태·근거·검토 시각을 다시 검토한다. ID와 Archive 이력은 보존한다.
 - 중요 Agent 주장은 `verified`, `limited`, `inferred`, `needs_review`로 Evidence 지원 상태를 구분한다.
 
 상세 계약은 [22-knowledge-quality-and-artifacts.md](22-knowledge-quality-and-artifacts.md)를 따른다.

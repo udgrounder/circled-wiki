@@ -149,7 +149,7 @@ Runbook Owner가 승인한다.
 ```sh
 PYTHONPATH=src python3 -m circled_wiki.cli submit-runbook-reference \
   --workflow poster-production \
-  --evidence evidence://example-org/user/2026/07/14/{source_uuid} \
+  --evidence evidence/example-org/user-reference_{source_uuid}.md \
   --submitted-by marketing-user \
   --note "최근 승인된 디자인 가이드이며 기존 기준과 비교가 필요함"
 ```

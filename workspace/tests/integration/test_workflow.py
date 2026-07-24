@@ -21,8 +21,8 @@ class WorkflowExecutionTests(unittest.TestCase):
         review_due_at = (now + timedelta(days=29)).isoformat(timespec="seconds")
         evidence_uuid = str(uuid4())
         bundle_uuid = str(uuid4())
-        evidence_id = f"evidence://example-org/manual/2026/07/14/{evidence_uuid}"
-        bundle_id = f"knowledge://example-org/marketing/poster-production_{bundle_uuid}"
+        evidence_id = f"evidence/example-org/poster-source_{evidence_uuid}.md"
+        bundle_id = f"bundle/example-org/poster-production_{bundle_uuid}.md"
         evidence_path = (
             knowledge_root / "evidence" / "manual" / "2026" / "07" / "14"
             / f"poster-source_{evidence_uuid}.md"
@@ -460,7 +460,7 @@ class WorkflowExecutionTests(unittest.TestCase):
             source_path = next((knowledge_root / "evidence" / "manual").rglob("*.md"))
             source = parse_markdown(source_path)
             evidence_uuid = str(uuid4())
-            evidence_id = f"evidence://example-org/user/2026/07/14/{evidence_uuid}"
+            evidence_id = f"evidence/example-org/better-reference_{evidence_uuid}.md"
             evidence_data = dict(source.frontmatter)
             evidence_data.update({
                 "id": evidence_id,

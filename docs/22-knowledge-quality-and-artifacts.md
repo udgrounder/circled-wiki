@@ -27,7 +27,7 @@
 
 ```yaml
 reference_assessment:
-  evidence_id: evidence://example-org/{provider}/{yyyy}/{mm}/{dd}/{source_uuid}
+  evidence_id: evidence/{organization_id}/{name}_{source_uuid}.md
   authority: primary
   recency: newer
   applicability: partial

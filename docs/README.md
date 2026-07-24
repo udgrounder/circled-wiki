@@ -47,6 +47,7 @@
 
 - 전역 운영 단일 규약은 루트 `OPERATING_RULES.md`다.
 - `docs/`는 기획·상세 설계 Reference이며 Runtime Context가 아니다.
+- Bundle·Evidence의 ID, 링크, 양방향 참조 규약은 `docs/26-reference-contract.md`를 단일 기준으로 한다.
 - Runtime Agent는 `docs/`를 읽지 않고 전역 운영 규약과 공식 Knowledge Bundle로 동작한다.
 - Repository Engineering에서만 `OPERATING_RULES.md`의 Reference Traceability를 통해 필요한 설계 문서를 확인한다.
 - `docs/source/`와 역사적 초안은 과거 의사결정 근거가 필요할 때만 읽는다.

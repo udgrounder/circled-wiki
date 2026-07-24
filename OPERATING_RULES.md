@@ -108,7 +108,7 @@ find_workflow
 - **RB-KNW-013** 장기 미해결 질문은 `extensions.inquiry`로 명시하고 확인되지 않은 답을 공식 지식으로 승격하지 않는다.
 - **RB-KNW-014** 기본 검색과 Operational Context에는 `active` Bundle만 포함한다.
 - **RB-KNW-015** Inventory와 Audit은 Frontmatter에서 재생성하는 파생 데이터이며 별도 Source of Truth가 아니다.
-- **RB-KNW-016** Archive는 파일 경로를 이동하지 않고 `status: archived`와 사유·복구 조건으로 표현한다.
+- **RB-KNW-016** Archive는 `status: archived`와 사유·복구 조건으로 표현하고, Bundle을 `knowledge/bundles/archive/<domain>/`으로 이동한다. Bundle ID는 유지한다.
 - **RB-KNW-017** 운영 템플릿·스키마·시스템 기본 정책은 `.circled-wiki/` Control Plane에 두며 upgrade는 `knowledge/` Data Plane을 수정하지 않는다.
 - **RB-KNW-018** 기존 Control Plane을 변경하는 upgrade는 먼저 `.circled-wiki-backups/<기존-version>-<UTC timestamp>/`에 `.circled-wiki/` 전체를 백업하며, 백업 실패 시 시작하지 않는다. 기존 `.circled-wiki/` 설치는 같은 Gate를 통과한 뒤 `.circled-wiki/`로 이전한다.
 - **RB-KNW-019** Portable CLI Runtime, Agent Router와 Bootstrap은 `.circled-wiki/` Control Plane의 관리 자산이며, 대상 프로젝트의 `knowledge/`와 `workspace/`만 운영하고 외부 개발 저장소 경로를 요구하지 않는다.
@@ -238,6 +238,7 @@ Evidence -> Curator -> Validator -> Reviewer -> Security Gate -> Commit
 - **RB-PUB-008** 기존 Git staged 변경이 있으면 자동 발행을 중단한다.
 - **RB-PUB-009** Bundle 변경은 현재 `knowledge_revision`을 사전 조건으로 사용하며 stale revision 변경을 거부한다.
 - **RB-PUB-010** Bundle과 Evidence 역참조는 하나의 변경 단위로 검증하고 실패 시 변경 전 상태로 원복한다.
+- **RB-PUB-011** Bundle Archive 절차는 (1) 중복·병합·폐기 근거를 검토하고, (2) `extensions.archive`에 시각·담당자·사유·복구 조건을 기록하고, (3) `knowledge/bundles/archive/<domain>/`으로 이동하며, (4) 전체 Validator와 검색 제외를 확인하는 순서로 수행한다. 복구는 Reviewer 승인 후 Archive 메타데이터를 보존한 채 원래 도메인 경로로 이동하고 상태를 재검토한다.
 
 ### 9.1 Bundle Curation and Activation Contract
 

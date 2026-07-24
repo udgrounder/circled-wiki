@@ -62,6 +62,7 @@ class CurationCandidateTests(unittest.TestCase):
 
             self.assertEqual(result["status"], "archived")
             self.assertEqual(result["review_state"], "rejected")
+            self.assertTrue(result["path"].startswith("bundles/archive/"))
             self.assertTrue(all(item.is_valid for item in validate_repository(knowledge_root)))
 
     def test_rejects_invalid_curation_review_history(self):

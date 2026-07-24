@@ -11,7 +11,7 @@
 | Installed runtime model | preflight/checksum behavior plus ADR-001 distribution and rollback decision |
 | Installation config | safe defaults, in-memory legacy migration, semantic checksum, two-install URI isolation, hardcoding audit |
 | Curation | typed contract, configured non-shell adapter, PII/visibility/Validator/safety gates, idempotent Draft/no_bundle records, proposal-blocking Gate, checksum/model/prompt/schema/time receipt validation, bounded batch outcome report |
-| Obsidian Evidence links | durable `evidence://` IDs remain canonical while a dry-run/apply repair derives vault-root `evidence/...md` links without UUID-prefix guessing |
+| Obsidian Evidence links | canonical Evidence IDs와 vault-root `evidence/...md` 링크를 분리하며, 링크는 ID에서 추정하지 않고 현재 Evidence 경로에서 생성 |
 | Review and publication | Draft review, Owner/Security Active Gate, Commit/Push API boundary, disabled-by-default remote/branch allowlist, Push lock and retry-safe receipt |
 | Agent operation | startup/Hermes MCP/CLI and delegated-Agent constraints documented |
 | Quality and observability | Korean SNS query regression, candidate digest/backlog and daily transition metrics, tracked-generated-artifact audit |

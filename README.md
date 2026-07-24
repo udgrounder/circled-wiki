@@ -163,7 +163,7 @@ PYTHONPATH=src python3 -m circled_wiki.cli propose-pending --limit 100
 
 ```sh
 PYTHONPATH=src python3 -m circled_wiki.cli propose-update \
-  --evidence evidence://<organization-id>/manual/2026/07/10/<source-uuid>
+  --evidence evidence/<organization-id>/<name>_<source-uuid>.md
 ```
 
 `policy`, `guide`, `decision`, `spec`, `reference`, `report`는 신규 공식 지식 후보로 직접 Draft를 생성할 수 있다. `--evidence`에는
@@ -178,7 +178,7 @@ PYTHONPATH=src python3 -m circled_wiki.cli create-bundle \
   --title "예약 환불 정책" \
   --type policy \
   --summary "예약 취소와 환불의 기준을 설명한다." \
-  --evidence evidence://<organization-id>/manual/2026/07/10/<source-uuid>
+  --evidence evidence/<organization-id>/<name>_<source-uuid>.md
 ```
 
 생성된 Bundle은 `draft` 상태다. 본문을 Obsidian에서 보완한 뒤 항상 검증한다.
@@ -194,7 +194,7 @@ Owner와 Publication Security Gate를 통과하는 별도 작업이다.
 ```sh
 PYTHONPATH=src python3 -m circled_wiki.cli list-curation-candidates
 PYTHONPATH=src python3 -m circled_wiki.cli review-curation-candidate \
-  --bundle knowledge://<organization-id>/cs/refund-policy_<bundle-uuid> \
+  --bundle bundle/<organization-id>/refund-policy_<bundle-uuid>.md \
   --action approve \
   --actor <reviewer-id>
 ```
@@ -225,7 +225,7 @@ PYTHONPATH=src python3 -m circled_wiki.cli search --query 환불 --type policy
 
 # Bundle 전문 읽기
 PYTHONPATH=src python3 -m circled_wiki.cli read-bundle \
-  --bundle knowledge://<organization-id>/cs/refund-policy_<bundle-uuid>
+  --bundle bundle/<organization-id>/refund-policy_<bundle-uuid>.md
 ```
 
 ### 4. Workflow로 작업 준비 및 결과 환류

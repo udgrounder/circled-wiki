@@ -42,7 +42,9 @@ def knowledge_root_path(knowledge_root: Path, document: MarkdownDocument) -> str
 def evidence_markdown_link(knowledge_root: Path, document: MarkdownDocument) -> str:
     """Return an Obsidian-compatible Markdown link, not an opaque identifier."""
     path = knowledge_root_path(knowledge_root, document)
-    return f"[{document.path.name}]({path})"
+    label = str(document.frontmatter.get("title") or document.path.name).strip()
+    label = label.replace("[", "(").replace("]", ")")
+    return f"[{label}]({path})"
 
 
 def backfill_evidence_links(knowledge_root: Path, *, apply: bool = False) -> Dict[str, object]:

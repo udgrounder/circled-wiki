@@ -27,7 +27,7 @@ tags:
 evidence:
   - evidence/{organization_id}/{name}_{source_uuid}.md
 evidence_links:
-  - "[{name}_{source_uuid}.md](evidence/{provider}/{yyyy}/{mm}/{dd}/{name}_{source_uuid}.md)"
+  - "[{title}](evidence/{provider}/{yyyy}/{mm}/{dd}/{name}_{source_uuid}.md)"
 links: []
 extensions:
   source_uuids:
@@ -74,4 +74,4 @@ extensions:
 관련 Bundle 링크를 작성한다.
 
 `active`로 전환하기 전에 `owners`, `governance.reviewed_at`, `governance.review_due_at`을 채운다.
-`status: archived`로 전환할 때만 `extensions.archive`를 채우며 파일 경로와 ID는 유지한다.
+`status: archived`로 전환할 때 `extensions.archive`를 채운 뒤 `knowledge/bundles/archive/<domain>/`으로 이동한다. ID는 유지한다.

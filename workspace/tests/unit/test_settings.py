@@ -277,7 +277,7 @@ class SettingsTests(unittest.TestCase):
             evidence_document = find_document_by_id(root, evidence.evidence_id)
             self.assertEqual(
                 repaired.frontmatter["evidence_links"],
-                [f"[{evidence_document.path.name}]({evidence_document.path.relative_to(root).as_posix()})"],
+                [f"[{evidence_document.frontmatter['title']}]({evidence_document.path.relative_to(root).as_posix()})"],
             )
 
     def test_evidence_link_backfill_does_not_write_unresolved_bundle(self):

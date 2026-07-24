@@ -36,10 +36,10 @@ evidence/{provider}/{yyyy}/{mm}/{dd}/{name}_{source_uuid}.{ext}
 evidence/notion/2026/07/08/refund-policy_550e8400-e29b-41d4-a716-446655440000.pdf
 ```
 
-## 4. URI 규칙
+## 4. ID 규칙
 
 ```text
-evidence://example-org/{provider}/{yyyy}/{mm}/{dd}/{source_uuid}
+evidence/{organization_id}/{name}_{source_uuid}.md
 ```
 
 ## 5. UUID 발급 규칙
@@ -88,7 +88,7 @@ Embedded Evidence Document는 별도 원본 파일 없이 하나의 Markdown에 
 ```yaml
 ---
 type: evidence
-id: evidence://example-org/notion/2026/07/08/550e8400-e29b-41d4-a716-446655440000
+id: evidence/example-org/refund-policy_550e8400-e29b-41d4-a716-446655440000.md
 title: Refund Policy Source Snapshot
 source_uuid: 550e8400-e29b-41d4-a716-446655440000
 provider: notion
@@ -101,7 +101,7 @@ captured_at: 2026-07-08T10:00:00+09:00
 status: processed
 processed_at: 2026-07-08T10:03:00+09:00
 curated_into:
-  - knowledge://example-org/cs/refund-policy_7c9e6679-7425-40de-944b-e07fc1f90ae7
+  - bundle/example-org/refund-policy_7c9e6679-7425-40de-944b-e07fc1f90ae7.md
 checksum: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
 language: ko
 original_file: refund-policy_550e8400-e29b-41d4-a716-446655440000.pdf
@@ -185,11 +185,13 @@ source_ref:
 
 ### Evidence -> Bundle
 
-`curated_into`를 사용한다.
+`curated_into`를 사용한다. 값은 Bundle ID 배열이며 화면용 경로·Markdown 링크가 아니다.
 
 ### Bundle -> Evidence
 
-`evidence` 배열을 사용한다.
+`evidence` 배열을 사용한다. 사람·Obsidian 탐색 링크는 별도 `evidence_links` 배열에만 둔다.
+
+정확한 ID·링크·역참조 형식과 갱신 주체는 [26-reference-contract.md](26-reference-contract.md)를 따른다.
 
 추가 권장:
 

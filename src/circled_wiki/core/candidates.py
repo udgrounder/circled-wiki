@@ -282,8 +282,15 @@ def review_curation_candidate(
     extensions["curation"] = curation
     data["extensions"] = extensions
     original = document.path.read_text(encoding="utf-8")
+    destination = document.path
+    if data["status"] == "archived":
+        bundle_root = knowledge_root / "bundles"
+        destination = bundle_root / "archive" / document.path.relative_to(bundle_root)
     try:
-        document.path.write_text(render_markdown(data, document.body), encoding="utf-8")
+        if destination != document.path:
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            document.path.rename(destination)
+        destination.write_text(render_markdown(data, document.body), encoding="utf-8")
         invalid = [result for result in validate_repository(knowledge_root) if not result.is_valid]
         if invalid:
             messages = [
@@ -292,6 +299,8 @@ def review_curation_candidate(
             ]
             raise ValueError("candidate review validation failed: " + "; ".join(messages))
     except Exception:
+        if destination != document.path and destination.exists():
+            destination.rename(document.path)
         document.path.write_text(original, encoding="utf-8")
         raise
     return {
@@ -301,4 +310,5 @@ def review_curation_candidate(
         "reviewed_by": actor.strip(),
         "reviewed_at": now,
         "merged_into": curation.get("merged_into"),
+        "path": destination.relative_to(knowledge_root).as_posix(),
     }

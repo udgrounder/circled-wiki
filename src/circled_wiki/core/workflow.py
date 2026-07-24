@@ -32,7 +32,7 @@ REFERENCE_APPLICABILITY = {"full", "partial", "out_of_scope"}
 REFERENCE_CORROBORATION = {"corroborated", "single_source", "conflicting"}
 REFERENCE_DISPOSITIONS = {"accept", "partial_accept", "reject", "needs_more_evidence"}
 EVIDENCE_ID = re.compile(
-    r"^evidence://[a-z0-9][a-z0-9_-]*/[a-z0-9_-]+/\d{4}/\d{2}/\d{2}/[0-9a-fA-F-]{36}$"
+    r"^evidence/[a-z0-9][a-z0-9_-]*/[^/]+_[0-9a-fA-F-]{36}\.md$"
 )
 REFRESH_STEPS = [
     {"id": "collect-current-evidence", "title": "최신 Evidence 수집", "kind": "action"},
@@ -294,7 +294,7 @@ class TaskStore:
             "learning": workflow["workflow"].get("learning", {}),
             "related_bundle_ids": [
                 link for link in workflow.get("links", [])
-                if isinstance(link, str) and (link.startswith("bundle/") or link.startswith("knowledge/") or link.startswith("knowledge://"))
+                if isinstance(link, str) and link.startswith("bundle/")
             ],
             "status": "awaiting_input" if missing else "ready",
             "created_at": now,
@@ -401,7 +401,7 @@ class TaskStore:
             ],
             "related_bundle_ids": [
                 link for link in workflow.get("links", [])
-                if isinstance(link, str) and (link.startswith("bundle/") or link.startswith("knowledge/") or link.startswith("knowledge://"))
+                if isinstance(link, str) and link.startswith("bundle/")
             ],
             "owners": workflow.get("owners", []),
             "governance": workflow.get("governance", {}),
@@ -561,7 +561,7 @@ class TaskStore:
         if not isinstance(evidence_ids, list) or not evidence_ids or any(
             not EVIDENCE_ID.match(str(item)) for item in evidence_ids
         ):
-            raise ValueError("Refresh decision requires Evidence URI references")
+            raise ValueError("Refresh decision requires canonical Evidence ID references")
         task = self.read(task_id)
         if task.get("task_type") != "runbook_refresh":
             raise ValueError("task must be a Runbook Refresh Task")

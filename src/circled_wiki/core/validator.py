@@ -44,13 +44,13 @@ EVIDENCE_RETENTION_CLASS = {
 }
 def _evidence_uri(organization_id: str) -> re.Pattern[str]:
     return re.compile(
-        rf"^(?:evidence/{re.escape(organization_id)}/[^/]+_[0-9a-fA-F-]{{36}}\.md|evidence://{re.escape(organization_id)}/[a-z0-9_-]+/\d{{4}}/\d{{2}}/\d{{2}}/[0-9a-fA-F-]{{36}})$"
+        rf"^evidence/{re.escape(organization_id)}/[^/]+_[0-9a-fA-F-]{{36}}\.md$"
     )
 
 
 def _bundle_uri(organization_id: str) -> re.Pattern[str]:
     return re.compile(
-        rf"^(?:(?:bundle|knowledge)/{re.escape(organization_id)}/[^/]+_[0-9a-fA-F-]{{36}}\.md|knowledge://{re.escape(organization_id)}/[a-z0-9][a-z0-9._~/-]*_[0-9a-fA-F-]{{36}})$"
+        rf"^bundle/{re.escape(organization_id)}/[^/]+_[0-9a-fA-F-]{{36}}\.md$"
     )
 
 
@@ -363,9 +363,15 @@ def _validate_bundle_placement(document: MarkdownDocument, result: ValidationRes
     except ValueError:
         return
     relative_parts = parts[bundles_index + 1:]
-    in_runbooks = len(relative_parts) >= 3 and relative_parts[1] == "runbooks"
+    archived = document.frontmatter.get("status") == "archived"
+    if archived and (len(relative_parts) < 3 or relative_parts[0] != "archive"):
+        result.profile_errors.append("archived Bundle must be stored in bundles/archive/<domain>/")
+    if not archived and relative_parts and relative_parts[0] == "archive":
+        result.profile_errors.append("only archived Bundles may be stored in bundles/archive/")
+    offset = 1 if archived else 0
+    in_runbooks = len(relative_parts) >= offset + 3 and relative_parts[offset + 1] == "runbooks"
     if document.frontmatter.get("type") == "runbook" and not in_runbooks:
-        result.profile_errors.append("Runbook must be stored in bundles/<domain>/runbooks/")
+        result.profile_errors.append("Runbook must be stored in bundles/<domain>/runbooks/ or bundles/archive/<domain>/runbooks/")
     if in_runbooks and document.frontmatter.get("type") != "runbook":
         result.profile_errors.append("only type runbook is allowed in bundles/<domain>/runbooks/")
 
@@ -622,8 +628,13 @@ def _validate_evidence(
             result.profile_errors.append(f"missing required Evidence field: {field}")
     if "id" in data and not _evidence_uri(organization_id).match(str(data["id"])):
         result.profile_errors.append(
-            f"id must be an Evidence URI for organization '{organization_id}'"
+            f"id must be a canonical Evidence ID for organization '{organization_id}'"
         )
+    curated_into = data.get("curated_into", [])
+    if not isinstance(curated_into, list) or any(
+        not _bundle_uri(organization_id).match(str(item)) for item in curated_into
+    ):
+        result.profile_errors.append("curated_into must be an array of canonical Bundle IDs")
     if "source_uuid" in data and not _is_uuid(data["source_uuid"]):
         result.profile_errors.append("source_uuid must be a UUID")
     if "provider" in data and not _is_nonempty_string(data["provider"]):

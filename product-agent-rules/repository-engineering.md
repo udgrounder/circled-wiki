@@ -20,6 +20,7 @@
 
 - 하위 호환성, Runtime 배포 영향과 문서·규칙 동기화
 - 기존 Archive 해결책·회귀 테스트의 적용 가능성
+- Archive lifecycle 변경이면 Archive 메타데이터, `knowledge/bundles/archive/<domain>/` 이동, 검색 제외와 복구 경로를 함께 검증
 - 프로젝트 한정 값 대신 검증된 설치 로컬 설정과 조직 중립적 안전 기본값 사용
 
 ## Gates
