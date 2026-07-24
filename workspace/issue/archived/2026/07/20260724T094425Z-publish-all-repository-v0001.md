@@ -1,6 +1,6 @@
 ---
 type: workspace_issue
-status: pending_review
+status: archived
 workspace_issue_id: workspace-issue-4fba73a59117495f8a9c34839ad495c8
 source_project_ref: campingtalk-wiki
 source_issue_id: issue-20260722T003352Z-fd9f69d4
@@ -9,27 +9,30 @@ source_git_revision: ad2808612d8e28f4bb8a3412e0d64032d7676b0f
 moved_at: '2026-07-23T10:19:55.211977+00:00'
 moved_by: codex
 requested_by: user
-canonical_issue_key: null
+canonical_issue_key: publish-all-repository
 occurrence: 1
 review:
-  reviewed_by: null
-  reviewed_at: null
-  decision: null
-  note: null
+  reviewed_by: user
+  reviewed_at: '2026-07-24T09:44:25+00:00'
+  decision: rejected
+  note: >-
+    Discarded as an obsolete operational request. The reported whole-repository publication
+    change was already handled in the originating environment; the current product keeps the
+    intentional knowledge-only automatic-publication boundary.
 processing:
   classification: null
-  disposition: null
-  history_relation: null
+  disposition: rejected
+  history_relation: new
   similar_history: []
   linked_work: []
   linked_release: null
   linked_deployment_receipt: null
   linked_verification_receipt: null
 archive:
-  archived_at: null
-  archived_by: null
-  reason: null
-  restore_condition: null
+  archived_at: '2026-07-24T09:44:25+00:00'
+  archived_by: codex
+  reason: Obsolete whole-repository publication request discarded by user review.
+  restore_condition: Reopen only with a new approved publication-boundary requirement.
 ---
 # publish-changes commit 범위가 knowledge/로 제한된 문제 수정
 

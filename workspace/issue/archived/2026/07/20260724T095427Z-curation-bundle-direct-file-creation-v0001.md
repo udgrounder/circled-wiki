@@ -1,6 +1,6 @@
 ---
 type: workspace_issue
-status: pending_review
+status: archived
 workspace_issue_id: workspace-issue-3ec16f7dd21b45dda5abf82830db6165
 source_project_ref: campingtalk-wiki
 source_issue_id: issue-20260722T030134Z-8424fa0f
@@ -9,27 +9,29 @@ source_git_revision: d1b36ce04ce9230f39ba9781056b644a3ce7aca4
 moved_at: '2026-07-23T10:19:55.542944+00:00'
 moved_by: codex
 requested_by: user
-canonical_issue_key: null
+canonical_issue_key: curation-bundle-direct-file-creation
 occurrence: 1
 review:
-  reviewed_by: null
-  reviewed_at: null
-  decision: null
-  note: null
+  reviewed_by: user
+  reviewed_at: '2026-07-24T09:54:27+00:00'
+  decision: rejected
+  note: >-
+    Discarded because glob-based Evidence resolution, direct YAML Bundle creation, and shortened
+    Bundle UUIDs bypass or violate the current repository and curation contracts.
 processing:
   classification: null
-  disposition: null
-  history_relation: null
+  disposition: rejected
+  history_relation: new
   similar_history: []
   linked_work: []
   linked_release: null
   linked_deployment_receipt: null
   linked_verification_receipt: null
 archive:
-  archived_at: null
-  archived_by: null
-  reason: null
-  restore_condition: null
+  archived_at: '2026-07-24T09:54:27+00:00'
+  archived_by: codex
+  reason: Direct file-based curation implementation discarded by user review.
+  restore_condition: Reopen only with a validated repository API regression.
 ---
 # dawn-curation.py: Bundle 슬러그 생성 개선 및 read_evidence_meta 경로 탐색 수정
 

@@ -1,6 +1,6 @@
 ---
 type: workspace_issue
-status: pending_review
+status: archived
 workspace_issue_id: workspace-issue-e6b43c6a32924001a51b0f1e46338876
 source_project_ref: campingtalk-wiki
 source_issue_id: issue-20260722T100925Z-7a91af0d
@@ -9,27 +9,27 @@ source_git_revision: 85651af758dc0160ad04c7d2a07915f61d823de7
 moved_at: '2026-07-23T10:19:55.639664+00:00'
 moved_by: codex
 requested_by: user
-canonical_issue_key: null
+canonical_issue_key: upgrade-existing-knowledge-validator
 occurrence: 1
 review:
-  reviewed_by: null
-  reviewed_at: null
-  decision: null
-  note: null
+  reviewed_by: user
+  reviewed_at: '2026-07-24T09:56:17.095201+00:00'
+  decision: accepted
+  note: 사용자 요청으로 현 시점 기록을 폐기한다. 운영본 migration 및 검증 필요성이 재발하면 새 Issue로 수집한다.
 processing:
-  classification: null
-  disposition: null
-  history_relation: null
+  classification: installation_config
+  disposition: rejected
+  history_relation: new
   similar_history: []
   linked_work: []
   linked_release: null
   linked_deployment_receipt: null
   linked_verification_receipt: null
 archive:
-  archived_at: null
-  archived_by: null
-  reason: null
-  restore_condition: null
+  archived_at: '2026-07-24T09:56:24.949200+00:00'
+  archived_by: codex
+  reason: 사용자 요청에 따른 현 시점 폐기
+  restore_condition: 대상 운영 설치본의 migration 및 Validator 검증이 다시 필요한 경우 새 Issue로 수집
 ---
 # 업그레이드 후 기존 지식 Validator 부적합
 

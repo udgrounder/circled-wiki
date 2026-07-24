@@ -233,7 +233,7 @@ def archive_workspace_issue(
     reason: str,
     restore_condition: str,
 ) -> Dict[str, object]:
-    """Move a reviewed, processed item from Inbox to one versioned Archive path."""
+    """Move a reviewed, processed item to a date-organized Archive path."""
     workspace_root = workspace_root.resolve()
     item_path = item_path.resolve()
     inbox_root = workspace_root / "issue" / "inbox"
@@ -265,9 +265,15 @@ def archive_workspace_issue(
         raise ValueError(
             "resolved archive requires release, deployment, and verification receipts"
         )
-    archive_root = workspace_root / "issue" / "archived" / canonical_key
-    occurrence = _next_occurrence(archive_root)
-    destination = archive_root / f"v{occurrence:04d}.md"
+    archived_at = datetime.now(timezone.utc)
+    archive_root = workspace_root / "issue" / "archived"
+    occurrence = _next_occurrence(workspace_root, str(canonical_key))
+    destination = (
+        archive_root
+        / archived_at.strftime("%Y")
+        / archived_at.strftime("%m")
+        / f"{archived_at.strftime('%Y%m%dT%H%M%SZ')}-{canonical_key}-v{occurrence:04d}.md"
+    )
     if destination.exists():
         raise ValueError("Archive occurrence already exists")
     workspace_issue_id = metadata.get("workspace_issue_id")
@@ -276,7 +282,7 @@ def archive_workspace_issue(
     metadata["occurrence"] = occurrence
     metadata["status"] = "archived"
     metadata["archive"] = {
-        "archived_at": datetime.now(timezone.utc).isoformat(),
+        "archived_at": archived_at.isoformat(),
         "archived_by": archived_by.strip(),
         "reason": reason.strip(),
         "restore_condition": restore_condition.strip(),
@@ -286,7 +292,6 @@ def archive_workspace_issue(
     try:
         item_path.replace(destination)
         destination.write_text(rendered, encoding="utf-8")
-        _write_archive_index(archive_root, canonical_key)
     except OSError:
         if destination.exists() and not item_path.exists():
             destination.replace(item_path)
@@ -311,7 +316,7 @@ def find_similar_archive_history(
     candidates: List[Dict[str, object]] = []
     source_area = _field_value(source_text, "Area")
     source_title = _first_heading(source_text)
-    for path in sorted(archive_root.glob("*/v*.md")):
+    for path in sorted(archive_root.rglob("*.md")):
         try:
             document = parse_markdown(path)
         except (OSError, ValueError):
@@ -329,10 +334,7 @@ def find_similar_archive_history(
         if reasons:
             processing = metadata.get("processing") or {}
             candidates.append({
-                "archive_ref": (
-                    f"{metadata.get('canonical_issue_key')}/"
-                    f"v{int(metadata.get('occurrence') or 0):04d}"
-                ),
+                "archive_ref": path.relative_to(archive_root).as_posix(),
                 "similarity_reasons": reasons,
                 "previous_resolution": processing.get("disposition"),
                 "previous_fixed_release": processing.get("linked_release"),
@@ -412,7 +414,7 @@ def _find_workspace_issue(workspace_root: Path, source_issue_id: str) -> bool:
 def _archived_workspace_id(workspace_root: Path, workspace_issue_id: object) -> bool:
     if not workspace_issue_id:
         return False
-    for path in (workspace_root / "issue" / "archived").glob("*/v*.md"):
+    for path in (workspace_root / "issue" / "archived").rglob("*.md"):
         try:
             if parse_markdown(path).frontmatter.get("workspace_issue_id") == workspace_issue_id:
                 return True
@@ -421,40 +423,18 @@ def _archived_workspace_id(workspace_root: Path, workspace_issue_id: object) -> 
     return False
 
 
-def _next_occurrence(archive_root: Path) -> int:
+def _next_occurrence(workspace_root: Path, canonical_issue_key: str) -> int:
     values = []
-    for path in archive_root.glob("v*.md"):
-        match = re.fullmatch(r"v(\d+)\.md", path.name)
-        if match:
-            values.append(int(match.group(1)))
+    for path in (workspace_root / "issue" / "archived").rglob("*.md"):
+        try:
+            metadata = parse_markdown(path).frontmatter
+        except (OSError, ValueError):
+            continue
+        if metadata.get("canonical_issue_key") == canonical_issue_key:
+            occurrence = metadata.get("occurrence")
+            if isinstance(occurrence, int) and occurrence > 0:
+                values.append(occurrence)
     return max(values, default=0) + 1
-
-
-def _write_archive_index(archive_root: Path, canonical_key: str) -> None:
-    rows = []
-    for path in sorted(archive_root.glob("v*.md")):
-        document = parse_markdown(path)
-        metadata = document.frontmatter
-        processing = metadata.get("processing") or {}
-        rows.append(
-            "| {version} | {release} | {relation} | {disposition} | {fixed} | {verification} |".format(
-                version=path.stem,
-                release=metadata.get("source_release") or "unknown",
-                relation=processing.get("history_relation") or "undetermined",
-                disposition=processing.get("disposition") or "unknown",
-                fixed=processing.get("linked_release") or "-",
-                verification=processing.get("linked_verification_receipt") or "-",
-            )
-        )
-    content = (
-        f"# {canonical_key}\n\n"
-        "이 파일은 occurrence 원문을 대체하지 않는 파생 탐색 index다.\n\n"
-        "| Occurrence | Observed release | Relation | Disposition | Fixed release | Verification |\n"
-        "| --- | --- | --- | --- | --- | --- |\n"
-        + "\n".join(rows)
-        + "\n"
-    )
-    (archive_root / "index.md").write_text(content, encoding="utf-8")
 
 
 def _source_issue_id(content: str, path: Path) -> str:

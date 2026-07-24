@@ -61,6 +61,11 @@ extensions:
 
 정제된 지식 내용을 작성한다.
 
+## Workflow Summary
+
+`type: runbook`인 경우에만 작성한다. 이 section은 사람이 읽는 흐름 요약이며, 실행 가능한 입력·단계·승인·완료 기준의
+Source of Truth는 `extensions.workflow`다.
+
 ## Exceptions
 
 예외, 주의사항, 적용 제외 조건을 작성한다.

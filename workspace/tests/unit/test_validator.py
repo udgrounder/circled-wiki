@@ -25,6 +25,21 @@ class ValidatorTests(unittest.TestCase):
         self.assertIn("type must be a non-empty string", result.okf_errors)
         self.assertIn("missing required Bundle field: id", result.profile_errors)
 
+    def test_rejects_a_second_frontmatter_block(self):
+        path = self.root / "bundles" / "cs" / "duplicated-frontmatter.md"
+        path.write_text(
+            "---\ntype: policy\ntitle: First block\n---\n"
+            "---\ntype: policy\ntitle: Duplicated block\n---\n",
+            encoding="utf-8",
+        )
+
+        result = validate_document(path, self.root)
+
+        self.assertIn(
+            "Markdown document must contain exactly one YAML frontmatter block",
+            result.okf_errors,
+        )
+
     def test_repository_validation_includes_control_plane_documents(self):
         project = self.root / "isolated-project"
         knowledge_root = project / "knowledge"
@@ -248,6 +263,10 @@ class ValidatorTests(unittest.TestCase):
 
         self.assertIn(
             "extensions.governance.validity_days exceeds risk and volatility maximum",
+            result.profile_errors,
+        )
+        self.assertIn(
+            "active Runbook body must include a non-empty '## Workflow Summary' section",
             result.profile_errors,
         )
 

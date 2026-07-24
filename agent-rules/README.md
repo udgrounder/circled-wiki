@@ -30,6 +30,10 @@ inbox-capture
 독립적으로 선택한다. 제품 개발·설치·배포 Profile은 source repository의 `product-agent-rules/`에만 둔다.
 한 Agent가 여러 단계를 수행하더라도 단계별 Profile과 Gate를 순서대로 적용해야 한다.
 
+여러 단계로 구성된 Pipeline은 먼저 독립적으로 검증 가능한 하위 작업을 식별하고, 사용할 수 있는 위임 수단이 있으면
+위임을 우선 검토한다. 위임은 Gate·승인·최종 책임을 이전하지 않으며, 하위 작업을 안전하게 분리할 수 없거나 위임 수단이
+없으면 같은 Profile의 Gate를 지키며 직접 수행할 수 있다.
+
 ## Responsibility Matrix
 
 | Stage | Responsible | Accountable | Consulted | Informed |

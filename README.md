@@ -613,7 +613,7 @@ python3 .circled-wiki/bin/circled-wiki.py migrate-legacy-system-issues \
 이슈 기록은 후속 시스템 개선 검토의 입력이며 자동 수정·정책 변경·발행을 수행하지 않는다. 사용자가 특정
 운영 프로젝트와 Issue를 명시해 수집을 요청하면 Git 추적·커밋·미변경 Gate를 확인한 뒤 source repository의
 `workspace/issue/inbox/`로 이동한다. 사용자 검토와 Archive 유사 이력 확인 후 처리하고, 완료 항목은
-`workspace/issue/archived/<canonical-key>/vNNNN.md`로 이동한다.
+`workspace/issue/archived/YYYY/MM/YYYYMMDDTHHMMSSZ-<canonical-key>-vNNNN.md`로 이동한다.
 
 Product Workspace의 수집·검토·Triage·Archive와 Receipt 기록은 source repository에서만 다음 CLI로 수행한다.
 설치본 `.circled-wiki/bin/circled-wiki.py`에는 이 Product Agent 명령을 배포하지 않는다.

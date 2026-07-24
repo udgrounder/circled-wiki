@@ -1,6 +1,6 @@
 ---
 type: workspace_issue
-status: pending_review
+status: archived
 workspace_issue_id: workspace-issue-4d7d75ca95e944b3817e87bb106f3c9c
 source_project_ref: campingtalk-wiki
 source_issue_id: issue-20260721T092405Z-23629b38
@@ -9,27 +9,30 @@ source_git_revision: 7ce60e60fce4f1e179618881c1d9512636b0b993
 moved_at: '2026-07-23T10:19:55.048446+00:00'
 moved_by: codex
 requested_by: user
-canonical_issue_key: null
+canonical_issue_key: runbook-frontmatter-language
 occurrence: 1
 review:
-  reviewed_by: null
-  reviewed_at: null
-  decision: null
-  note: null
+  reviewed_by: user
+  reviewed_at: '2026-07-24T09:17:17+00:00'
+  decision: rejected
+  note: >-
+    Current Korean Frontmatter values are covered by Workflow and knowledge-search regression
+    tests. required_inputs.description is not part of the search index, so translating it to
+    English would not address the reported behavior.
 processing:
   classification: null
-  disposition: null
-  history_relation: null
+  disposition: rejected
+  history_relation: new
   similar_history: []
   linked_work: []
   linked_release: null
   linked_deployment_receipt: null
   linked_verification_receipt: null
 archive:
-  archived_at: null
-  archived_by: null
-  reason: null
-  restore_condition: null
+  archived_at: '2026-07-24T09:17:17+00:00'
+  archived_by: codex
+  reason: Rejected after Korean Workflow and knowledge-search regression tests passed.
+  restore_condition: Reopen with a reproducible Korean Frontmatter search failure.
 ---
 # Runbook Frontmatter 필드 한글 사용 — 검색/운영 비효율
 

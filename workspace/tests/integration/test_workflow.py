@@ -117,7 +117,7 @@ class WorkflowExecutionTests(unittest.TestCase):
                         },
                     },
                 },
-                "# Procedure\n\nFollow the approved workflow.\n",
+                "# Procedure\n\n## Workflow Summary\n\nFollow the approved workflow.\n",
             ),
             encoding="utf-8",
         )

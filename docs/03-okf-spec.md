@@ -326,6 +326,10 @@ Step `kind`는 `action`, `decision`, `approval`, `validation` 중 하나다. `ap
 `kind: approval` 단계만 참조할 수 있다. 상세 규칙과 실행 상태 분리는
 [16-workflow-execution.md](16-workflow-execution.md)를 따른다.
 
+active Runbook 본문은 비어 있지 않은 `## Workflow Summary` section을 가져야 한다. 이 section은 사람이 읽는
+목적·흐름 요약이며 실행 단계의 복제본이 아니다. 입력·단계·승인·완료 기준의 실행 Source of Truth는 언제나
+`extensions.workflow`다.
+
 ### 9.2 extensions.governance
 
 `active` Bundle은 non-empty `owners`와 아래 필드를 가진다.

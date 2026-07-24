@@ -1,6 +1,6 @@
 ---
 type: workspace_issue
-status: pending_review
+status: archived
 workspace_issue_id: workspace-issue-e08b795296b14d188d16738d2fbdba51
 source_project_ref: campingtalk-wiki
 source_issue_id: issue-20260723T014424Z-9ffbef92
@@ -9,27 +9,28 @@ source_git_revision: 883c0420cd09f64dabb509b018052a08b4f667a9
 moved_at: '2026-07-23T10:19:55.735413+00:00'
 moved_by: codex
 requested_by: user
-canonical_issue_key: null
+canonical_issue_key: evidence-frontmatter-duplication
 occurrence: 1
 review:
-  reviewed_by: null
-  reviewed_at: null
-  decision: null
-  note: null
+  reviewed_by: user
+  reviewed_at: '2026-07-24T10:08:34.403496+00:00'
+  decision: accepted
+  note: 운영 데이터 복구 완료 주장은 후속 Validator 개선과 분리해 기록한다.
 processing:
-  classification: null
-  disposition: null
-  history_relation: null
+  classification: operational_procedure
+  disposition: rejected
+  history_relation: new
   similar_history: []
-  linked_work: []
+  linked_work:
+  - workspace/issues/issue-20260724T100826Z-6ca73ea0-yaml-validator.md
   linked_release: null
   linked_deployment_receipt: null
   linked_verification_receipt: null
 archive:
-  archived_at: null
-  archived_by: null
-  reason: null
-  restore_condition: null
+  archived_at: '2026-07-24T10:08:43.118950+00:00'
+  archived_by: codex
+  reason: 운영 데이터 복구 완료 주장에 따라 폐기하고 중복 프론트매터 탐지는 별도 제품 이슈로 분리
+  restore_condition: 복구 대상 운영본에서 중복 프론트매터 또는 Validator 오류가 재발하면 새 Issue로 수집
 ---
 # Evidence curated_into 복구 커밋(ffaeb83)이 프론트매터를 중복 삽입함
 

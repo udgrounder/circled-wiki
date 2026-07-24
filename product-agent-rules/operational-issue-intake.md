@@ -19,7 +19,7 @@
 
 ## Checks
 
-- release, area, 증상, 관련 Archive occurrence와 과거 해결·검증 결과
+- release, area, 증상, 날짜별 Archive 파일의 관련 canonical key·occurrence와 과거 해결·검증 결과
 - 민감정보와 머신 절대 경로가 제외됐는지
 
 ## Gates

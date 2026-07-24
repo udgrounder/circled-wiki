@@ -1,6 +1,6 @@
 ---
 type: workspace_issue
-status: pending_review
+status: archived
 workspace_issue_id: workspace-issue-39e4ea62d06141b0ac61dd60f4fdfd6f
 source_project_ref: campingtalk-wiki
 source_issue_id: issue-20260722T005613Z-a859b292
@@ -9,27 +9,29 @@ source_git_revision: c0f65d5bf05469f64ef5bdeed9f3e598ad3dace5
 moved_at: '2026-07-23T10:19:55.375501+00:00'
 moved_by: codex
 requested_by: user
-canonical_issue_key: null
+canonical_issue_key: curation-security-gate-bypass
 occurrence: 1
 review:
-  reviewed_by: null
-  reviewed_at: null
-  decision: null
-  note: null
+  reviewed_by: user
+  reviewed_at: '2026-07-24T09:47:48+00:00'
+  decision: rejected
+  note: >-
+    Discarded because automatic not_applicable sensitivity decisions and automatic pii_scanned
+    assertions would bypass required human review and scanner-backed evidence.
 processing:
   classification: null
-  disposition: null
-  history_relation: null
+  disposition: rejected
+  history_relation: new
   similar_history: []
   linked_work: []
   linked_release: null
   linked_deployment_receipt: null
   linked_verification_receipt: null
 archive:
-  archived_at: null
-  archived_by: null
-  reason: null
-  restore_condition: null
+  archived_at: '2026-07-24T09:47:48+00:00'
+  archived_by: codex
+  reason: Gate-bypassing curation proposal discarded by user review.
+  restore_condition: Reopen only for a scanner-backed unattended-review design.
 ---
 # dawn-curation.py: review-inbox-sensitivity 및 pii_scanned 게이트 누락으로 정제 파이프라인 차단
 

@@ -192,16 +192,16 @@ workspace/
     │   └── <project-ref>/
     │       └── <source-issue-id>.md
     └── archived/
-        └── <canonical-issue-key>/
-            ├── index.md
-            ├── v0001.md
-            └── v0002.md
+        └── YYYY/
+            └── MM/
+                └── YYYYMMDDTHHMMSSZ-<canonical-issue-key>-vNNNN.md
 ```
 
 - 운영 Issue는 Git에 추적·커밋된 경우에만 이동한다.
 - 사용자가 대상 프로젝트와 Issue를 명시적으로 지정해야 한다.
 - `inbox/`에는 검토 중인 Workspace Issue Item만 둔다.
-- 검토·처리 완료 뒤 같은 파일을 해당 canonical Issue의 다음 버전으로 `archived/`에 이동하고 Inbox에는 복사본을 남기지 않는다.
+- 검토·처리 완료 뒤 같은 파일을 보관 월의 `archived/YYYY/MM/`에 이동하고 Inbox에는 복사본을 남기지 않는다.
+  파일명과 Frontmatter의 occurrence가 같은 canonical Issue의 발생 순서를 보존한다.
 - `project-ref`는 조직명이나 머신 절대 경로가 아닌 사용자가 확인한 안전한 별칭이다.
 - Archive 이동은 Workspace 작업 항목에만 적용한다. Bundle·Evidence의 `status: archived` 규칙과 혼동하지 않는다.
 - 이동 전 상태와 과거 내용은 Git 이력으로 복구한다.
@@ -572,7 +572,7 @@ archive:
 Archive 경로:
 
 ```text
-workspace/issue/archived/<canonical-issue-key>/v<occurrence>.md
+workspace/issue/archived/YYYY/MM/YYYYMMDDTHHMMSSZ-<canonical-issue-key>-vNNNN.md
 ```
 
 Archive는 Workspace 작업 큐에서 처리가 끝났다는 의미다. 이동 전 운영 프로젝트 상태와 원문이 필요하면 Git에서

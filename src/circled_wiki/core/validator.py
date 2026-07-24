@@ -268,7 +268,7 @@ def _validate_bundle(
     _validate_archive(data, result)
     _validate_rulebook(data, result)
     _validate_inquiry(data, result)
-    _validate_workflow(data, result, organization_id)
+    _validate_workflow(data, document.body, result, organization_id)
     _warn_unscoped_extensions(data, result)
 
 
@@ -485,13 +485,21 @@ def _validate_inquiry(data: Dict[str, Any], result: ValidationResult) -> None:
 
 
 def _validate_workflow(
-    data: Dict[str, Any], result: ValidationResult, organization_id: str
+    data: Dict[str, Any], body: str, result: ValidationResult, organization_id: str
 ) -> None:
     extensions = data.get("extensions")
     workflow = extensions.get("workflow") if isinstance(extensions, dict) else None
     if data.get("type") == "runbook" and data.get("status") == "active" and not isinstance(workflow, dict):
         result.profile_errors.append("active Runbook must define extensions.workflow")
         return
+    if data.get("type") == "runbook" and data.get("status") == "active":
+        summary = re.search(
+            r"(?ims)^##\s+Workflow Summary\s*$([\s\S]*?)(?=^##\s+|\Z)", body
+        )
+        if summary is None or not summary.group(1).strip():
+            result.profile_errors.append(
+                "active Runbook body must include a non-empty '## Workflow Summary' section"
+            )
     if workflow is None:
         return
     if not isinstance(workflow, dict):

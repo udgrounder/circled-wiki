@@ -1,6 +1,6 @@
 ---
 type: workspace_issue
-status: pending_review
+status: archived
 workspace_issue_id: workspace-issue-9f63bad05844446aad7058280718f23f
 source_project_ref: campingtalk-wiki
 source_issue_id: issue-20260722T023010Z-cddff909
@@ -9,27 +9,29 @@ source_git_revision: b777acfcb51824a919e3424b3d136f665db32a9e
 moved_at: '2026-07-23T10:19:55.458543+00:00'
 moved_by: codex
 requested_by: user
-canonical_issue_key: null
+canonical_issue_key: automatic-curation-bundle-creation
 occurrence: 1
 review:
-  reviewed_by: null
-  reviewed_at: null
-  decision: null
-  note: null
+  reviewed_by: user
+  reviewed_at: '2026-07-24T09:53:31+00:00'
+  decision: rejected
+  note: >-
+    Discarded because direct automatic Bundle creation bypasses the current curation-review and
+    independent Owner gates, particularly for manual and runbook types.
 processing:
   classification: null
-  disposition: null
-  history_relation: null
+  disposition: rejected
+  history_relation: new
   similar_history: []
   linked_work: []
   linked_release: null
   linked_deployment_receipt: null
   linked_verification_receipt: null
 archive:
-  archived_at: null
-  archived_by: null
-  reason: null
-  restore_condition: null
+  archived_at: '2026-07-24T09:53:31+00:00'
+  archived_by: codex
+  reason: Unsafe automatic Bundle creation request discarded by user review.
+  restore_condition: Reopen only with an approved curation-review and Owner-gate design.
 ---
 # dawn-curation.py: auto-create-bundle 파이프라인 추가 (review_state: pending)
 

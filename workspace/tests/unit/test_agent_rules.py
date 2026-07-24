@@ -76,6 +76,17 @@ class AgentRuleProfileTests(unittest.TestCase):
         self.assertNotIn("repository-engineering.md", runtime_profiles)
         self.assertNotIn("bootstrap-circled-wiki.md", runtime_profiles)
 
+    def test_pipeline_delegation_is_preferred_without_transferring_gates(self):
+        profiles = (ROOT / "agent-rules" / "README.md").read_text(encoding="utf-8")
+        bootstrap = (ROOT / ".circled-wiki" / "AGENT_BOOTSTRAP.md").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("위임을 우선 검토", profiles)
+        self.assertIn("Gate·승인·최종 책임을 이전하지 않으며", profiles)
+        self.assertIn("위임을 우선\n   검토", bootstrap)
+        self.assertIn("Gate·승인·최종 책임을 유지", bootstrap)
+
     def test_legacy_issue_is_runtime_read_only_but_product_intake_can_move_it(self):
         operating = (ROOT / "OPERATING_RULES.md").read_text(encoding="utf-8")
         intake = (
@@ -118,3 +129,22 @@ class AgentRuleProfileTests(unittest.TestCase):
         self.assertIn("응답 전 최종 마스킹 확인", profiles["knowledge-query.md"])
         for name, content in profiles.items():
             self.assertIn("PII", content, name)
+
+    def test_runtime_discovery_uses_official_tools_before_raw_filesystem_search(self):
+        query = (ROOT / "agent-rules" / "knowledge-query.md").read_text(encoding="utf-8")
+        workflow = (ROOT / "agent-rules" / "workflow-execution.md").read_text(encoding="utf-8")
+        startup = (ROOT / ".circled-wiki" / "AUTONOMOUS_AGENT_STARTUP.md").read_text(
+            encoding="utf-8"
+        )
+        bootstrap = (ROOT / ".circled-wiki" / "AGENT_BOOTSTRAP.md").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("작업을 계속하기\n  위한 최후 수단", query)
+        self.assertIn("작업을 계속하기 위한 최후 수단", workflow)
+        self.assertIn("`record-system-issue`", query)
+        self.assertIn("`record-system-issue`", workflow)
+        self.assertIn("직접 `find`, `grep`, `rg` 탐색은", startup)
+        self.assertIn("`record-system-issue`", startup)
+        self.assertIn("직접 `find`,\n   `grep`, `rg` 탐색은", bootstrap)
+        self.assertIn("`record-system-issue`", bootstrap)

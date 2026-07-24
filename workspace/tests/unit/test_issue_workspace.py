@@ -2,6 +2,7 @@ import subprocess
 import tempfile
 import unittest
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 from circled_wiki.core.frontmatter import parse_markdown
@@ -129,7 +130,7 @@ class IssueWorkspaceTests(unittest.TestCase):
                     history_relation="undetermined",
                 )
 
-    def test_resolved_issue_requires_receipts_and_is_moved_to_versioned_archive(self):
+    def test_resolved_issue_requires_receipts_and_is_moved_to_date_organized_archive(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             source = self._source_repo(root)
@@ -179,9 +180,10 @@ class IssueWorkspaceTests(unittest.TestCase):
 
             self.assertFalse(item.exists())
             self.assertTrue(Path(archived["path"]).is_file())
-            self.assertTrue(archived["path"].endswith("runtime-failure/v0001.md"))
-            index = Path(archived["path"]).parent / "index.md"
-            self.assertIn("v0001", index.read_text(encoding="utf-8"))
+            path = Path(archived["path"])
+            self.assertEqual(path.parent.parent.name, str(datetime.now(timezone.utc).year))
+            self.assertEqual(path.parent.name, f"{datetime.now(timezone.utc).month:02d}")
+            self.assertRegex(path.name, r"^\d{8}T\d{6}Z-runtime-failure-v0001\.md$")
 
     def test_recurrence_intake_surfaces_previous_resolution_history(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -11,6 +11,9 @@
    `.circled-wiki/agent-rules/*.md` 하나만 읽는다.
 4. `python3 .circled-wiki/bin/circled-wiki.py operational-preflight`를 실행한다.
 5. 질문 처리에는 Knowledge MCP 또는 portable CLI의 `search`, `read-bundle`, `prepare_context`를 사용한다.
+   직접 `find`, `grep`, `rg` 탐색은 이 공식 경로가 실패하거나 결과가 불충분할 때 작업을 계속하기 위한 최후 수단으로
+   허용한다. 먼저 `system-observation` Profile의 `record-system-issue`로 문제를 남기고, fallback 사유와 사용한
+   범위를 기록한다.
 6. 운영 변경이 필요한 경우에만 operator MCP를 사용하며, 단계별 Profile과 Gate를 분리한다.
 
 Preflight가 실패하면 지식 파일을 직접 우회 수정하지 않는다. 실패 원인을

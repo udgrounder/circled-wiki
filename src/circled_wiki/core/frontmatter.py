@@ -34,7 +34,10 @@ def parse_markdown(path: Path) -> MarkdownDocument:
         data = {}
     if not isinstance(data, dict):
         raise FrontmatterError("YAML frontmatter must be a mapping")
-    return MarkdownDocument(path=path, frontmatter=data, body="".join(lines[end_index + 1:]))
+    body = "".join(lines[end_index + 1:])
+    if body.startswith("---\n") or body.startswith("---\r\n"):
+        raise FrontmatterError("Markdown document must contain exactly one YAML frontmatter block")
+    return MarkdownDocument(path=path, frontmatter=data, body=body)
 
 
 def render_markdown(frontmatter: Dict[str, Any], body: str = "") -> str:
@@ -46,4 +49,3 @@ def render_markdown(frontmatter: Dict[str, Any], body: str = "") -> str:
         sort_keys=False,
     )
     return f"---\n{yaml_text}---\n{body.lstrip()}"
-

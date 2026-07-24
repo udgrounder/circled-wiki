@@ -17,6 +17,10 @@
 ## Checks
 
 - 관련 Bundle의 최신성·상태·지원 수준
+- 탐색은 먼저 `search_knowledge`, `read_bundle`, `prepare_context` 또는 portable CLI의 `search`, `read-bundle`,
+  `prepare-context`로 수행한다. 직접 파일시스템 탐색은 이 공식 경로가 실패하거나 결과가 불충분할 때 작업을 계속하기
+  위한 최후 수단으로 사용할 수 있다. 이 실패·불충분 결과는 먼저 `system-observation` Profile의
+  `record-system-issue`로 남기고, fallback 사유와 사용한 범위를 결과에 기록한다.
 - 읽은 Bundle·Evidence excerpt와 작성할 답변에 자격증명·PII 평문 또는 문맥상 재식별 정보가 남는지 확인
 
 ## Gates

@@ -1,6 +1,6 @@
 ---
 type: workspace_issue
-status: pending_review
+status: archived
 workspace_issue_id: workspace-issue-7b899ed47c13435795103edd9e5c9881
 source_project_ref: campingtalk-wiki
 source_issue_id: issue-20260722T003809Z-25642944
@@ -9,27 +9,29 @@ source_git_revision: 17c7dee6911e95b6ab8a6cb6ddff870daaf301f0
 moved_at: '2026-07-23T10:19:55.293012+00:00'
 moved_by: codex
 requested_by: user
-canonical_issue_key: null
+canonical_issue_key: automatic-publication-push
 occurrence: 1
 review:
-  reviewed_by: null
-  reviewed_at: null
-  decision: null
-  note: null
+  reviewed_by: user
+  reviewed_at: '2026-07-24T09:45:21+00:00'
+  decision: rejected
+  note: >-
+    Discarded as an obsolete unconditional-push request. The product supports a separately
+    configured push path with remote and branch checks plus retry-safe receipts.
 processing:
   classification: null
-  disposition: null
-  history_relation: null
+  disposition: rejected
+  history_relation: new
   similar_history: []
   linked_work: []
   linked_release: null
   linked_deployment_receipt: null
   linked_verification_receipt: null
 archive:
-  archived_at: null
-  archived_by: null
-  reason: null
-  restore_condition: null
+  archived_at: '2026-07-24T09:45:21+00:00'
+  archived_by: codex
+  reason: Obsolete unconditional automatic-push request discarded by user review.
+  restore_condition: Reopen only with a new approved push-authorization requirement.
 ---
 # publish-changes에 git push 추가 및 Standard Practice 규칙화
 

@@ -104,7 +104,8 @@ managed Runtime checksum이 manifest와 다르거나 실행 후보가 둘 이상
 5. 원본에서 최소 하나의 실패 재현 테스트를 만든 뒤 수정한다.
 6. 수정은 관련 단위·통합 테스트와 Circled Wiki Validator를 통과해야 한다.
 7. 원본의 변경은 검토 후 릴리스 식별자로 묶는다. 운영 이슈를 수정했다는 이유만으로 운영 자료를 Commit하거나 Push하지 않는다.
-8. 처리 완료 항목은 receipt와 복구 조건을 기록하고 `workspace/issue/archived/<canonical-key>/vNNNN.md`로 이동한다.
+8. 처리 완료 항목은 receipt와 복구 조건을 기록하고
+   `workspace/issue/archived/YYYY/MM/YYYYMMDDTHHMMSSZ-<canonical-key>-vNNNN.md`로 이동한다.
 
 ### 4.3 운영본 배포와 확인
 

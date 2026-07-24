@@ -1,6 +1,6 @@
 ---
 type: workspace_issue
-status: pending_review
+status: triaged
 workspace_issue_id: workspace-issue-00307f78532e4d5288c922c809fd521b
 source_project_ref: campingtalk-wiki
 source_issue_id: issue-20260721T163000Z-runbook-deployment-process
@@ -12,16 +12,25 @@ requested_by: user
 canonical_issue_key: null
 occurrence: 1
 review:
-  reviewed_by: null
-  reviewed_at: null
-  decision: null
-  note: null
+  reviewed_by: user
+  reviewed_at: '2026-07-24T09:39:44+00:00'
+  decision: accepted
+  note: >-
+    User approved delegation-first guidance for independent pipeline work and a human-readable
+    Workflow Summary section for active Runbooks while extensions.workflow remains the executable source of truth.
 processing:
-  classification: null
+  classification: product_defect
   disposition: null
-  history_relation: null
+  history_relation: new
   similar_history: []
-  linked_work: []
+  linked_work:
+    - agent-rules/README.md
+    - .circled-wiki/AGENT_BOOTSTRAP.md
+    - agent-rules/knowledge-curation.md
+    - src/circled_wiki/core/validator.py
+    - .circled-wiki/templates/bundle.md
+    - workspace/tests/unit/test_agent_rules.py
+    - workspace/tests/unit/test_validator.py
   linked_release: null
   linked_deployment_receipt: null
   linked_verification_receipt: null
@@ -122,3 +131,13 @@ Pending system-maintainer review.
 ## Status history
 
 - 2026-07-21T16:30:00+09:00: `open` by `hermes` — 초기 기록
+
+## 2026-07-24 Review decomposition
+
+| Item | Decision | Basis | Follow-up |
+| --- | --- | --- | --- |
+| 1. Generated artifacts committed | completed (existing fix) | `.gitignore` excludes Python caches, `.temp/`, and `.circled-wiki-backups/`; no matching files are currently Git-tracked. | Release/deployment verification remains required before a resolved Archive claim. |
+| 2. Delegation omitted | needs information | See explanation below. | Decide whether delegation is a recommendation or a mandatory runtime policy. |
+| 3. Default owner `dev` | rejected | `workflow.default_owners` is installation-local and safely defaults to `[]`; a product-wide `dev` default would impose a team identity. | Configure owners in the target installation when needed. |
+| 4. Workflow prompt absent from body | needs information | See explanation below. | Provide the affected Runbook revision and decide the desired human-readable body contract. |
+| 5. Manual pipeline execution | rejected | Manual execution is allowed when it follows the same Inbox, review, approval, validation, and publication gates. | Record a separate issue only if a specific gate was bypassed. |
