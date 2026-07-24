@@ -22,7 +22,7 @@
 - 기존 Archive 해결책·회귀 테스트의 적용 가능성
 - Archive lifecycle 변경이면 대상이 Bundle인지 Workspace Issue인지 구분한다. Bundle은
   `knowledge/bundles/archive/<domain>/` 이동·검색 제외·복구 경로를, Workspace Issue는
-  `workspace/issue/archived/YYYY/MM/` 파일명·Frontmatter occurrence·유사 이력 탐색을 함께 검증한다.
+  `workspace/issues/archived/YYYY/MM/` 파일명·Frontmatter occurrence·유사 이력 탐색을 함께 검증한다.
 - 프로젝트 한정 값 대신 검증된 설치 로컬 설정과 조직 중립적 안전 기본값 사용
 
 ## Gates

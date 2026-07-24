@@ -69,6 +69,8 @@ class IssueWorkspaceTests(unittest.TestCase):
 
             item = Path(result["path"])
             self.assertTrue(item.is_file())
+            self.assertEqual(item.parent.parent.parent.name, "issues")
+            self.assertFalse((product_workspace / "issue").exists())
             self.assertFalse(
                 (source / "workspace" / "issues" / "issue-runtime-1.md").exists()
             )

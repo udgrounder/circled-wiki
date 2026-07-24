@@ -15,7 +15,7 @@
 - `workspace/issues/`와 legacy `.circled-wiki/issues/` inventory
 - Git 추적·커밋·미변경 상태 확인
 - Archive 유사 이력 조회
-- 지정 Issue를 `workspace/issue/inbox/<project-ref>/`로 원자적 이동
+- 지정 Issue를 `workspace/issues/inbox/<project-ref>/`로 원자적 이동
 
 ## Checks
 

@@ -97,15 +97,15 @@ managed Runtime checksum이 manifest와 다르거나 실행 후보가 둘 이상
 ### 4.2 원본 프로젝트
 
 1. 사용자가 프로젝트와 Issue를 명시해 수집을 요청하면 Git 추적·커밋·미변경 상태를 확인하고
-   `workspace/issue/inbox/`로 이동한다. 실패하면 원본이 남아 있는지 확인한다.
-2. 사용자 검토 전에 `workspace/issue/archived/`에서 유사 occurrence, 과거 해결책·회귀 테스트·검증 결과를 찾는다.
+   `workspace/issues/inbox/`로 이동한다. 실패하면 원본이 남아 있는지 확인한다.
+2. 사용자 검토 전에 `workspace/issues/archived/`에서 유사 occurrence, 과거 해결책·회귀 테스트·검증 결과를 찾는다.
 3. 사용자가 Issue와 관계를 검토한 뒤 System Maintainer가 제품 결함, 설치별 설정, 데이터 품질, 운영 절차 문제로 분류한다.
 4. 제품 결함만 원본 프로젝트의 개선 작업으로 승격한다. 승격 시 운영 이슈 ID와 재현 조건을 링크한다.
 5. 원본에서 최소 하나의 실패 재현 테스트를 만든 뒤 수정한다.
 6. 수정은 관련 단위·통합 테스트와 Circled Wiki Validator를 통과해야 한다.
 7. 원본의 변경은 검토 후 릴리스 식별자로 묶는다. 운영 이슈를 수정했다는 이유만으로 운영 자료를 Commit하거나 Push하지 않는다.
 8. 처리 완료 항목은 receipt와 복구 조건을 기록하고
-   `workspace/issue/archived/YYYY/MM/YYYYMMDDTHHMMSSZ-<canonical-key>-vNNNN.md`로 이동한다.
+   `workspace/issues/archived/YYYY/MM/YYYYMMDDTHHMMSSZ-<canonical-key>-vNNNN.md`로 이동한다.
 
 ### 4.3 운영본 배포와 확인
 

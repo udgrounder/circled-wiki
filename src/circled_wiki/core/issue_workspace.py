@@ -44,7 +44,7 @@ def intake_operational_issue(
     revision = _require_committed_clean_issue(source_project_root, source)
     original = source.read_text(encoding="utf-8")
     source_issue_id = _source_issue_id(original, source)
-    destination = workspace_root / "issue" / "inbox" / project_ref / f"{source_issue_id}.md"
+    destination = workspace_root / "issues" / "inbox" / project_ref / f"{source_issue_id}.md"
     if destination.exists():
         raise ValueError("Workspace Inbox already contains this operational issue")
     if _find_workspace_issue(workspace_root, source_issue_id):
@@ -236,9 +236,9 @@ def archive_workspace_issue(
     """Move a reviewed, processed item to a date-organized Archive path."""
     workspace_root = workspace_root.resolve()
     item_path = item_path.resolve()
-    inbox_root = workspace_root / "issue" / "inbox"
+    inbox_root = workspace_root / "issues" / "inbox"
     if inbox_root not in item_path.parents:
-        raise ValueError("Workspace Issue must be inside workspace/issue/inbox")
+        raise ValueError("Workspace Issue must be inside workspace/issues/inbox")
     if not archived_by.strip() or not reason.strip() or not restore_condition.strip():
         raise ValueError("archive actor, reason, and restore condition are required")
     document = parse_markdown(item_path)
@@ -266,7 +266,7 @@ def archive_workspace_issue(
             "resolved archive requires release, deployment, and verification receipts"
         )
     archived_at = datetime.now(timezone.utc)
-    archive_root = workspace_root / "issue" / "archived"
+    archive_root = workspace_root / "issues" / "archived"
     occurrence = _next_occurrence(workspace_root, str(canonical_key))
     destination = (
         archive_root
@@ -312,7 +312,7 @@ def find_similar_archive_history(
     source_text: str,
 ) -> List[Dict[str, object]]:
     """Return explainable candidates; similarity never makes the relationship decision."""
-    archive_root = workspace_root.resolve() / "issue" / "archived"
+    archive_root = workspace_root.resolve() / "issues" / "archived"
     candidates: List[Dict[str, object]] = []
     source_area = _field_value(source_text, "Area")
     source_title = _first_heading(source_text)
@@ -399,22 +399,24 @@ def _find_operational_issue(project_root: Path, issue_ref: str) -> Path:
 
 
 def _find_workspace_issue(workspace_root: Path, source_issue_id: str) -> bool:
-    for path in (workspace_root / "issue").glob("**/*.md"):
-        if path.name == "README.md":
-            continue
-        try:
-            metadata = parse_markdown(path).frontmatter
-        except (OSError, ValueError):
-            continue
-        if metadata.get("source_issue_id") == source_issue_id:
-            return True
+    for root in (
+        workspace_root / "issues" / "inbox",
+        workspace_root / "issues" / "archived",
+    ):
+        for path in root.rglob("*.md"):
+            try:
+                metadata = parse_markdown(path).frontmatter
+            except (OSError, ValueError):
+                continue
+            if metadata.get("source_issue_id") == source_issue_id:
+                return True
     return False
 
 
 def _archived_workspace_id(workspace_root: Path, workspace_issue_id: object) -> bool:
     if not workspace_issue_id:
         return False
-    for path in (workspace_root / "issue" / "archived").rglob("*.md"):
+    for path in (workspace_root / "issues" / "archived").rglob("*.md"):
         try:
             if parse_markdown(path).frontmatter.get("workspace_issue_id") == workspace_issue_id:
                 return True
@@ -425,7 +427,7 @@ def _archived_workspace_id(workspace_root: Path, workspace_issue_id: object) -> 
 
 def _next_occurrence(workspace_root: Path, canonical_issue_key: str) -> int:
     values = []
-    for path in (workspace_root / "issue" / "archived").rglob("*.md"):
+    for path in (workspace_root / "issues" / "archived").rglob("*.md"):
         try:
             metadata = parse_markdown(path).frontmatter
         except (OSError, ValueError):

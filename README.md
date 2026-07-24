@@ -47,7 +47,7 @@ circled-wiki/
 - 전역 운영 규칙: `OPERATING_RULES.md`
 - 작업별 Agent Rule Profile: `agent-rules/`
 - 제품 Agent 규칙: `PRODUCT_ENGINEERING_RULES.md`, `product-agent-rules/`
-- 제품 Issue 작업 큐: `workspace/issue/`
+- 제품 Issue 작업 큐: `workspace/issues/`
 - 처리 중 원본/임시 상태: `knowledge/.raw/`
 - MVP 이후 작업: `docs/13-future-work.md`
 - 사람 사용자 가이드: `docs/17-human-guide.md`
@@ -612,8 +612,8 @@ python3 .circled-wiki/bin/circled-wiki.py migrate-legacy-system-issues \
 
 이슈 기록은 후속 시스템 개선 검토의 입력이며 자동 수정·정책 변경·발행을 수행하지 않는다. 사용자가 특정
 운영 프로젝트와 Issue를 명시해 수집을 요청하면 Git 추적·커밋·미변경 Gate를 확인한 뒤 source repository의
-`workspace/issue/inbox/`로 이동한다. 사용자 검토와 Archive 유사 이력 확인 후 처리하고, 완료 항목은
-`workspace/issue/archived/YYYY/MM/YYYYMMDDTHHMMSSZ-<canonical-key>-vNNNN.md`로 이동한다.
+`workspace/issues/inbox/`로 이동한다. 사용자 검토와 Archive 유사 이력 확인 후 처리하고, 완료 항목은
+`workspace/issues/archived/YYYY/MM/YYYYMMDDTHHMMSSZ-<canonical-key>-vNNNN.md`로 이동한다.
 
 Product Workspace의 수집·검토·Triage·Archive와 Receipt 기록은 source repository에서만 다음 CLI로 수행한다.
 설치본 `.circled-wiki/bin/circled-wiki.py`에는 이 Product Agent 명령을 배포하지 않는다.
@@ -627,7 +627,7 @@ PYTHONPATH=src python3 -m circled_wiki.product_cli intake-operational-issue \
   --moved-by <agent>
 
 PYTHONPATH=src python3 -m circled_wiki.product_cli review-workspace-issue \
-  --item issue/inbox/<project-ref>/issue-<id>.md \
+  --item issues/inbox/<project-ref>/issue-<id>.md \
   --reviewed-by <user> \
   --decision accepted \
   --history-relation new

@@ -1,7 +1,7 @@
-# Operational Issue Improvement Workspace
+# Issues
 
-이 폴더는 사용자가 명시적으로 수집을 요청한 운영 프로젝트 Issue를 제품 개선 작업으로 검토하는 Product
-Workspace다. 설치본의 `workspace/` Working Plane과 다른, 이 source repository 내부 작업 큐다.
+`workspace/issues/`는 운영 문제와 제품 개선 검토를 위한 단일 기준 경로다. 루트의 Issue는 Runtime 운영
+피드백이고, 사용자가 명시적으로 수집한 제품 개선 작업은 `inbox/`와 `archived/`에서 관리한다.
 
 ## Lifecycle
 

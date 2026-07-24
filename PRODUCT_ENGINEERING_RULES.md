@@ -23,7 +23,7 @@
 ```text
 operational issue
   -> explicit intake request
-  -> workspace/issue/inbox
+  -> workspace/issues/inbox
   -> archive history review
   -> user review
   -> triage
@@ -31,7 +31,7 @@ operational issue
   -> release
   -> deployment
   -> independent runtime verification
-  -> workspace/issue/archived/YYYY/MM/YYYYMMDDTHHMMSSZ-<canonical-key>-vNNNN.md
+  -> workspace/issues/archived/YYYY/MM/YYYYMMDDTHHMMSSZ-<canonical-key>-vNNNN.md
 ```
 
 - 이동 대상 운영 Issue는 Git에 추적·커밋되어 있고 미커밋 변경이 없어야 한다.
