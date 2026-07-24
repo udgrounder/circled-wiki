@@ -286,7 +286,7 @@ Repository Engineering 변경 후 실행한다.
 
 ```sh
 PYTHONPATH=src python3 -m circled_wiki.cli validate
-PYTHONPATH=src python3 -m unittest discover -s workspace/tests -q
+PYTHONPATH=src python3 -m unittest discover -s tests -q
 ```
 
 ## 12. Reference Traceability

@@ -7,7 +7,4 @@
 
 실행 예:
 
-```bash
-python3 -m pytest workspace/tests
-PYTHONPATH=src python3 -m unittest discover -s workspace/tests -q
-```
+제품 테스트는 repository root의 `tests/`에서 실행한다.

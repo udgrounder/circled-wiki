@@ -33,7 +33,7 @@ src/circled_wiki/
 ├── worker/           # 후속 scheduler/작업 실행기의 자리
 ├── integrations/     # 후속 provider별 수집 어댑터의 자리
 └── config/           # 프로젝트 상대경로 기반 설정
-workspace/tests/
+tests/
 ├── unit/             # 모델, 파서, Validator의 독립 단위 테스트
 └── integration/      # inbox에서 검색까지의 흐름 테스트
 ```

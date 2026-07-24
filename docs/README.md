@@ -41,7 +41,7 @@
 - Obsidian Vault 기준: `knowledge/`
 - 설계 문서 기준: `docs/`
 - 개선 작업 계획서 기준: `workspace/task/`
-- 제품 테스트 기준: `workspace/tests/`
+- 제품 테스트 기준: `tests/`
 
 ## 문맥 로딩 원칙
 

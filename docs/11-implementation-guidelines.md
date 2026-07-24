@@ -68,7 +68,7 @@ circled-wiki-spec/
 
 circled-wiki/
   src/
-  workspace/tests/
+  tests/
   docs/
   pyproject.toml
 ```

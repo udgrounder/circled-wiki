@@ -660,7 +660,7 @@ Control Plane backup만 복원하며 rollback 직전 Control Plane을 별도 복
 
 ```sh
 PYTHONPATH=src python3 -m circled_wiki.cli validate
-PYTHONPATH=src python3 -m unittest discover -s workspace/tests -q
+PYTHONPATH=src python3 -m unittest discover -s tests -q
 ```
 
 설계, 단계별 완료 조건, 보류 범위는 [docs/15-implementation-plan.md](docs/15-implementation-plan.md)를 따른다.

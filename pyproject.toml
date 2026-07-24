@@ -13,7 +13,7 @@ dependencies = ["PyYAML>=6.0"]
 dev = ["pytest>=8.0"]
 
 [tool.pytest.ini_options]
-testpaths = ["workspace/tests"]
+testpaths = ["tests"]
 pythonpath = ["src"]
 
 [project.scripts]
@@ -24,4 +24,4 @@ circled-wiki-product = "circled_wiki.product_cli:run_product_cli"
 where = ["src"]
 
 [tool.unittest]
-start-directory = "workspace/tests"
+start-directory = "tests"

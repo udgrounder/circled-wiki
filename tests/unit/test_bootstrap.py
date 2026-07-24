@@ -15,7 +15,7 @@ from circled_wiki.core.bootstrap import (
 )
 
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 class BootstrapKnowledgeRootTests(unittest.TestCase):

@@ -10,7 +10,7 @@ from circled_wiki.product_cli import main, run_product_cli
 
 class ProductCliTests(unittest.TestCase):
     def test_product_cli_is_registered_as_a_source_repository_command(self):
-        project = Path(__file__).resolve().parents[3]
+        project = Path(__file__).resolve().parents[2]
         metadata = (project / "pyproject.toml").read_text(encoding="utf-8")
         self.assertIn(
             'circled-wiki-product = "circled_wiki.product_cli:run_product_cli"',
