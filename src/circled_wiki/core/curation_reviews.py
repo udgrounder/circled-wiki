@@ -157,6 +157,7 @@ def decide_curation_review(knowledge_root: Path, review_id: str, *, action: str,
             knowledge_root, evidence_ref["evidence_id"], output,
             generated_by=str(metadata["generated_by"]), curation_receipt=str(metadata["curation_receipt"]),
             receipt_metadata=metadata.get("receipt") if isinstance(metadata.get("receipt"), dict) else None,
+            approved_review_id=review_id,
         )
         data["status"] = "applied"
         delete_review_after_decision = True

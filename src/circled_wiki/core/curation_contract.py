@@ -9,9 +9,9 @@ from dataclasses import dataclass
 import re
 from typing import Any, Dict, Iterable, List, Tuple
 
+from .bundle_types import BUNDLE_TYPES
 
-_ACTIONS = {"no_bundle", "policy", "guide", "runbook", "reference"}
-_BUNDLE_TYPES = {"policy", "guide", "runbook", "reference"}
+_ACTIONS = {"no_bundle"} | set(BUNDLE_TYPES)
 _SAFE_DOMAIN = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 
 
@@ -42,7 +42,10 @@ def validate_curation_output(
         raise ValueError("allowed Evidence IDs must be a non-empty string collection")
     action = payload.get("action")
     if action not in _ACTIONS:
-        raise ValueError("curation action must be no_bundle, policy, guide, runbook, or reference")
+        raise ValueError(
+            "curation action must be no_bundle or a supported Bundle type: "
+            + ", ".join(sorted(BUNDLE_TYPES))
+        )
     if action == "no_bundle":
         rationale = _required_string(payload, "rationale")
         recheck_condition = _required_string(payload, "recheck_condition")
@@ -54,7 +57,7 @@ def validate_curation_output(
     if not _SAFE_DOMAIN.fullmatch(domain):
         raise ValueError("curation domain must be a safe lowercase identifier")
     bundle_type = _required_string(payload, "bundle_type")
-    if bundle_type not in _BUNDLE_TYPES or bundle_type != action:
+    if bundle_type not in BUNDLE_TYPES or bundle_type != action:
         raise ValueError("curation bundle_type must match action")
     evidence_ids = _string_list(payload.get("evidence_ids"), "evidence_ids")
     if set(evidence_ids) != set(allowed) or len(evidence_ids) != len(set(evidence_ids)):

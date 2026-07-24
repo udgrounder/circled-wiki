@@ -32,13 +32,15 @@ Evidence를 기존 Bundle과 비교하거나 신규 Draft를 작성한다.
 - 기존 Bundle 갱신 시 expected revision 일치
 - Review가 필요한 유형 또는 active 전환 후보를 정식 검토 대상으로 넘길 Owner 존재
 - 마스킹 재확인과 Evidence PII Scan 증빙 통과; 증빙이 없거나 의심 값이 남으면 Draft 생성·revision 적용 차단
-- `runbook`과 Manual 성격의 `guide`는 `knowledge/curation-reviews/`의 checksum 결합 Review 카드 존재. `policy`, `decision`, `spec`, `reference`는 Evidence·PII Gate 통과 후 Draft 직접 생성 가능
+- `runbook`과 `manual`은 `knowledge/curation-reviews/`의 checksum 결합 Review 카드 존재. `policy`, `guide`, `decision`, `spec`, `reference`, `report`는 Evidence·PII Gate 통과 후 Draft 직접 생성 가능
 - Review가 필요한 유형은 생성 actor와 다른 Owner 또는 명시 위임 승인자의 승인 기록. 직접 생성 가능한 유형도 active 전환 전에는 동일한 Review를 추가로 생성·승인
 
 ## Output
 
 정제 제안 또는 Evidence 역참조가 연결된 Draft Bundle. 제안은 `suggested_bundle_type`을 힌트로 제공하되 Curator가
-원문을 검토해 `no_bundle`, `guide`, `decision`, `runbook` 중 적절한 결과를 선택한다. Business Rulebook은
+원문을 검토해 `no_bundle` 또는 전체 Bundle 타입(`policy`, `guide`, `runbook`, `manual`, `decision`,
+`spec`, `reference`, `report`) 중 적절한 결과를 선택한다. 시점 기준 현황·평가·주기 보고는 `report`,
+제품·시스템 사용 절차는 `manual`, 반복 운영·장애 대응 절차는 `runbook`으로 구분한다. Business Rulebook은
 `guide`와 `extensions.rulebook`으로 표현한다. Owner가 없는 Draft 후보는
 `assign_owner_and_review_draft`와 차단 조건을 반환한다.
 

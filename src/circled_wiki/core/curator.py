@@ -112,10 +112,20 @@ def _suggest_bundle_type(excerpt: str, capture_context: object) -> str:
         value = capture_context.get("intended_use", [])
         intended_use = [str(item).lower() for item in value] if isinstance(value, list) else []
     content = (excerpt + " " + " ".join(intended_use)).lower()
-    if any(token in content for token in ("runbook", "반복", "단계", "절차", "checklist")):
+    if any(token in content for token in ("현황", "상태 보고", "status report", "weekly report", "monthly report", "snapshot", "as of")):
+        return "report"
+    if any(token in content for token in ("manual", "매뉴얼", "사용법", "사용 방법", "관리자 안내")):
+        return "manual"
+    if any(token in content for token in ("runbook", "장애 대응", "복구", "롤백", "incident", "rollback", "checklist")):
         return "runbook"
-    if any(token in content for token in ("결정", "승인", "decision")):
+    if any(token in content for token in ("정책", "필수", "금지", "policy", "must not", "required")):
+        return "policy"
+    if any(token in content for token in ("결정", "선택 근거", "대안", "decision", "trade-off")):
         return "decision"
+    if any(token in content for token in ("명세", "스키마", "요구사항", "specification", "schema", "contract")):
+        return "spec"
+    if any(token in content for token in ("참조", "용어", "정의", "reference", "glossary", "lookup")):
+        return "reference"
     return "guide"
 
 

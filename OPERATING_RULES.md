@@ -254,12 +254,12 @@ accepted Evidence + valid PII Scan
   -> 선택적 Git Commit / Push
 ```
 
-- **RB-CUR-001** `runbook`과 Manual 성격의 `guide` 신규 Bundle 정제 제안은 Evidence checksum, 생성 actor와 제안 내용을 가진 `curation_review` 카드로 먼저 기록한다. `policy`, `decision`, `spec`, `reference` Draft는 Evidence·PII Gate를 통과하면 직접 생성할 수 있다.
-- **RB-CUR-002** `runbook`과 Manual 성격의 `guide` Draft는 Review 카드와 연결된 Owner가 있을 때만 생성할 수 있다. 기본 Owner 설정은 후보를 배정할 수 있을 뿐, 검토·승인을 자동으로 기록하지 않는다.
+- **RB-CUR-001** `runbook`과 `manual` 신규 Bundle 정제 제안은 Evidence checksum, 생성 actor와 제안 내용을 가진 `curation_review` 카드로 먼저 기록한다. `policy`, `guide`, `decision`, `spec`, `reference`, `report` Draft는 Evidence·PII Gate를 통과하면 직접 생성할 수 있다.
+- **RB-CUR-002** `runbook`과 `manual` Draft는 Review 카드와 연결된 Owner가 있을 때만 생성할 수 있다. 기본 Owner 설정은 후보를 배정할 수 있을 뿐, 검토·승인을 자동으로 기록하지 않는다.
 - **RB-CUR-003** Review 승인 actor는 Review 생성 actor와 달라야 하며, Bundle Owner 또는 명시적으로 위임된 승인자여야 한다.
 - **RB-CUR-004** Review가 필요한 유형에서 카드가 없거나 Evidence checksum이 달라 stale 상태이면 Draft 생성·revision·Promotion을 중단한다.
 - **RB-CUR-005** `draft -> active` 상태 전환은 전용 Promotion Gate만 수행한다. 일반 Bundle 생성·revision API와 직접 Frontmatter 변경은 active 전환 수단이 아니다.
-- **RB-CUR-006** 모든 active Bundle에는 승인 Owner·시각, Security Receipt, 현재 Evidence checksum과 PII Scan Receipt를 검증 가능한 provenance로 남긴다. `runbook`과 Manual 성격의 `guide`에는 생성 전 Review ID가 필수다. 직접 생성 가능한 `policy`, `decision`, `spec`, `reference`도 `draft -> active` 전환 전에 checksum 결합 Review와 독립 Owner 승인을 추가로 받아야 한다.
+- **RB-CUR-006** 모든 active Bundle에는 승인 Owner·시각, Security Receipt, 현재 Evidence checksum과 PII Scan Receipt를 검증 가능한 provenance로 남긴다. `runbook`과 `manual`에는 생성 전 Review ID가 필수다. 직접 생성 가능한 `policy`, `guide`, `decision`, `spec`, `reference`, `report`도 `draft -> active` 전환 전에 checksum 결합 Review와 독립 Owner 승인을 추가로 받아야 한다.
 - **RB-CUR-007** 가상·테스트 Evidence도 같은 Gate를 적용한다. 테스트 목적이라는 이유로 Review, 독립 승인, 보안 검증 또는 Validator를 생략할 수 없다.
 - **RB-CUR-008** Gate 중 하나라도 누락되면 Bundle은 `draft` 또는 `needs_review`로 유지한다. Agent는 도구가 허용하더라도 상태를 직접 보정하거나 self-approval하지 않는다.
 - **RB-CUR-009** Curation 또는 Promotion CLI가 Contract와 다르게 동작하거나 우회 경로를 허용하면 Runtime Agent는 active 전환을 중단하고 `workspace/issues/`에 관찰 사실을 기록한다.

@@ -46,7 +46,7 @@ record_refresh_decision(task_id, decision, rationale, evidence_ids, actor)
 record_outcome(task_id, outcome)
 ```
 
-`guide`(Manual 성격 문서 포함)와 `runbook`은 `curation-reviews` 카드와 생성자와 다른 Owner의 승인 뒤에만
+`manual`과 `runbook`은 `curation-reviews` 카드와 생성자와 다른 Owner의 승인 뒤에만
 Draft로 materialize한다. 어떤 일반 API도 `draft -> active` 상태 전환을 수행하지 않는다.
 
 Workflow API는 공식 Runbook 정의와 실행 중 Task 상태를 분리한다. Runbook은 Git의

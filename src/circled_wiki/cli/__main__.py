@@ -13,6 +13,7 @@ from circled_wiki.core.repository import apply_bundle_revision, create_bundle, f
 from circled_wiki.core.evidence import evidence_original_path
 from circled_wiki.core.search import search_knowledge
 from circled_wiki.core.service import KnowledgeService
+from circled_wiki.core.bundle_types import DIRECT_DRAFT_TYPES
 from circled_wiki.core.publisher import PublishError
 from circled_wiki.core.validator import validate_repository
 from circled_wiki.core.bootstrap import (
@@ -345,7 +346,7 @@ def main() -> int:
     bundle.add_argument("--domain", required=True); bundle.add_argument("--slug", required=True)
     bundle.add_argument("--title", required=True); bundle.add_argument(
         "--type", required=True,
-        help="Direct Draft types: policy, decision, spec, reference. guide/manual and runbook require curation review.",
+        help="Direct Draft types: policy, guide, decision, spec, reference, report. manual and runbook require curation review.",
     )
     bundle.add_argument("--summary", required=True); bundle.add_argument("--evidence", required=True)
     bundle.add_argument("--body-file", help="UTF-8 Markdown body for a curator-authored draft")
@@ -807,10 +808,10 @@ def main() -> int:
             args.bundle, actor=args.actor, security_receipt=args.security_receipt,
         ), ensure_ascii=False, indent=2)); return 0
     if args.command == "create-bundle":
-        if args.type not in {"policy", "decision", "spec", "reference"}:
+        if args.type not in DIRECT_DRAFT_TYPES:
             parser.error(
-                "direct Draft creation is limited to policy, decision, spec, and reference; "
-                "guide/manual and runbook require a curation review"
+                "direct Draft creation is not allowed for this type; "
+                "manual and runbook require a curation review"
             )
     body = Path(args.body_file).read_text(encoding="utf-8") if args.body_file else None
     document = create_bundle(

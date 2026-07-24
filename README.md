@@ -166,8 +166,8 @@ PYTHONPATH=src python3 -m circled_wiki.cli propose-update \
   --evidence evidence://<organization-id>/manual/2026/07/10/<source-uuid>
 ```
 
-`policy`, `decision`, `spec`, `reference`는 신규 공식 지식 후보로 직접 Draft를 생성할 수 있다. `--evidence`에는
-위에서 생성된 URI를 그대로 넣는다. `guide`(Manual 성격 문서 포함)와 `runbook`은 아래 자동 정제와 같은
+`policy`, `guide`, `decision`, `spec`, `reference`, `report`는 신규 공식 지식 후보로 직접 Draft를 생성할 수 있다. `--evidence`에는
+위에서 생성된 URI를 그대로 넣는다. `manual`과 `runbook`은 아래 자동 정제와 같은
 Review 카드·독립 승인 흐름을 사용한다. 직접 생성한 Draft도 `active` 전환 전에는 동일한 Review·독립 Owner
 승인·Security Gate를 거쳐야 한다.
 
@@ -210,8 +210,8 @@ PYTHONPATH=src python3 -m circled_wiki.cli decide-curation-review \
 ```
 
 자동 정제 결과는 유형·신뢰도와 무관하게 항상 `curation-reviews/` Review 카드로 먼저 생성된다.
-`guide`(Manual 성격 문서 포함)와 `runbook`은 Review 카드와 독립 Owner 승인을 거쳐야 Draft를 만들 수 있다.
-`policy`, `decision`, `spec`, `reference`는 Evidence·PII Gate를 통과한 경우 직접 Draft 생성도 가능하지만,
+`manual`과 `runbook`은 Review 카드와 독립 Owner 승인을 거쳐야 Draft를 만들 수 있다.
+`policy`, `guide`, `decision`, `spec`, `reference`, `report`는 Evidence·PII Gate를 통과한 경우 직접 Draft 생성도 가능하지만,
 모든 Draft의 `active` 전환은 Owner·Security Gate를 거친 전용 Promotion만 사용한다.
 
 ### 3. 지식 조회

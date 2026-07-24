@@ -13,6 +13,7 @@ from .frontmatter import parse_markdown, render_markdown
 from .models import MarkdownDocument
 from .namespace import require_stable_organization_id
 from .validator import validate_document, validate_repository
+from .bundle_types import PRE_CREATION_REVIEW_TYPES
 
 
 SAFE_PATH_SEGMENT = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
@@ -193,12 +194,20 @@ def _replace_identifier_text(body: str, id_map: Dict[str, str]) -> str:
 def create_bundle(
     knowledge_root: Path, *, domain: str, slug: str, title: str, bundle_type: str,
     summary: str, evidence_id: str, body: str = "", curated_by: str = "manual",
+    approved_review_id: Optional[str] = None,
 ) -> MarkdownDocument:
     """Create a draft Bundle only when its Evidence Record already exists."""
     if not SAFE_PATH_SEGMENT.fullmatch(domain) or not SAFE_PATH_SEGMENT.fullmatch(slug):
         raise ValueError("domain and slug must be safe lowercase path segments")
     if not title.strip() or not summary.strip() or not curated_by.strip():
         raise ValueError("title, summary, and curated_by must be non-empty")
+    if (
+        bundle_type in PRE_CREATION_REVIEW_TYPES
+        and (not isinstance(approved_review_id, str) or not approved_review_id.strip())
+    ):
+        raise ValueError(
+            f"{bundle_type} Bundle creation requires an approved pre-creation review"
+        )
     evidence = find_document_by_id(knowledge_root, evidence_id)
     if evidence is None or evidence.frontmatter.get("type") != "evidence":
         raise ValueError("evidence_id must refer to an existing Evidence Record")

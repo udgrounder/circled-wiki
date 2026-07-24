@@ -21,12 +21,14 @@ from .repository import create_bundle, find_document_by_id
 from .validator import validate_document
 from .curation_safety import curation_body_safety_errors
 from .curation_reviews import generate_curation_review
+from .bundle_types import PRE_CREATION_REVIEW_TYPES, curation_taxonomy
 
 
 def materialize_curation_candidate(
     knowledge_root: Path, evidence_id: str, output: CurationOutput, *,
     generated_by: str, curation_receipt: str,
     receipt_metadata: Optional[Dict[str, object]] = None,
+    approved_review_id: Optional[str] = None,
 ) -> Dict[str, object]:
     """Create one idempotent Draft from validated output; never invokes a model."""
     if not generated_by.strip() or not curation_receipt.strip():
@@ -52,7 +54,19 @@ def materialize_curation_candidate(
     existing = _find_idempotent_candidate(knowledge_root, evidence_id, checksum, settings.curation.profile_version)
     if existing is not None:
         return {"action": "reused", "bundle_id": existing["id"], "path": existing["path"]}
-    bundle = create_bundle(knowledge_root, domain=output.domain, slug=_safe_slug(output.title, checksum), title=output.title, bundle_type=output.bundle_type, summary=output.summary, evidence_id=evidence_id, body=output.body, curated_by=generated_by)
+    if (
+        output.bundle_type in PRE_CREATION_REVIEW_TYPES
+        and (not isinstance(approved_review_id, str) or not approved_review_id.strip())
+    ):
+        raise ValueError(
+            f"{output.bundle_type} Bundle creation requires an approved pre-creation review"
+        )
+    bundle = create_bundle(
+        knowledge_root, domain=output.domain, slug=_safe_slug(output.title, checksum),
+        title=output.title, bundle_type=output.bundle_type, summary=output.summary,
+        evidence_id=evidence_id, body=output.body, curated_by=generated_by,
+        approved_review_id=approved_review_id,
+    )
     data = dict(bundle.frontmatter)
     extensions = dict(data["extensions"])
     extensions["curation"] = {
@@ -106,6 +120,8 @@ def run_configured_curation(knowledge_root: Path, evidence_id: str) -> Dict[str,
             "recommended_action": proposal.get("recommended_action"),
             "candidate_bundles": proposal.get("candidate_bundles", []),
         },
+        "bundle_taxonomy": curation_taxonomy(),
+        "pre_creation_review_types": sorted(PRE_CREATION_REVIEW_TYPES),
         "content": original[:config.max_input_bytes].decode("utf-8", errors="replace"),
     }
     command = shlex.split(config.command)

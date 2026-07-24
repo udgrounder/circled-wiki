@@ -46,9 +46,7 @@ from .workflow import (
     record_task_step,
     update_task_inputs,
 )
-
-
-DIRECT_DRAFT_TYPES = frozenset({"policy", "decision", "spec", "reference"})
+from .bundle_types import DIRECT_DRAFT_TYPES
 
 
 class KnowledgeService:
@@ -400,8 +398,8 @@ class KnowledgeService:
     ) -> Dict[str, object]:
         if bundle_type not in DIRECT_DRAFT_TYPES:
             raise ValueError(
-                "direct Draft creation is limited to policy, decision, spec, and reference; "
-                "guide/manual and runbook require a curation review"
+                "direct Draft creation is not allowed for this type; "
+                "manual and runbook require a curation review"
             )
         evidence = find_document_by_id(self.knowledge_root, evidence_id)
         if evidence is not None and _is_restricted(evidence.frontmatter):

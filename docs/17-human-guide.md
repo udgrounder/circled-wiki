@@ -244,7 +244,8 @@ PYTHONPATH=src python3 -m circled_wiki.cli ingest-evidence \
 
 ### 10.2 Runbook Draft 생성
 
-Runbook과 Manual 성격의 Guide는 직접 `create-bundle`로 만들지 않는다. Evidence 기반 정제 결과가
+Runbook과 Manual은 직접 `create-bundle`로 만들지 않는다. 일반 Guide는 설명·권고 문서이고, Manual은
+제품·시스템을 사용하는 단계별 절차이므로 `type: manual`로 구분한다. Evidence 기반 정제 결과가
 `knowledge/curation-reviews/`에 만든 Review 카드를 Owner가 검토·승인한 뒤 Draft를 생성한다.
 
 ```sh

@@ -13,7 +13,7 @@ from circled_wiki.core.frontmatter import render_markdown
 from circled_wiki.core.pii import record_pii_scan_receipt
 from circled_wiki.core.service import KnowledgeService
 from circled_wiki.core.candidates import list_curation_candidates
-from circled_wiki.core.repository import apply_bundle_revision, find_document_by_id
+from circled_wiki.core.repository import apply_bundle_revision, create_bundle, find_document_by_id
 from circled_wiki.core.validator import validate_document
 from circled_wiki.core.candidates import promote_curation_candidate, review_curation_candidate
 from circled_wiki.core.curation_reviews import (
@@ -32,7 +32,7 @@ class CurationMaterializationTests(unittest.TestCase):
         record_pii_scan_receipt(root, evidence.evidence_id, scanner="test", scanner_version="1", result="passed", reviewed_by="security", receipt="test://pii")
         return root, evidence.evidence_id
 
-    def _output(self, evidence_id, kind="runbook"):
+    def _output(self, evidence_id, kind="guide"):
         return validate_curation_output({"action": kind, "domain": "marketing", "bundle_type": kind, "title": "SNS campaign launch", "summary": "Launch a campaign.", "body": "# Steps\n\n1. Define audience.", "evidence_ids": [evidence_id], "rationale": "repeatable process", "limitations": "budget omitted", "existing_bundle_candidates": [], "confidence": "medium"}, [evidence_id])
 
     def test_creates_candidate_and_reuses_same_evidence_receipt(self):
@@ -60,6 +60,48 @@ class CurationMaterializationTests(unittest.TestCase):
                     generated_by="curator", curation_receipt="test://curation",
                 )
             self.assertEqual(list_curation_candidates(root), [])
+
+    def test_manual_and_runbook_require_pre_creation_review(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, evidence_id = self._evidence(directory)
+            for bundle_type in ("manual", "runbook"):
+                with self.subTest(bundle_type=bundle_type):
+                    with self.assertRaisesRegex(ValueError, "approved pre-creation review"):
+                        materialize_curation_candidate(
+                            root, evidence_id, self._output(evidence_id, bundle_type),
+                            generated_by="curator", curation_receipt="test://curation",
+                        )
+                    self.assertEqual(list_curation_candidates(root), [])
+
+    def test_repository_cannot_bypass_pre_creation_review(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, evidence_id = self._evidence(directory)
+
+            with self.assertRaisesRegex(ValueError, "approved pre-creation review"):
+                create_bundle(
+                    root, domain="marketing", slug="operator-manual",
+                    title="Operator Manual", bundle_type="manual",
+                    summary="Operate the system.", evidence_id=evidence_id,
+                )
+
+    def test_approved_manual_review_creates_draft(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, evidence_id = self._evidence(directory)
+            review = generate_curation_review(
+                root, evidence_id, self._output(evidence_id, "manual"),
+                generated_by="curator", curation_receipt="test://curation",
+            )
+
+            applied = decide_curation_review(
+                root, review["review_id"], action="approve", actor="manual-owner",
+            )
+
+            bundle = find_document_by_id(root, applied["result"]["bundle_id"])
+            self.assertEqual(bundle.frontmatter["type"], "manual")
+            self.assertEqual(
+                bundle.frontmatter["extensions"]["curation"]["review_decision"]["review_id"],
+                review["review_id"],
+            )
 
     def test_general_revision_api_cannot_promote_any_draft_bundle(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -208,10 +250,16 @@ class CurationMaterializationTests(unittest.TestCase):
             }
             completed = type("Completed", (), {"stdout": json.dumps(output)})()
             with patch("circled_wiki.core.curation.propose_update", return_value={"recommended_action": "create_draft_bundle", "blocking_conditions": []}):
-                with patch("circled_wiki.core.curation.subprocess.run", return_value=completed):
+                with patch("circled_wiki.core.curation.subprocess.run", return_value=completed) as adapter:
                     result = run_configured_curation(root, evidence_id)
 
             self.assertEqual(result["action"], "created_review")
+            request = json.loads(adapter.call_args.kwargs["input"])
+            self.assertEqual(
+                {item["type"] for item in request["bundle_taxonomy"]},
+                {"policy", "guide", "runbook", "manual", "decision", "spec", "reference", "report"},
+            )
+            self.assertEqual(request["pre_creation_review_types"], ["manual", "runbook"])
             self.assertEqual(list_curation_candidates(root), [])
             review = list_curation_reviews(root)[0]
             self.assertEqual(review["recommendation"], "create_draft_bundle")

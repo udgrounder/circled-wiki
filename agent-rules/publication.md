@@ -27,7 +27,7 @@
 - Publication Security Review
 - 승인 상태와 발행 권한
 - 기존 staged 변경 없음
-- 현재 Evidence checksum, 생성 actor와 다른 승인 Owner 기록. `runbook`·Manual 성격 `guide`와 직접 생성 Draft의 active 전환에는 `curation_review` Review ID 필수
+- 현재 Evidence checksum, 생성 actor와 다른 승인 Owner 기록. `runbook`·`manual`의 생성 전 승인과 모든 Draft의 active 전환에는 `curation_review` Review ID 필수
 - active 전환이면 전용 Promotion Gate의 Security Receipt와 PII Scan Receipt
 
 ## Output

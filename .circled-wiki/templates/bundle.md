@@ -10,7 +10,7 @@ timestamp: 2026-07-09T00:00:00+09:00
 
 ```yaml
 ---
-type: {policy|guide|runbook|decision|spec|reference}
+type: {policy|guide|runbook|manual|decision|spec|reference|report}
 id: bundle/{organization_id}/{slug}_{bundle_uuid}.md
 bundle_uuid: {bundle_uuid}
 title: {title}
@@ -22,7 +22,7 @@ owners:
   - {owner}
 tags:
   - bundles
-  - {policy|guide|runbook|decision|spec|reference}
+  - {policy|guide|runbook|manual|decision|spec|reference|report}
   - {tag}
 evidence:
   - evidence/{organization_id}/{name}_{source_uuid}.md

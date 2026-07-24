@@ -75,7 +75,7 @@ find_workflow
 - 사용자가 최신화 확인을 요청하면 유효기간과 관계없이 `prepare_runbook_refresh`를 호출한다.
 - 사용자가 더 좋은 레퍼런스를 제공하면 원본을 Evidence로 수집하고 `submit_runbook_reference`를 호출한다.
 - 원본 수집은 inbox 상대경로로 `ingest_evidence`를 호출하고, Batch 항목에는 안정적인 `idempotency_key`를 사용한다.
-- 신규 `policy`·`decision`·`spec`·`reference` Bundle은 `create_draft_bundle`을 사용할 수 있다. `guide`(Manual 성격 문서 포함)와 `runbook`은 Curation Review·독립 Owner 승인으로만 Draft를 생성한다. 기존 Bundle revision은 읽은 revision을 `expected_revision`으로 전달하되 상태 전환에는 사용하지 않는다.
+- 신규 `policy`·`guide`·`decision`·`spec`·`reference`·`report` Bundle은 `create_draft_bundle`을 사용할 수 있다. `manual`과 `runbook`은 Curation Review·독립 Owner 승인으로만 Draft를 생성한다. 기존 Bundle revision은 읽은 revision을 `expected_revision`으로 전달하되 상태 전환에는 사용하지 않는다.
 - 사용자 레퍼런스를 권위 있는 사실로 자동 간주하지 말고 출처·최신성·적용 범위·충돌을 비교한다.
 - Candidate Evidence는 `record_reference_assessment`로 평가하고 평가자와 검증자를 분리한다.
 - 정책·보안·가격·법률·외부 등록 요건·성과 수치는 Claim Support 상태를 표시하고 필요하면 `validate_claim_support`를 호출한다.

@@ -14,10 +14,10 @@ from .frontmatter import FrontmatterError, parse_markdown
 from .pii import pii_scan_receipt_errors
 from .evidence import evidence_content_mode, evidence_original_bytes
 from .models import MarkdownDocument, ValidationResult
+from .bundle_types import BUNDLE_TYPES
 
 
 RESERVED_FILENAMES = {"README.md", "index.md", "log.md"}
-BUNDLE_TYPES = {"policy", "guide", "runbook", "decision", "spec", "reference"}
 BUNDLE_STATUSES = {"draft", "active", "deprecated", "archived"}
 EVIDENCE_STATUSES = {"new", "processing", "processed", "ignored", "failed", "needs_review"}
 EVIDENCE_AVAILABILITY = {

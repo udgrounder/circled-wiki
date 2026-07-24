@@ -145,6 +145,7 @@ class IngestEvidenceTests(unittest.TestCase):
                 evidence_id=evidence_ids[0],
                 body="# Procedure\n\n원문과 출처를 확인한 뒤 답변한다.\n",
                 curated_by="simulated-curator",
+                approved_review_id="review-simulated-owner-approval",
             )
             self.assertEqual(draft.frontmatter["status"], "draft")
             approved = deepcopy(draft.frontmatter)
@@ -343,6 +344,7 @@ class IngestEvidenceTests(unittest.TestCase):
                 bundle_type="runbook",
                 summary="디지털 메뉴 이미지 제작 절차",
                 evidence_id=item["evidence_id"],
+                approved_review_id="review-test-approved",
             )
             proposal = propose_update(knowledge_root, item["evidence_id"])
             self.assertIn(
@@ -499,6 +501,7 @@ class IngestEvidenceTests(unittest.TestCase):
             create_bundle(
                 knowledge_root, domain="system-tests", slug="cli-inbox", title="CLI Inbox Test Runbook",
                 bundle_type="runbook", summary="Unrelated test procedure", evidence_id=unrelated_evidence,
+                approved_review_id="review-test-approved",
             )
             procedure = capture_conversation(
                 knowledge_root, "메뉴 이미지 제작 절차를 반복 실행하고 검토한다.", "test",
@@ -561,6 +564,7 @@ class IngestEvidenceTests(unittest.TestCase):
                 bundle_type="runbook",
                 summary="Refund workflow draft.",
                 evidence_id=result.evidence_id,
+                approved_review_id="review-test-approved",
             )
             hits = search_knowledge(
                 knowledge_root, "refund", {"type": "policy", "status": "draft"}

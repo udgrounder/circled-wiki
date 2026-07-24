@@ -22,9 +22,11 @@
         "policy",
         "guide",
         "runbook",
+        "manual",
         "decision",
         "spec",
-        "reference"
+        "reference",
+        "report"
       ]
     },
     "id": {

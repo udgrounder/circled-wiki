@@ -37,3 +37,16 @@ class CurationContractTests(unittest.TestCase):
 
         self.assertEqual(output.action, "no_bundle")
         self.assertEqual(output.evidence_ids, (EVIDENCE_ID,))
+
+    def test_accepts_complete_bundle_taxonomy(self):
+        for bundle_type in (
+            "policy", "guide", "runbook", "manual",
+            "decision", "spec", "reference", "report",
+        ):
+            payload = self._payload()
+            payload["action"] = bundle_type
+            payload["bundle_type"] = bundle_type
+
+            output = validate_curation_output(payload, [EVIDENCE_ID])
+
+            self.assertEqual(output.bundle_type, bundle_type)
