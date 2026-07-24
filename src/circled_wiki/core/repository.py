@@ -230,7 +230,7 @@ def create_bundle(
         "status": "draft", "summary": summary, "updated_at": now, "evidence": [evidence_id],
         "evidence_links": [evidence_markdown_link(knowledge_root, evidence)],
         "tags": ["bundles", bundle_type, domain],
-        "owners": list(settings.workflow.default_owners),
+        "owners": list(settings.workflow.default_owners) or [settings.operator_agent],
         "extensions": {
             "source_uuids": [evidence.frontmatter["source_uuid"]],
             "curated_by": curated_by,

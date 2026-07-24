@@ -10,14 +10,14 @@ from typing import Any, Dict, List, Optional
 
 from circled_wiki.config.settings import load_settings
 
-from .candidates import list_curation_candidates
+from .candidates import list_curation_candidates, promote_curation_candidate
 from .curator import propose_update
 from .curation_contract import CurationOutput
 from .curation_contract import validate_curation_output
 from .evidence import evidence_original_bytes
 from .frontmatter import parse_markdown, render_markdown
 from .pii import pii_scan_receipt_errors
-from .repository import create_bundle, find_document_by_id
+from .repository import create_bundle, find_document_by_id, iter_documents
 from .validator import validate_document
 from .curation_safety import curation_body_safety_errors
 from .curation_reviews import generate_curation_review
@@ -29,6 +29,7 @@ def materialize_curation_candidate(
     generated_by: str, curation_receipt: str,
     receipt_metadata: Optional[Dict[str, object]] = None,
     approved_review_id: Optional[str] = None,
+    auto_promote: bool = False,
 ) -> Dict[str, object]:
     """Create one idempotent Draft from validated output; never invokes a model."""
     if not generated_by.strip() or not curation_receipt.strip():
@@ -84,7 +85,19 @@ def materialize_curation_candidate(
     if not validation.is_valid:
         bundle.path.unlink(missing_ok=True)
         raise ValueError("curation candidate validation failed: " + "; ".join(validation.profile_errors))
-    return {"action": "created", "bundle_id": data["id"], "path": bundle.path.relative_to(knowledge_root.parent).as_posix()}
+    result = {"action": "created", "bundle_id": data["id"], "path": bundle.path.relative_to(knowledge_root.parent).as_posix()}
+    if auto_promote and output.bundle_type not in PRE_CREATION_REVIEW_TYPES:
+        promoted = dict(parse_markdown(bundle.path).frontmatter)
+        extensions = dict(promoted["extensions"])
+        extensions["review_state"] = "approved"
+        promoted["extensions"] = extensions
+        bundle.path.write_text(render_markdown(promoted, bundle.body), encoding="utf-8")
+        result.update(promote_curation_candidate(
+            knowledge_root, data["id"], actor=generated_by,
+            security_receipt=f"auto://curation/{checksum}", automated=True,
+        ))
+        result["action"] = "auto_promoted"
+    return result
 
 
 def run_configured_curation(knowledge_root: Path, evidence_id: str) -> Dict[str, object]:
@@ -134,6 +147,13 @@ def run_configured_curation(knowledge_root: Path, evidence_id: str) -> Dict[str,
             payload = json.loads(completed.stdout)
             output = validate_curation_output(payload, [evidence_id])
             receipt = f"curation://{config.provider}/{config.model}/{config.profile_version}"
+            if output.bundle_type not in PRE_CREATION_REVIEW_TYPES:
+                return materialize_curation_candidate(
+                    knowledge_root, evidence_id, output, generated_by=settings.operator_agent,
+                    curation_receipt=receipt,
+                    receipt_metadata=_completed_receipt(receipt_metadata, "completed"),
+                    auto_promote=True,
+                )
             return generate_curation_review(
                 knowledge_root, evidence_id, output, generated_by=settings.operator_agent,
                 curation_receipt=receipt,
@@ -280,14 +300,14 @@ def _require_curation_safe_evidence(evidence, knowledge_root: Path) -> None:
 
 
 def _find_idempotent_candidate(knowledge_root: Path, evidence_id: str, checksum: str, profile_version: str):
-    for candidate in list_curation_candidates(knowledge_root):
-        if candidate.get("evidence") != [evidence_id]:
+    for path in iter_documents(knowledge_root):
+        document = parse_markdown(path)
+        if document.frontmatter.get("evidence") != [evidence_id]:
             continue
-        document = find_document_by_id(knowledge_root, str(candidate["id"]))
-        extensions = document.frontmatter.get("extensions", {}) if document else {}
+        extensions = document.frontmatter.get("extensions", {})
         curation = extensions.get("curation", {}) if isinstance(extensions, dict) else {}
         if isinstance(curation, dict) and curation.get("evidence_checksum") == checksum and curation.get("profile_version") == profile_version:
-            return candidate
+            return {"id": document.frontmatter["id"], "path": path.relative_to(knowledge_root.parent).as_posix()}
     return None
 
 

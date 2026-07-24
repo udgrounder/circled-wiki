@@ -153,13 +153,14 @@ def _is_today(value: object, today) -> bool:
 
 def promote_curation_candidate(
     knowledge_root: Path, bundle_id: str, *, actor: str, security_receipt: str,
+    automated: bool = False,
 ) -> Dict[str, object]:
     """Promote an approved candidate only through the configured Owner gate."""
     settings = load_settings(knowledge_root.resolve().parent)
     owner = settings.approval.knowledge_owner
-    if not owner:
+    if not automated and not owner:
         raise ValueError("Active promotion is disabled until approval.knowledge_owner is configured")
-    if actor != owner:
+    if not automated and actor != owner:
         raise ValueError("only the configured knowledge-owner may promote a candidate")
     if not isinstance(security_receipt, str) or not security_receipt.strip():
         raise ValueError("security_receipt is required for Active promotion")
@@ -170,11 +171,16 @@ def promote_curation_candidate(
     extensions = dict(data.get("extensions", {}))
     if data.get("status") != "draft" or extensions.get("review_state") != "approved":
         raise ValueError("only an approved Draft candidate may be promoted")
+    if automated and data.get("type") in {"runbook", "manual"}:
+        raise ValueError("runbook and manual require Owner promotion")
     curation = dict(extensions.get("curation", {}))
     if not curation:
         raise ValueError("only a Curation candidate may be promoted")
     review_decision = curation.get("review_decision")
-    if not isinstance(review_decision, dict) or not str(review_decision.get("review_id", "")).strip():
+    if (not automated and (
+        not isinstance(review_decision, dict)
+        or not str(review_decision.get("review_id", "")).strip()
+    )):
         raise ValueError("candidate promotion requires an approved curation review record")
     evidence_ids = data.get("evidence")
     if not isinstance(evidence_ids, list) or not evidence_ids:
@@ -200,6 +206,7 @@ def promote_curation_candidate(
     curation["promotion"] = {
         "approved_by": actor, "approved_at": now,
         "security_receipt": security_receipt.strip(),
+        "mode": "automatic" if automated else "owner_approved",
     }
     extensions["curation"] = curation
     extensions["governance"] = governance
@@ -217,7 +224,7 @@ def promote_curation_candidate(
     except Exception:
         document.path.write_text(original, encoding="utf-8")
         raise
-    return {"bundle_id": bundle_id, "status": "active", "approved_by": actor, "security_receipt": security_receipt.strip()}
+    return {"bundle_id": bundle_id, "status": "active", "approved_by": actor, "security_receipt": security_receipt.strip(), "promotion_mode": "automatic" if automated else "owner_approved"}
 
 
 def review_curation_candidate(

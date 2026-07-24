@@ -43,6 +43,18 @@ class CurationMaterializationTests(unittest.TestCase):
             self.assertEqual(first["action"], "created")
             self.assertEqual(second["action"], "reused")
 
+    def test_uses_the_installation_operator_when_no_default_owner_is_configured(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, evidence_id = self._evidence(directory)
+
+            result = materialize_curation_candidate(
+                root, evidence_id, self._output(evidence_id),
+                generated_by="curator", curation_receipt="test://curation",
+            )
+
+            bundle = find_document_by_id(root, result["bundle_id"])
+            self.assertEqual(bundle.frontmatter["owners"], ["hermes"])
+
     def test_allows_draft_candidate_without_optional_pii_receipt(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "knowledge"
@@ -256,7 +268,7 @@ class CurationMaterializationTests(unittest.TestCase):
                 with patch("circled_wiki.core.curation.subprocess.run", return_value=completed) as adapter:
                     result = run_configured_curation(root, evidence_id)
 
-            self.assertEqual(result["action"], "created_review")
+            self.assertEqual(result["action"], "auto_promoted")
             request = json.loads(adapter.call_args.kwargs["input"])
             self.assertEqual(
                 {item["type"] for item in request["bundle_taxonomy"]},
@@ -264,31 +276,19 @@ class CurationMaterializationTests(unittest.TestCase):
             )
             self.assertEqual(request["pre_creation_review_types"], ["manual", "runbook"])
             self.assertEqual(list_curation_candidates(root), [])
-            review = list_curation_reviews(root)[0]
-            self.assertEqual(review["recommendation"], "create_draft_bundle")
-            self.assertEqual(review["evidence_refs"][0]["evidence_id"], evidence_id)
             with patch("circled_wiki.core.curation.propose_update", return_value={"recommended_action": "create_draft_bundle", "blocking_conditions": []}):
                 with patch("circled_wiki.core.curation.subprocess.run", return_value=completed):
                     repeated = run_configured_curation(root, evidence_id)
-            self.assertEqual(repeated["action"], "reused_review")
-            self.assertEqual(len(list_curation_reviews(root)), 1)
-            review_path = root.parent / review["path"]
-            self.assertTrue(review_path.is_file())
-            applied = decide_curation_review(root, review["review_id"], action="approve", actor="reviewer")
-            self.assertEqual(applied["status"], "applied")
-            self.assertTrue(applied["review_deleted"])
-            self.assertEqual(applied["result"]["action"], "created")
-            self.assertFalse(review_path.exists())
+            self.assertEqual(repeated["action"], "reused")
             self.assertEqual(list_curation_reviews(root, include_resolved=True), [])
-            candidate = find_document_by_id(root, applied["result"]["bundle_id"])
+            candidate = find_document_by_id(root, result["bundle_id"])
+            self.assertEqual(candidate.frontmatter["status"], "active")
             receipt = candidate.frontmatter["extensions"]["curation"]["receipt"]
             self.assertEqual(receipt["provider"], "test")
             self.assertEqual(receipt["model"], "curated")
             self.assertEqual(receipt["status"], "completed")
             self.assertIn("completed_at", receipt)
-            decision = candidate.frontmatter["extensions"]["curation"]["review_decision"]
-            self.assertEqual(decision["review_id"], review["review_id"])
-            self.assertEqual(decision["decided_by"], "reviewer")
+            self.assertEqual(candidate.frontmatter["extensions"]["curation"]["promotion"]["mode"], "automatic")
             evidence = find_document_by_id(root, evidence_id)
             self.assertIn(candidate.frontmatter["id"], evidence.frontmatter["curated_into"])
             self.assertNotIn("curation_review", evidence.frontmatter["extensions"])
@@ -340,8 +340,8 @@ class CurationMaterializationTests(unittest.TestCase):
             with patch("circled_wiki.core.curation.propose_update", return_value=proposal):
                 with patch("circled_wiki.core.curation.subprocess.run", return_value=completed):
                     result = run_configured_curation(root, evidence_id)
-            self.assertEqual(result["action"], "created_review")
-            self.assertEqual(len(list_curation_reviews(root)), 1)
+            self.assertEqual(result["action"], "auto_promoted")
+            self.assertEqual(len(list_curation_reviews(root)), 0)
             self.assertEqual(list_curation_candidates(root), [])
 
     def test_validator_rejects_curation_receipt_for_another_evidence_checksum(self):
