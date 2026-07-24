@@ -43,13 +43,16 @@ class CurationMaterializationTests(unittest.TestCase):
             self.assertEqual(first["action"], "created")
             self.assertEqual(second["action"], "reused")
 
-    def test_blocks_evidence_without_pii_receipt(self):
+    def test_allows_draft_candidate_without_optional_pii_receipt(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "knowledge"
             source = root / "inbox" / "manual" / "source.txt"; source.parent.mkdir(parents=True); source.write_text("source", encoding="utf-8")
             evidence = ingest_evidence(root, source, "manual", why_collected="test", intended_use=["marketing"])
-            with self.assertRaisesRegex(ValueError, "PII Scan Receipt"):
-                materialize_curation_candidate(root, evidence.evidence_id, self._output(evidence.evidence_id), generated_by="curator", curation_receipt="test://curation")
+            result = materialize_curation_candidate(
+                root, evidence.evidence_id, self._output(evidence.evidence_id),
+                generated_by="curator", curation_receipt="test://curation",
+            )
+            self.assertEqual(result["action"], "created")
 
     def test_service_rejects_direct_candidate_materialization(self):
         with tempfile.TemporaryDirectory() as directory:

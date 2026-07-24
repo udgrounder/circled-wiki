@@ -15,6 +15,7 @@ from uuid import uuid4
 
 from .frontmatter import parse_markdown, render_markdown
 from .namespace import require_stable_organization_id
+from .sensitive_data import redact_sensitive_data
 from .evidence import (
     ORIGINAL_CONTENT_END,
     ORIGINAL_CONTENT_START,
@@ -589,6 +590,16 @@ def capture_conversation(
     if not isinstance(idempotency_key, str) or not idempotency_key.strip() or len(idempotency_key) > 200:
         raise ValueError("idempotency_key must be a non-empty string up to 200 characters")
 
+    content_precheck = redact_sensitive_data(content)
+    title_precheck = redact_sensitive_data(title)
+    reason_precheck = redact_sensitive_data(why_collected)
+    content = content_precheck.content
+    title = title_precheck.content
+    why_collected = reason_precheck.content
+    masked_categories = sorted(set(
+        content_precheck.categories + title_precheck.categories + reason_precheck.categories
+    ))
+
     organization_id = require_stable_organization_id(knowledge_root)
     checksum = _content_checksum(content)
     ingested = _reuse_ingested_capture(
@@ -627,6 +638,11 @@ def capture_conversation(
         details["turn_to"] = turn_to
     if artifacts:
         details["artifacts"] = artifacts
+    if masked_categories:
+        details["sensitive_data_precheck"] = {
+            "masked": True,
+            "categories": masked_categories,
+        }
     now = captured_at or datetime.now(timezone.utc)
     intake_id = f"inbox://{organization_id}/{provider}/{intake_uuid}"
     frontmatter = {
@@ -693,6 +709,21 @@ def capture_document(
         raise ValueError("capture_details must be an object")
     if not isinstance(idempotency_key, str) or not idempotency_key.strip() or len(idempotency_key) > 200:
         raise ValueError("idempotency_key must be a non-empty string up to 200 characters")
+    content_precheck = redact_sensitive_data(content)
+    title_precheck = redact_sensitive_data(title)
+    reason_precheck = redact_sensitive_data(why_collected)
+    url_precheck = redact_sensitive_data(source_url or "")
+    locator_precheck = redact_sensitive_data(source_locator or "")
+    content = content_precheck.content
+    title = title_precheck.content
+    why_collected = reason_precheck.content
+    source_url = url_precheck.content
+    source_locator = locator_precheck.content
+    masked_categories = sorted(set(
+        content_precheck.categories + title_precheck.categories + reason_precheck.categories
+        + url_precheck.categories + locator_precheck.categories
+    ))
+
     organization_id = require_stable_organization_id(knowledge_root)
     checksum = _content_checksum(content)
     ingested = _reuse_ingested_capture(
@@ -736,8 +767,14 @@ def capture_document(
         "intended_use": [item.strip() for item in intended_use],
         "sensitivity_review": sensitivity_review,
     }
-    if capture_details:
-        frontmatter["capture_details"] = capture_details
+    details = dict(capture_details or {})
+    if masked_categories:
+        details["sensitive_data_precheck"] = {
+            "masked": True,
+            "categories": masked_categories,
+        }
+    if details:
+        frontmatter["capture_details"] = details
     path.write_text(
         render_markdown(
             frontmatter,

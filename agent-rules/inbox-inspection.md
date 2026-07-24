@@ -12,7 +12,7 @@
 ## Allowed Actions
 
 - 원문 checksum, 필수 메타데이터, provider 폴더, Inbox Sensitive Data Review 상태 검사
-- Inbox 내용을 다시 읽어 Capture 단계의 1차 마스킹 누락, 과소 마스킹과 문맥상 재식별 가능성을 2차 확인
+- Inbox 내용을 직접 다시 읽어 Capture 단계의 지정된 고위험 식별자·자격증명 마스킹 누락 가능성을 **2차 확인**하고, Evidence 변환 시 Ingest Agent가 수행할 2차 마스킹 확인·재검수를 안내. 이 확인은 전체 PII Scan을 주장하지 않는다.
 - 명확한 누락은 정책에 맞게 `*`로 마스킹한 안전한 파생 입력으로 교체하되, 불변 파일 원본과 기존 checksum을 직접 변경하지 않음
 - 외부 문서의 source URL·locator 존재 여부 검사
 - `required` 민감성 상태는 식별된 검토자의 `completed` 또는 `not_applicable` 결정으로만 해소
@@ -22,8 +22,8 @@
 
 - 내용 유형과 intended use의 타당성
 - 재사용 가치와 보존 분류
-- PII(이메일·전화번호·주민등록번호·카드번호·계정 식별자)와 자격증명 패턴의 평문 잔존 여부
-- 마스킹된 조각과 제목·본문·source locator를 결합했을 때 재식별 가능한지
+- 주민등록번호·계좌번호·카드번호와 자격증명 패턴의 평문 잔존 여부
+- 자동 점검 범위 밖 개인정보는 자동 마스킹하지 않으며, 별도 조직 정책 또는 사람 검토가 필요한지
 
 ## Gates
 
@@ -31,7 +31,7 @@
 - provider와 폴더 일치
 - 필수 메타데이터 완전성
 - `sensitivity_review`가 `completed` 또는 `not_applicable`
-- 2차 마스킹 확인 통과; 모호하거나 고위험인 항목은 `pending` 또는 `needs_review`로 유지
+- 텍스트 Inbox의 실제 재마스킹은 Evidence Ingest Profile에서 수행한다. 파일 원본과 판단 불가 입력은 `sensitivity_review` 완료 후에만 다음 단계로 넘긴다.
 
 ## Output
 

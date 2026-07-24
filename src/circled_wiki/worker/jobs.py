@@ -13,6 +13,7 @@ from circled_wiki.core.frontmatter import FrontmatterError, parse_markdown
 from circled_wiki.core.ingest import ingest_evidence, read_conversation_intake
 from circled_wiki.core.repository import iter_documents
 from circled_wiki.core.service import KnowledgeService
+from circled_wiki.core.sensitive_data import redact_sensitive_data
 from circled_wiki.core.workflow import TaskStore
 
 
@@ -133,7 +134,10 @@ def inspect_inbox(knowledge_root: Path, limit: int = 100) -> Dict[str, object]:
             "status": data["status"],
             "gate_status": "blocked" if issues else "ready_for_acceptance",
             "issues": issues,
-            "checks": ["required_metadata", "provider_folder", "content_checksum", "sensitivity_review"],
+            "checks": [
+                "required_metadata", "provider_folder", "content_checksum",
+                "sensitivity_review",
+            ],
         })
     return {
         "item_count": len(items),
@@ -189,6 +193,7 @@ def ingest_accepted_inbox(knowledge_root: Path, limit: int = 100) -> Dict[str, o
         if data.get("status") != "accepted":
             continue
         is_file = data.get("content_type") == "file"
+        sensitive_categories: tuple[str, ...] = ()
         if is_file:
             payload_path = Path(content)
             temporary_path = path.parent / f".ingest-{uuid4()}{payload_path.suffix.lower()}"
@@ -196,8 +201,14 @@ def ingest_accepted_inbox(knowledge_root: Path, limit: int = 100) -> Dict[str, o
             # failed batch remains retryable.
             shutil.copy2(payload_path, temporary_path)
         else:
+            # Recheck immediately before Evidence conversion.  Capture may have
+            # been performed by any Agent or an older adapter, so never assume
+            # its first pass is still sufficient.  Only the policy-scoped values
+            # are transformed and no matched value is written to the result.
+            precheck = redact_sensitive_data(str(content))
+            sensitive_categories = precheck.categories
             temporary_path = path.parent / f".ingest-{uuid4()}.md"
-            temporary_path.write_text(content, encoding="utf-8")
+            temporary_path.write_text(precheck.content, encoding="utf-8")
         try:
             captured_at = datetime.fromisoformat(str(data["captured_at"]).replace("Z", "+00:00"))
             capture_details = data.get("capture_details")
@@ -244,6 +255,10 @@ def ingest_accepted_inbox(knowledge_root: Path, limit: int = 100) -> Dict[str, o
                 ).as_posix(),
                 "reused": result.reused,
                 "outcome_linked": outcome_linked,
+                "sensitive_data_recheck": {
+                    "masked": bool(sensitive_categories),
+                    "categories": list(sensitive_categories),
+                },
             })
         except (OSError, ValueError, KeyError, TypeError) as error:
             temporary_path.unlink(missing_ok=True)

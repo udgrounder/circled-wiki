@@ -14,6 +14,7 @@
 - source UUID와 Evidence ID 발급
 - Embedded Evidence Document 또는 Evidence Original+External-file Evidence Manifest 생성
 - 원본 checksum과 출처 보존
+- **Inbox를 읽어 Evidence를 만들기 직전** 주민등록번호·계좌/카드번호와 API key·password·token·private key 등 자격증명을 다시 점검한다. 텍스트 Inbox에서 발견하면 실제 값 없이 범주만 결과에 기록하고 `********`로 마스킹한 안전한 Evidence 입력을 생성한다.
 
 ## Checks
 
@@ -28,6 +29,7 @@
 - 승인된 검사 기록
 - Evidence Schema와 원본 checksum 일치
 - 처리 Agent의 마스킹 재확인 통과; 평문·고위험·판단 불가 항목은 Evidence를 생성하지 않고 `needs_review`
+- 수집 Agent의 1차 점검 결과와 무관하게 Ingest Agent의 재검수·안전한 텍스트 파생본 생성 완료. 이 재검수는 Evidence 변환 작업의 일부이며 PII Scan 영수증이나 Draft·Commit·Push Gate를 만들지 않는다.
 
 ## Output
 

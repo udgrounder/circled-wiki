@@ -26,7 +26,6 @@ def publish_changes(project_root: Path, commit_message: str) -> Dict[str, object
     results = validate_repository(knowledge_root)
     if not all(result.is_valid for result in results):
         raise PublishError("validation failed; automatic commit is blocked")
-    _require_sensitive_data_review(knowledge_root)
     if not (project_root / ".git").exists():
         raise PublishError("project root is not a Git repository")
     preexisting_staged = _git(project_root, "diff", "--cached", "--name-only").stdout.splitlines()

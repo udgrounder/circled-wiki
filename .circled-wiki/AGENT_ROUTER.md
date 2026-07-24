@@ -10,7 +10,7 @@
 | --- | --- |
 | 지식 조회·질문 답변 | `agent-rules/knowledge-query.md` |
 | 사용자 업무 Runbook 실행 | `agent-rules/workflow-execution.md` |
-| 대화·파일을 Inbox에 넣기 | `agent-rules/inbox-capture.md` |
+| 대화·파일을 Inbox에 넣기 | `agent-rules/inbox-capture.md` — 수집 Agent·Adapter 구분 없이 공통 민감정보 사전 점검을 먼저 실행 |
 | Inbox 항목 검사·승인 | `agent-rules/inbox-inspection.md` |
 | 승인된 Inbox를 Evidence로 변환 | `agent-rules/evidence-ingest.md` |
 | Evidence 정제·Bundle 초안 또는 갱신 | `agent-rules/knowledge-curation.md` |

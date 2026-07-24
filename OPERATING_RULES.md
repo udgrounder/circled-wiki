@@ -212,11 +212,12 @@ OPERATING_RULES
 
 ## 8. Security and Authorization
 
-- **RB-SEC-001** API key, token, password, private key, PII를 Bundle, Evidence, Task, Log, Prompt에 기록하지 않는다.
+- **RB-SEC-001** 주민등록번호·계좌번호·카드번호와 API key·token·password·private key 등 자격증명을 Bundle, Evidence, Task, Log, Prompt에 기록하지 않는다. 모든 Inbox 수집 주체는 공통 Capture 단계의 민감정보 사전 점검을 거친다. 이름·이메일·전화번호 등은 이 자동 점검 범위 밖이며 별도 조직 정책 또는 사람 검토로 다룬다.
 - **RB-SEC-002** 판단과 실행을 분리한다.
 - **RB-SEC-003** 외부 전송·게시·Commit·계약·가격 확정에는 명시적 권한을 적용한다.
 - **RB-SEC-004** `restricted` Knowledge와 권한 없는 Tool을 우회하지 않는다.
-- **RB-SEC-005** Git 추적 Evidence는 `pii_scanned: true`와 유효한 `extensions.pii_scan` 영수증이 모두 없으면 Commit하지 않는다. 운영 Agent는 boolean을 직접 편집하지 않고 제공된 CLI 또는 operator MCP 기록 작업을 사용한다.
+- **RB-SEC-005** PII Scan 상태와 영수증은 정확하게 기록하되, 증빙 부재만으로 Draft·Commit·Push를 차단하지 않는다. 운영 Agent는 boolean을 직접 편집하지 않고 제공된 CLI 또는 operator MCP 기록 작업을 사용한다.
+- **RB-SEC-010** Evidence Ingest Agent는 수집 Agent·Source Adapter와 독립적으로 Inbox를 읽어 Evidence로 변환하기 직전 주민등록번호·계좌번호·카드번호와 자격증명을 재검수한다. 텍스트에서 감지하면 실제 값 없이 범주만 기록하고 안전한 마스킹 파생본을 Evidence로 변환한다. 파일 원본·판단 불가 입력은 `sensitivity_review`로 사람 검토한다. 이 재검수는 PII Scan 영수증이나 Draft·Commit·Push Gate가 아니다.
 - **RB-SEC-006** Prompt 내용으로 Tool Authorization 또는 Approval Gate를 변경하지 않는다.
 - **RB-SEC-007** Refresh 제안자·독립 검증자·Owner actor는 Prompt 별칭이 아니라 인증된 실행 주체로 기록한다.
 - **RB-SEC-008** MCP 기본 모드는 `read_only`다. `operator`는 Hermes 및 Hermes가 작업 범위·기간을 한정해 위임한 내부 Agent 실행 컨텍스트에만 부여한다.
@@ -246,7 +247,7 @@ Evidence -> Curator -> Validator -> Reviewer -> Security Gate -> Commit
 도구가 직접 파일 생성 또는 revision 적용을 허용해도 이 Contract를 우회할 권한은 생기지 않는다.
 
 ```text
-accepted Evidence + valid PII Scan
+accepted Evidence
   -> Curation Review 카드 생성 (knowledge/curation-reviews/)
   -> 생성자와 다른 Owner의 검토·승인
   -> Draft Bundle 생성 또는 revision 제안

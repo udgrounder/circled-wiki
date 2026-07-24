@@ -11,7 +11,8 @@
 
 ## Allowed Actions
 
-- 대화·문서 텍스트에서 자격증명과 명확한 PII를 `.circled-wiki/policies/sensitive-data-masking.md`에 따라 `*`로 1차 마스킹
+- **모든 수집 Agent와 Source Adapter의 공통 첫 단계**로 텍스트와 저장할 텍스트 메타데이터를 `.circled-wiki/policies/sensitive-data-masking.md`에 따라 민감정보 사전 점검한다. 이 단계는 특정 Agent의 선택 사항이 아니며 공통 Capture API를 우회할 수 없다.
+- 주민등록번호, 계좌번호, Luhn 검증된 카드번호와 API key·password·token·private key 등 자격증명만 `********`로 1차 마스킹한다. 이름·이메일·전화번호·일반 내부 URL은 이 자동 점검의 대상이 아니다.
 - 텍스트는 `Markdown + 1차 마스킹된 수집 내용`으로, 파일은 `Markdown envelope + 동명 원본`으로 `knowledge/inbox/<provider>/`에 저장
 - 파일 원본은 자동 수정하지 않고, 민감정보 가능성이 있으면 `sensitivity_review: required`로 유지해 Inspection에서 제한·파생본 처리를 결정
 - checksum과 `pending` 상태 기록
@@ -22,15 +23,15 @@
 - 입력을 읽고 저장할 수 있는지, 파일 checksum이 원본과 일치하는지
 - 동일 idempotency key와 checksum의 기존 pending 항목
 - Capture 명령이 충돌을 반환하면 `existing_intake_id`와 상태를 먼저 조회할 수 있는지
-- 이메일·전화번호·주민등록번호·카드번호·계정 식별자와 API key·token·password·private key의 평문 잔존 여부
-- 부분 마스킹 후에도 다른 문맥과 결합해 개인을 식별할 수 있는지
+- 주민등록번호·계좌번호·카드번호와 API key·token·password·private key 등 자격증명의 평문 잔존 여부
+- 자동 점검 결과가 있으면 `capture_details.sensitive_data_precheck.masked`와 범주만 기록되고 실제 값은 기록되지 않는지
 
 ## Gates
 
 - 비어 있지 않은 원문과 필수 메타데이터
 - 안전한 provider 경로
 - 동일 키의 checksum 충돌 없음
-- 명확한 자격증명과 PII의 1차 마스킹 완료; 판단이 모호하거나 대량·고위험이면 저장을 중단하고 사람 검토
+- 지정된 고위험 식별자와 자격증명의 1차 마스킹 완료. 파일 원본 또는 판단 불가 입력은 저장을 멈추지 않고 `sensitivity_review: required`로 격리해 다음 단계에서 검토
 
 ## Output
 

@@ -277,11 +277,6 @@ def _require_curation_safe_evidence(evidence, knowledge_root: Path) -> None:
     extensions = evidence.frontmatter.get("extensions", {})
     if not isinstance(extensions, dict) or extensions.get("visibility") == "restricted":
         raise ValueError("restricted Evidence cannot be auto-curated")
-    if pii_scan_receipt_errors(evidence.frontmatter):
-        raise ValueError("Evidence PII Scan Receipt must be valid before curation")
-    receipt = extensions.get("pii_scan")
-    if not isinstance(receipt, dict) or receipt.get("result") not in {"passed", "masked"}:
-        raise ValueError("Evidence requires a passed or masked PII Scan Receipt before curation")
 
 
 def _find_idempotent_candidate(knowledge_root: Path, evidence_id: str, checksum: str, profile_version: str):

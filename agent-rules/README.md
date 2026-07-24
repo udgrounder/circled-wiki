@@ -49,11 +49,11 @@ inbox-capture
 
 | Current | Action and Profile | Required Gate | Next |
 | --- | --- | --- | --- |
-| 없음 | `capture_conversation` · Inbox Capture | 필수 입력, 안전 경로, idempotency | `pending` |
+| 없음 | `capture_conversation` · Inbox Capture | 필수 입력, 안전 경로, idempotency, 모든 수집 주체의 공통 민감정보 사전 점검 | `pending` |
 | `pending` | `inspect_inbox` · Inbox Inspection | 메타데이터, 경로, checksum, Inbox Sensitive Data Review 상태 | 승인 가능 또는 보류 |
 | `pending` + `sensitivity_review: required` | `review_inbox_sensitivity` · Inbox Inspection | 식별된 사람의 완료·비해당 결정 | 승인 검사 가능 |
 | `pending` | `accept_inbox` · Inbox Inspection | 모든 Gate 통과, inspector actor | `accepted` |
-| `accepted` | `ingest_accepted` · Evidence Ingest | 검사 기록, Evidence Schema | Evidence `new` |
+| `accepted` | `ingest_accepted` · Evidence Ingest | 검사 기록, Evidence Schema, 수집 주체와 독립된 민감정보 재검수·안전한 텍스트 파생본 | Evidence `new` |
 | Evidence `new` | `propose_pending` · Knowledge Curation | 원본 접근, 관련성 검토 | 정제 제안 |
 | Draft | Review · Publication | Validator, Evidence, 보안, Owner 승인 | 발행 가능 |
 
@@ -64,6 +64,7 @@ inbox-capture
 | 동일 idempotency key의 checksum 변경 | Capture 중단, 구조화된 기존 Inbox Item 참조를 확인하고 충돌 보고 |
 | checksum 불일치 | Inbox 유지, 승인 금지 |
 | `sensitivity_review: required` | 승인 금지, 검토 완료 후 재검사 |
+| Evidence 변환 중 민감정보 감지 | 실제 값은 기록하지 않고 범주만 결과에 남긴 뒤, 텍스트는 안전한 파생 입력으로 변환; 파일·판단 불가는 사람 검토 |
 | provider와 폴더 불일치 | Inbox 유지, 자동 이동·수정 금지 |
 | accepted 항목 ingest 실패 | Inbox와 필요 시 `.raw/` 유지, 재시도 조건 기록 |
 | Evidence는 있으나 정제 누락 | `propose_pending`으로 재처리 |

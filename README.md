@@ -211,7 +211,7 @@ PYTHONPATH=src python3 -m circled_wiki.cli decide-curation-review \
 
 자동 정제 결과는 유형·신뢰도와 무관하게 항상 `curation-reviews/` Review 카드로 먼저 생성된다.
 `manual`과 `runbook`은 Review 카드와 독립 Owner 승인을 거쳐야 Draft를 만들 수 있다.
-`policy`, `guide`, `decision`, `spec`, `reference`, `report`는 Evidence·PII Gate를 통과한 경우 직접 Draft 생성도 가능하지만,
+`policy`, `guide`, `decision`, `spec`, `reference`, `report`는 Evidence Gate를 통과하면 직접 Draft 생성도 가능하며,
 모든 Draft의 `active` 전환은 Owner·Security Gate를 거친 전용 Promotion만 사용한다.
 
 ### 3. 지식 조회

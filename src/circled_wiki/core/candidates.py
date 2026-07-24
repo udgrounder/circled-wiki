@@ -186,9 +186,6 @@ def promote_curation_candidate(
             raise ValueError("candidate promotion Evidence is unavailable")
         if evidence.frontmatter.get("checksum") != expected_checksum:
             raise ValueError("candidate promotion Evidence checksum is stale")
-        pii_errors = pii_scan_receipt_errors(evidence.frontmatter)
-        if pii_errors:
-            raise ValueError("candidate promotion requires a valid Evidence PII Scan Receipt")
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     governance = {
         "reviewed_at": now, "review_due_at": now,

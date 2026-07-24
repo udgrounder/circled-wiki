@@ -28,7 +28,7 @@
 ### 단계 1: 수집
 
 - 사용자·지정 Batch·Hermes는 `capture_conversation`, `capture_document`, `capture_file` 중 입력에 맞는 Capture API를 사용한다.
-- Capture는 원문과 메타데이터를 `pending` Inbox Item으로 저장하고 Capture Receipt를 반환한다.
+- Capture는 호출 Agent·Source Adapter와 무관하게 공통 민감정보 사전 점검을 먼저 실행한다. 주민등록번호·계좌/카드번호와 자격증명만 마스킹한 뒤 원문과 메타데이터를 `pending` Inbox Item으로 저장하고 Capture Receipt를 반환한다.
 - 지정 Batch는 자체 스케줄·watermark로 변경분을 수집하고 안정적인 `idempotency_key`를 전달한다.
 - 수집 시 `source_ref`, `why_collected`, `intended_use`를 확보한다.
 - 이 단계에서는 Evidence를 생성하거나 정제하지 않는다.
