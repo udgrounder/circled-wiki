@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from .repository import (
     apply_bundle_revision, backfill_evidence_links, create_bundle,
-    find_document_by_id, knowledge_root_path, migrate_document_ids,
+    find_document_by_id, knowledge_root_path, migrate_document_ids, remove_evidence_backlinks,
 )
 from .curator import propose_update
 from .ingest import (
@@ -121,6 +121,9 @@ class KnowledgeService:
 
     def migrate_document_ids(self, *, apply: bool = False) -> Dict[str, object]:
         return migrate_document_ids(self.knowledge_root, apply=apply)
+
+    def remove_evidence_backlinks(self, *, apply: bool = False) -> Dict[str, object]:
+        return remove_evidence_backlinks(self.knowledge_root, apply=apply)
 
     def list_curation_candidates(self) -> List[Dict[str, object]]:
         """Return Draft Bundles that need curation review; active knowledge is excluded."""

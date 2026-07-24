@@ -8,7 +8,7 @@ from circled_wiki.config.settings import load_settings
 
 from .frontmatter import parse_markdown, render_markdown
 from .pii import pii_scan_receipt_errors
-from .repository import find_document_by_id, iter_documents
+from .repository import bundle_references_by_evidence, find_document_by_id, iter_documents
 from .validator import validate_repository
 
 
@@ -77,6 +77,7 @@ def curation_backlog_metrics(knowledge_root: Path) -> Dict[str, object]:
     evidence_new = 0
     evidence_curated = 0
     new_age_days: List[int] = []
+    bundle_references = bundle_references_by_evidence(knowledge_root)
     for path in (knowledge_root / "evidence").rglob("*.md"):
         if path.name in {"index.md", "log.md"}:
             continue
@@ -85,7 +86,7 @@ def curation_backlog_metrics(knowledge_root: Path) -> Dict[str, object]:
         if data.get("type") != "evidence":
             continue
         evidence_total += 1
-        if data.get("curated_into"):
+        if data.get("id") in bundle_references:
             evidence_curated += 1
         if data.get("status") == "new":
             evidence_new += 1

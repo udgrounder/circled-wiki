@@ -24,6 +24,23 @@ def iter_documents(knowledge_root: Path):
         yield from sorted((knowledge_root / section).rglob("*.md"))
 
 
+def bundle_references_by_evidence(knowledge_root: Path) -> Dict[str, set[str]]:
+    """Derive Evidence usage from the canonical Bundle ``evidence`` field."""
+    references: Dict[str, set[str]] = {}
+    for path in sorted((knowledge_root / "bundles").rglob("*.md")):
+        if path.name in {"index.md", "log.md"}:
+            continue
+        document = parse_markdown(path)
+        bundle_id = document.frontmatter.get("id")
+        evidence_ids = document.frontmatter.get("evidence")
+        if not isinstance(bundle_id, str) or not isinstance(evidence_ids, list):
+            continue
+        for evidence_id in evidence_ids:
+            if isinstance(evidence_id, str):
+                references.setdefault(evidence_id, set()).add(bundle_id)
+    return references
+
+
 def find_document_by_id(knowledge_root: Path, document_id: str) -> Optional[MarkdownDocument]:
     for path in iter_documents(knowledge_root):
         if path.name in {"index.md", "log.md"}:
@@ -193,6 +210,40 @@ def _replace_identifier_text(body: str, id_map: Dict[str, str]) -> str:
     return body
 
 
+def remove_evidence_backlinks(knowledge_root: Path, *, apply: bool = False) -> Dict[str, object]:
+    """Remove legacy Evidence ``curated_into`` backlinks after a dry-run review."""
+    changes = []
+    for path in iter_documents(knowledge_root):
+        if path.name in {"index.md", "log.md"}:
+            continue
+        document = parse_markdown(path)
+        if document.frontmatter.get("type") == "evidence" and "curated_into" in document.frontmatter:
+            changes.append(document)
+    report: Dict[str, object] = {
+        "mode": "apply" if apply else "dry_run",
+        "change_count": len(changes),
+        "paths": [document.path.relative_to(knowledge_root).as_posix() for document in changes],
+    }
+    if not apply or not changes:
+        return report
+    backups = {document.path: document.path.read_text(encoding="utf-8") for document in changes}
+    try:
+        for document in changes:
+            data = dict(document.frontmatter)
+            data.pop("curated_into", None)
+            document.path.write_text(render_markdown(data, document.body), encoding="utf-8")
+        invalid = [item for item in validate_repository(knowledge_root) if not item.is_valid]
+        if invalid:
+            messages = [error for item in invalid for error in item.profile_errors]
+            raise ValueError("Evidence backlink migration validation failed: " + "; ".join(messages))
+    except Exception:
+        for path, content in backups.items():
+            path.write_text(content, encoding="utf-8")
+        raise
+    report["applied_count"] = len(changes)
+    return report
+
+
 def create_bundle(
     knowledge_root: Path, *, domain: str, slug: str, title: str, bundle_type: str,
     summary: str, evidence_id: str, body: str = "", curated_by: str = "manual",
@@ -258,9 +309,6 @@ def create_bundle(
         evidence_data = dict(evidence.frontmatter)
         evidence_data["status"] = "processed"
         evidence_data["processed_at"] = now
-        evidence_data["curated_into"] = sorted(
-            set(evidence_data.get("curated_into", []) + [bundle_id])
-        )
         evidence.path.write_text(
             render_markdown(evidence_data, evidence.body), encoding="utf-8"
         )
@@ -288,7 +336,7 @@ def apply_bundle_revision(
     body: str,
     actor: str,
 ) -> MarkdownDocument:
-    """Atomically apply one validated Bundle revision and maintain Evidence backlinks."""
+    """Atomically apply one validated Bundle revision."""
     if isinstance(expected_revision, bool) or not isinstance(expected_revision, int):
         raise ValueError("expected_revision must be an integer")
     if not isinstance(proposed_frontmatter, dict) or not actor.strip():
@@ -359,16 +407,11 @@ def apply_bundle_revision(
     try:
         existing.path.write_text(render_markdown(proposed, body), encoding="utf-8")
         selected_ids = set(map(str, evidence_ids))
-        for evidence_id, evidence in evidence_documents.items():
+        for evidence_id in selected_ids:
+            evidence = evidence_documents[evidence_id]
             evidence_data = deepcopy(evidence.frontmatter)
-            curated_into = set(map(str, evidence_data.get("curated_into", [])))
-            if evidence_id in selected_ids:
-                curated_into.add(bundle_id)
-                evidence_data["status"] = "processed"
-                evidence_data["processed_at"] = proposed["updated_at"]
-            else:
-                curated_into.discard(bundle_id)
-            evidence_data["curated_into"] = sorted(curated_into)
+            evidence_data["status"] = "processed"
+            evidence_data["processed_at"] = proposed["updated_at"]
             evidence.path.write_text(
                 render_markdown(evidence_data, evidence.body), encoding="utf-8"
             )

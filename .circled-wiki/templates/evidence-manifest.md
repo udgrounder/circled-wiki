@@ -30,7 +30,6 @@ source_ref:
 captured_at: {captured_at}
 status: new
 processed_at:
-curated_into: []
 checksum: {checksum}
 language: ko
 original_file: {name}_{source_uuid}.{ext}

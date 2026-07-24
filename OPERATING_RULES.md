@@ -123,7 +123,7 @@ find_workflow
 
 - **RB-EVD-001** 공식 Bundle은 최소 1개 이상의 Evidence를 참조한다.
 - **RB-EVD-002** Evidence Original이 무결성의 기준이며 OCR·변환·요약은 Derived Artifact다.
-- **RB-EVD-003** Bundle `evidence`와 Evidence `curated_into`는 양방향 추적 가능해야 한다.
+- **RB-EVD-003** Bundle `evidence`는 Evidence를 참조하는 유일한 정식 관계이며, 모든 영향 분석은 이 필드를 기준으로 계산한다.
 - **RB-EVD-004** 처리 완료 원본은 `knowledge/evidence/`에 보존한다.
 - **RB-EVD-005** 10MB 이하 외부 Evidence Original은 동일 basename의 External-file Evidence Manifest와 함께 Git 추적할 수 있다.
 - **RB-EVD-006** 10MB 초과 외부 Evidence Original은 외부 저장소에 보존하고 Git에는 External-file Evidence Manifest만 추적한다.
@@ -136,7 +136,7 @@ find_workflow
 - **RB-EVD-013** Evidence 수집 시 재사용 가치, 보존 분류, Inbox Sensitive Data Review와 Evidence PII Scan 상태를 구분해 기록한다.
 - **RB-EVD-014** `verified` 주장은 원본 접근이 가능한 Evidence를 참조해야 한다.
 - **RB-EVD-015** `available` Evidence는 Evidence Original의 존재와 Evidence Record의 checksum 일치를 검증해야 한다.
-- **RB-EVD-016** Active Bundle의 Evidence 누락과 양방향 참조 불일치는 발행 차단 오류다.
+- **RB-EVD-016** Active Bundle의 Evidence 누락은 발행 차단 오류다.
 - **RB-EVD-017** Batch 재실행은 안정적인 `idempotency_key`를 사용하고 동일 키의 checksum 변경은 충돌로 중단한다.
 - **RB-EVD-018** 시스템이 네이티브하게 생성한 대화·Outcome 텍스트는 원문을 본문에 포함한 단일 self-contained Evidence Markdown으로 보존할 수 있다.
 - **RB-EVD-019** Embedded Evidence checksum은 변경 가능한 Frontmatter가 아니라 불변 원문 영역만 대상으로 하며, 원문 영역 변경은 무결성 오류다.
@@ -238,7 +238,7 @@ Evidence -> Curator -> Validator -> Reviewer -> Security Gate -> Commit
 - **RB-PUB-007** Outcome은 Curator·Reviewer 검토 없이 Runbook, Guide, Decision 또는 Template로 승격하지 않는다.
 - **RB-PUB-008** 기존 Git staged 변경이 있으면 자동 발행을 중단한다.
 - **RB-PUB-009** Bundle 변경은 현재 `knowledge_revision`을 사전 조건으로 사용하며 stale revision 변경을 거부한다.
-- **RB-PUB-010** Bundle과 Evidence 역참조는 하나의 변경 단위로 검증하고 실패 시 변경 전 상태로 원복한다.
+- **RB-PUB-010** Bundle Evidence 참조는 하나의 변경 단위로 검증하고 실패 시 Bundle 변경 전 상태로 원복한다.
 - **RB-PUB-011** Bundle Archive 절차는 (1) 중복·병합·폐기 근거를 검토하고, (2) `extensions.archive`에 시각·담당자·사유·복구 조건을 기록하고, (3) `knowledge/bundles/archive/<domain>/`으로 이동하며, (4) 전체 Validator와 검색 제외를 확인하는 순서로 수행한다. 복구는 Reviewer 승인 후 Archive 메타데이터를 보존한 채 원래 도메인 경로로 이동하고 상태를 재검토한다.
 
 ### 9.1 Bundle Curation and Activation Contract

@@ -638,11 +638,6 @@ def _validate_evidence(
         result.profile_errors.append(
             f"id must be a canonical Evidence ID for organization '{organization_id}'"
         )
-    curated_into = data.get("curated_into", [])
-    if not isinstance(curated_into, list) or any(
-        not _bundle_uri(organization_id).match(str(item)) for item in curated_into
-    ):
-        result.profile_errors.append("curated_into must be an array of canonical Bundle IDs")
     if "source_uuid" in data and not _is_uuid(data["source_uuid"]):
         result.profile_errors.append("source_uuid must be a UUID")
     if "provider" in data and not _is_nonempty_string(data["provider"]):
@@ -756,9 +751,7 @@ def validate_repository(knowledge_root: Path) -> List[ValidationResult]:
     results = [validate_document(path, knowledge_root) for path in managed_markdown_files(knowledge_root)]
     by_path = {result.path: result for result in results}
     evidence_ids: Set[str] = set()
-    bundle_ids: Set[str] = set()
     evidence_by_id: Dict[str, MarkdownDocument] = {}
-    bundle_by_id: Dict[str, MarkdownDocument] = {}
     documents: Dict[Path, MarkdownDocument] = {}
     for path in by_path:
         if path.name in RESERVED_FILENAMES:
@@ -772,10 +765,6 @@ def validate_repository(knowledge_root: Path) -> List[ValidationResult]:
             document_id = str(document.frontmatter.get("id", ""))
             evidence_ids.add(document_id)
             evidence_by_id[document_id] = document
-        if _path_kind(path, knowledge_root) == "bundle":
-            document_id = str(document.frontmatter.get("id", ""))
-            bundle_ids.add(document_id)
-            bundle_by_id[document_id] = document
     for path, document in documents.items():
         result = by_path[path]
         kind = _path_kind(path, knowledge_root)
@@ -791,24 +780,6 @@ def validate_repository(knowledge_root: Path) -> List[ValidationResult]:
                 if evidence_id not in evidence_ids:
                     message = f"referenced Evidence Record not found: {evidence_id}"
                     (result.profile_errors if is_active else result.warnings).append(message)
-                elif document.frontmatter.get("id") not in evidence_by_id[evidence_id].frontmatter.get("curated_into", []):
-                    message = f"Evidence Record does not reference this Bundle: {evidence_id}"
-                    (result.profile_errors if is_active else result.warnings).append(message)
-        elif kind == "evidence":
-            bundle_refs = document.frontmatter.get("curated_into", []) or []
-            if not isinstance(bundle_refs, list):
-                continue
-            for bundle_id in bundle_refs:
-                if not isinstance(bundle_id, str):
-                    continue
-                if bundle_id not in bundle_ids:
-                    result.warnings.append(f"referenced Bundle not found: {bundle_id}")
-                elif document.frontmatter.get("id") not in bundle_by_id[bundle_id].frontmatter.get("evidence", []):
-                    message = f"Bundle does not reference this Evidence Record: {bundle_id}"
-                    if bundle_by_id[bundle_id].frontmatter.get("status") == "active":
-                        result.profile_errors.append(message)
-                    else:
-                        result.warnings.append(message)
         elif kind == "curation_review":
             refs = document.frontmatter.get("evidence_refs", [])
             if not isinstance(refs, list) or len(refs) != 1 or not isinstance(refs[0], dict):

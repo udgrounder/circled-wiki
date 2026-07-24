@@ -100,8 +100,6 @@ source_ref:
 captured_at: 2026-07-08T10:00:00+09:00
 status: processed
 processed_at: 2026-07-08T10:03:00+09:00
-curated_into:
-  - bundle/example-org/refund-policy_7c9e6679-7425-40de-944b-e07fc1f90ae7.md
 checksum: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
 language: ko
 original_file: refund-policy_550e8400-e29b-41d4-a716-446655440000.pdf
@@ -181,13 +179,7 @@ source_ref:
 - `processing -> needs_review`
 - `needs_review -> processing`
 
-## 10. 양방향 연결
-
-### Evidence -> Bundle
-
-`curated_into`를 사용한다. 값은 Bundle ID 배열이며 화면용 경로·Markdown 링크가 아니다.
-
-### Bundle -> Evidence
+## 10. Bundle -> Evidence 연결
 
 `evidence` 배열을 사용한다. 사람·Obsidian 탐색 링크는 별도 `evidence_links` 배열에만 둔다.
 
@@ -209,7 +201,7 @@ source_ref:
 - 이 분류는 Evidence 진실성 점수가 아니며 출처 권위와 최신성 평가는 Refresh Task의 Reference Assessment에서 수행한다.
 - Bundle이 참조하는 Evidence는 Evidence Record를 통해 최소 메타데이터 수준에서 항상 읽을 수 있어야 한다.
 - `availability: available`이면 Evidence Original의 존재와 Evidence Record의 실제 SHA-256 checksum 일치를 검사한다.
-- Active Bundle의 Evidence 누락과 `evidence`/`curated_into` 불일치는 발행 차단 오류로 취급한다.
+- Active Bundle의 Evidence 누락은 발행 차단 오류로 취급한다.
 - 같은 원본을 재처리할 때는 새 UUID를 만들지 말고 기존 `source_uuid`를 유지한다.
 
 ## 12. 구현 고려사항

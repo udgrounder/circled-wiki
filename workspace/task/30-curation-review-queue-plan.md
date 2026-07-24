@@ -102,7 +102,7 @@ extensions:
     decided_at: null
 ```
 
-이 연결은 자동 재등록 방지용이며, Bundle의 `evidence` / Evidence의 `curated_into` 양방향 참조를 대체하지 않는다.
+이 연결은 자동 재등록 방지용이며, Bundle의 `evidence` 참조를 대체하지 않는다.
 
 ### 4.3 상태 전이
 

@@ -97,14 +97,6 @@
       ],
       "format": "date-time"
     },
-    "curated_into": {
-      "type": "array",
-      "items": {
-        "type": "string",
-        "pattern": "^bundle/[a-z0-9][a-z0-9_-]*/[^/]+_[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\\.md$"
-      },
-      "uniqueItems": true
-    },
     "checksum": {
       "type": "string",
       "pattern": "^sha256:[a-fA-F0-9]{64}$"

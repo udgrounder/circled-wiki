@@ -71,7 +71,7 @@ Bundle은 `id`, `bundle_uuid`, `title`, `type`, `status`, `summary`, `updated_at
 
 External-file Evidence Manifest는 Evidence Original과 같은 basename으로 두며, `type: evidence`, `source_uuid`, `provider`,
 `source_ref`, `captured_at`, `status`, `checksum`, `original_file`을 관리한다. Bundle과 Evidence의
-`evidence` / `curated_into` 참조는 양방향으로 검사한다.
+Bundle `evidence` 참조는 Evidence 존재 여부로 검사한다.
 일반 Evidence는 수집 이유와 적용 대상을 `extensions.capture_context`에 기록한다.
 
 검증 결과는 다음을 분리해 반환한다.

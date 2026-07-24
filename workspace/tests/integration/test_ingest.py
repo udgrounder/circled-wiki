@@ -211,7 +211,13 @@ class IngestEvidenceTests(unittest.TestCase):
             )
             fixture_data = dict(updated.frontmatter)
             fixture_data["status"] = "active"
-            updated.path.write_text(render_markdown(fixture_data, updated.body), encoding="utf-8")
+            updated.path.write_text(
+                render_markdown(
+                    fixture_data,
+                    updated.body + "\n## Workflow Summary\n\n원문을 검색·검토한 뒤 출처와 함께 답변한다.\n",
+                ),
+                encoding="utf-8",
+            )
             active = parse_markdown(updated.path)
             self.assertEqual(active.frontmatter["status"], "active")
             self.assertEqual(active.frontmatter["extensions"]["updated_by"], "simulated-human-owner")
@@ -352,9 +358,9 @@ class IngestEvidenceTests(unittest.TestCase):
                 [candidate["id"] for candidate in proposal["candidate_bundles"]],
             )
             self.assertEqual(
-                proposal["recommended_action"], "assign_owner_and_review_draft"
+                proposal["recommended_action"], "review_draft_bundle"
             )
-            self.assertIn("draft_bundle_owner_missing", proposal["blocking_conditions"])
+            self.assertNotIn("draft_bundle_owner_missing", proposal["blocking_conditions"])
 
             evidence_path.write_text(
                 evidence_path.read_text(encoding="utf-8").replace(
@@ -657,7 +663,7 @@ class IngestEvidenceTests(unittest.TestCase):
             evidence_manifest = parse_markdown(
                 knowledge_root.parent / str(evidence["manifest_path"])
             )
-            self.assertIn(draft["id"], evidence_manifest.frontmatter["curated_into"])
+            self.assertNotIn("curated_into", evidence_manifest.frontmatter)
 
             with self.assertRaisesRegex(ValueError, "revision conflict"):
                 service.apply_bundle_revision(

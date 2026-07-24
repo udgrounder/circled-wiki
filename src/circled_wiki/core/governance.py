@@ -149,14 +149,6 @@ def audit_knowledge(knowledge_root: Path, runtime_root: Path) -> Dict[str, Any]:
         links = data.get("links", [])
         if row["status"] == "active" and (not isinstance(links, list) or not links):
             issues.append(_issue("info", "unlinked_bundle", row["id"], "Active Bundle has no related Bundle links"))
-        for evidence_id in data.get("evidence", []):
-            evidence = find_document_by_id(knowledge_root, str(evidence_id))
-            if evidence is None:
-                issues.append(_issue("error", "missing_evidence", row["id"], f"Evidence does not resolve: {evidence_id}"))
-            elif _is_restricted(evidence.frontmatter):
-                continue
-            elif row["id"] not in evidence.frontmatter.get("curated_into", []):
-                issues.append(_issue("warning", "missing_back_reference", row["id"], f"Evidence does not link back: {evidence_id}"))
     for task in _open_tasks(runtime_root):
         created_at = _as_datetime(task.get("created_at"))
         if created_at and (datetime.now(timezone.utc) - created_at).days >= 30:

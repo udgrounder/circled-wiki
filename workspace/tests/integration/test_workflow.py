@@ -42,7 +42,6 @@ class WorkflowExecutionTests(unittest.TestCase):
                     "checksum": "sha256:" + hashlib.sha256(b"source").hexdigest(),
                     "original_file": f"poster-source_{evidence_uuid}.txt",
                     "original_file_git_tracked": True,
-                    "curated_into": [bundle_id],
                     "extensions": {
                         "availability": "available",
                         "capture_context": {
@@ -470,7 +469,6 @@ class WorkflowExecutionTests(unittest.TestCase):
                 "source_ref": {"provider": "user", "captured_from": "user-upload"},
                 "captured_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                 "original_file": f"better-reference_{evidence_uuid}.txt",
-                "curated_into": [],
                 "checksum": "sha256:" + hashlib.sha256(b"new source").hexdigest(),
             })
             evidence_path = (

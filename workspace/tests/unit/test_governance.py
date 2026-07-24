@@ -26,7 +26,7 @@ class GovernanceTests(unittest.TestCase):
             "source_ref": {"provider": "manual", "captured_from": "manual"},
             "captured_at": "2026-07-14T00:00:00+00:00", "status": "processed",
             "checksum": "sha256:" + hashlib.sha256(b"source").hexdigest(), "original_file": "source.txt",
-            "original_file_git_tracked": True, "curated_into": [bundle_id],
+            "original_file_git_tracked": True,
             "extensions": {"availability": "available", "capture_context": {
                 "why_collected": "governance test", "intended_use": ["audit-policy"]
             }},

@@ -451,7 +451,7 @@ Inbox Sensitive Data Review, 승인과 Evidence 변환을 거친다.
 ## 안전 규칙
 
 - Bundle은 반드시 하나 이상의 Evidence를 참조해야 한다.
-- Evidence와 Bundle의 `curated_into` / `evidence` 참조는 양방향으로 유지한다.
+- Bundle의 `evidence`가 Evidence 참조의 정식 기준이며 영향 분석도 이 필드로 계산한다.
 - `knowledge/bundles/`의 공식 지식은 검증 없이 수정·발행하지 않는다.
 - 원본·토큰·API 키·개인정보를 README, frontmatter, Git commit에 기록하지 않는다.
 - `knowledge/.raw/`는 성공 시 비워지며, 실패·검토 필요·대용량 원본은 원인 확인 전까지 보존한다.

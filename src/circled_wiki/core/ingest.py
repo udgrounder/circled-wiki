@@ -486,7 +486,6 @@ def ingest_evidence(
         "captured_at": timestamp,
         "status": "new",
         "processed_at": None,
-        "curated_into": [],
         "checksum": source_checksum,
         "language": "ko",
         "original_file_git_tracked": True,

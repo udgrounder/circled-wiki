@@ -8,7 +8,7 @@ from circled_wiki.core.validator import validate_repository
 
 
 class ReferenceIntegrityTests(unittest.TestCase):
-    def test_warns_when_bundle_evidence_reference_is_not_bidirectional(self):
+    def test_accepts_bundle_evidence_reference_without_backlink(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "knowledge"
             bundle_uuid, evidence_uuid = str(uuid.uuid4()), str(uuid.uuid4())
@@ -22,4 +22,7 @@ class ReferenceIntegrityTests(unittest.TestCase):
 
             results = validate_repository(root)
 
-            self.assertTrue(any("Evidence Record does not reference this Bundle" in warning for result in results for warning in result.warnings))
+            self.assertFalse(any(
+                "Evidence Record does not reference this Bundle" in warning
+                for result in results for warning in result.warnings
+            ))

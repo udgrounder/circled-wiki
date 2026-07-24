@@ -63,7 +63,7 @@
 - 시스템 생성 텍스트는 Evidence Record와 Evidence Original을 합친 Embedded Evidence Document로 생성
 - 외부 Evidence Original이 10MB 이하이면 External-file Evidence Manifest와 함께 Git에 추적
 - 외부 Evidence Original이 10MB를 초과하면 Git에서 제외하고 별도 원본 저장소에 보존하며 External-file Evidence Manifest에는 checksum과 보관 위치를 기록
-- `source_ref`와 `curated_into` 초기화
+- `source_ref` 초기화
 - `extensions.capture_context`에 수집 이유와 적용 업무 기록
 
 ### 단계 5: 큐레이션 요청

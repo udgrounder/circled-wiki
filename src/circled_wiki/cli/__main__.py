@@ -87,6 +87,8 @@ def main() -> int:
     evidence_links.add_argument("--apply", action="store_true", help="write only validated Evidence file-link repairs")
     migrate_ids = subparsers.add_parser("migrate-document-ids")
     migrate_ids.add_argument("--apply", action="store_true", help="write the validated legacy-ID migration")
+    remove_backlinks = subparsers.add_parser("remove-evidence-backlinks")
+    remove_backlinks.add_argument("--apply", action="store_true", help="remove legacy Evidence curated_into fields after validation")
     subparsers.add_parser("operational-preflight")
     system_issue = subparsers.add_parser("record-system-issue")
     system_issue.add_argument("--title", required=True)
@@ -467,6 +469,9 @@ def main() -> int:
         return 0
     if args.command == "migrate-document-ids":
         print(json.dumps(service.migrate_document_ids(apply=args.apply), ensure_ascii=False, indent=2))
+        return 0
+    if args.command == "remove-evidence-backlinks":
+        print(json.dumps(service.remove_evidence_backlinks(apply=args.apply), ensure_ascii=False, indent=2))
         return 0
     if args.command == "operational-preflight":
         project = project_root()

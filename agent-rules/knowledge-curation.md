@@ -39,7 +39,7 @@ Evidence를 기존 Bundle과 비교하거나 신규 Draft를 작성한다.
 
 ## Output
 
-정제 제안 또는 Evidence 역참조가 연결된 Draft Bundle. 제안은 `suggested_bundle_type`을 힌트로 제공하되 Curator가
+정제 제안 또는 Evidence를 참조하는 Draft Bundle. 제안은 `suggested_bundle_type`을 힌트로 제공하되 Curator가
 원문을 검토해 `no_bundle` 또는 전체 Bundle 타입(`policy`, `guide`, `runbook`, `manual`, `decision`,
 `spec`, `reference`, `report`) 중 적절한 결과를 선택한다. 시점 기준 현황·평가·주기 보고는 `report`,
 제품·시스템 사용 절차는 `manual`, 반복 운영·장애 대응 절차는 `runbook`으로 구분한다. Business Rulebook은

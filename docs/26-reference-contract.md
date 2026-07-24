@@ -6,7 +6,6 @@
 | --- | --- | --- | --- |
 | `Bundle.evidence` | Bundle | `evidence/{organization_id}/{name}_{source_uuid}.md` | Stable machine reference to an Evidence Record. |
 | `Bundle.evidence_links` | Bundle | `[{display_name}](evidence/{provider}/{yyyy}/{mm}/{dd}/{name}_{source_uuid}.md)` | Obsidian and human navigation only. It is derived from `evidence` and is never an identity. |
-| `Evidence.curated_into` | Evidence | `bundle/{organization_id}/{slug}_{bundle_uuid}.md` | Inverse index of Bundles that reference this Evidence. |
 
 `display_name` is the Evidence `title` when it is available; a filename is only the fallback. All paths in
 `evidence_links` are relative to the `knowledge/` root.
@@ -14,12 +13,9 @@
 ## Invariants
 
 - Every `Bundle.evidence` value must resolve to exactly one Evidence Record.
-- Every resolved Bundle Evidence ID must have the Bundle ID in that Evidence Record's `curated_into` array.
-- `curated_into` is maintained by Bundle create/revision operations; it is not a display link and must not be
-  cleared by ingest, curation, or scheduled reprocessing.
-- The three fields are immutable in meaning: moving an Evidence file changes only its derived `evidence_links`
+- The two fields are immutable in meaning: moving an Evidence file changes only its derived `evidence_links`
   path, never its ID.
-- Reference updates are one atomic change: validate both directions before publishing and restore both on failure.
+- Reference updates validate the Bundle's Evidence IDs before publishing and restore the Bundle on failure.
 
 ## ID generation
 
@@ -41,5 +37,5 @@ new revisions, or normal runtime automation.
 ## Archive location
 
 An archived Bundle is moved to `knowledge/bundles/archive/<domain>/` after its Archive metadata is complete. The
-Bundle ID, Evidence IDs, and `Evidence.curated_into` values do not change when it moves. Archive is therefore an
+Bundle ID and Evidence IDs do not change when it moves. Archive is therefore an
 explicit lifecycle operation, not deletion; restoration moves the same Bundle back to its domain only after review.

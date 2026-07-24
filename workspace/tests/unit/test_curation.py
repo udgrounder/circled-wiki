@@ -290,7 +290,7 @@ class CurationMaterializationTests(unittest.TestCase):
             self.assertIn("completed_at", receipt)
             self.assertEqual(candidate.frontmatter["extensions"]["curation"]["promotion"]["mode"], "automatic")
             evidence = find_document_by_id(root, evidence_id)
-            self.assertIn(candidate.frontmatter["id"], evidence.frontmatter["curated_into"])
+            self.assertNotIn("curated_into", evidence.frontmatter)
             self.assertNotIn("curation_review", evidence.frontmatter["extensions"])
 
     def test_failed_review_approval_preserves_review_card(self):

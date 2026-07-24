@@ -146,8 +146,6 @@ provider_url: https://example.com/source
 captured_at: 2026-07-08T10:00:00+09:00
 status: processed
 processed_at: 2026-07-08T10:03:00+09:00
-curated_into:
-  - knowledge://example-org/cs/refund-policy
 ---
 ```
 
