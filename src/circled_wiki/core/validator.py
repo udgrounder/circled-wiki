@@ -50,7 +50,7 @@ def _evidence_uri(organization_id: str) -> re.Pattern[str]:
 
 def _bundle_uri(organization_id: str) -> re.Pattern[str]:
     return re.compile(
-        rf"^bundle/{re.escape(organization_id)}/[^/]+_[0-9a-fA-F-]{{36}}\.md$"
+        rf"^bundle/{re.escape(organization_id)}/[^/]+(?:--[0-9a-fA-F-]{{36}}|_[0-9a-fA-F-]{{36}}\.md)$"
     )
 
 
@@ -253,15 +253,21 @@ def _validate_bundle(
         elif any(not _is_valid_evidence_link(item, knowledge_root) for item in evidence_links):
             result.profile_errors.append("evidence_links must contain Markdown links to knowledge-root Evidence Markdown paths")
     if "bundle_uuid" in data and _is_uuid(data["bundle_uuid"]):
-        suffix = "_" + str(data["bundle_uuid"])
+        bundle_uuid = str(data["bundle_uuid"])
         identifier = str(data.get("id", ""))
-        if identifier.startswith(("bundle/", "knowledge/")):
-            if not identifier.endswith(suffix + ".md"):
-                result.profile_errors.append("new Bundle id must end with _{bundle_uuid}.md")
-        elif not identifier.endswith(suffix):
-            result.profile_errors.append("legacy Bundle id must end with _{bundle_uuid}")
-        if not document.path.stem.endswith(suffix):
-            result.profile_errors.append("Bundle filename must end with _{bundle_uuid}")
+        canonical_suffix = "--" + bundle_uuid
+        legacy_suffix = "_" + bundle_uuid + ".md"
+        if identifier.endswith(canonical_suffix):
+            slug = identifier.rsplit("/", 1)[-1].removesuffix(canonical_suffix)
+            if not slug or document.path.name != slug + ".md":
+                result.profile_errors.append(
+                    "canonical Bundle id slug must match the human-readable Bundle filename"
+                )
+        elif identifier.endswith(legacy_suffix):
+            if document.path.name != identifier.rsplit("/", 1)[-1]:
+                result.profile_errors.append("legacy Bundle id must match its Bundle filename")
+        else:
+            result.profile_errors.append("Bundle id must end with --{bundle_uuid}")
     _validate_bundle_placement(document, result)
     _validate_curation(data, result, organization_id)
     _validate_governance(data, result)

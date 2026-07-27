@@ -194,7 +194,7 @@ Owner와 Publication Security Gate를 통과하는 별도 작업이다.
 ```sh
 PYTHONPATH=src python3 -m circled_wiki.cli list-curation-candidates
 PYTHONPATH=src python3 -m circled_wiki.cli review-curation-candidate \
-  --bundle bundle/<organization-id>/refund-policy_<bundle-uuid>.md \
+  --bundle bundle/<organization-id>/refund-policy--<bundle-uuid> \
   --action approve \
   --actor <reviewer-id>
 ```
@@ -225,7 +225,7 @@ PYTHONPATH=src python3 -m circled_wiki.cli search --query 환불 --type policy
 
 # Bundle 전문 읽기
 PYTHONPATH=src python3 -m circled_wiki.cli read-bundle \
-  --bundle bundle/<organization-id>/refund-policy_<bundle-uuid>.md
+  --bundle bundle/<organization-id>/refund-policy--<bundle-uuid>
 ```
 
 ### 4. Workflow로 작업 준비 및 결과 환류

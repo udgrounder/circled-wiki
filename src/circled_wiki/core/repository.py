@@ -146,7 +146,7 @@ def backfill_evidence_links(knowledge_root: Path, *, apply: bool = False) -> Dic
 
 
 def migrate_document_ids(knowledge_root: Path, *, apply: bool = False) -> Dict[str, object]:
-    """Migrate legacy URI IDs to stable organization-and-filename IDs.
+    """Migrate legacy URI IDs to stable organization-scoped document IDs.
 
     The operation is deliberately explicit because it changes reference values;
     both Frontmatter references and literal body references are updated together.
@@ -165,7 +165,10 @@ def migrate_document_ids(knowledge_root: Path, *, apply: bool = False) -> Dict[s
         if kind == "evidence":
             new_id = f"evidence/{settings.organization_id}/{document.path.name}"
         elif "bundles" in document.path.parts:
-            new_id = f"bundle/{settings.organization_id}/{document.path.name}"
+            bundle_uuid = document.frontmatter.get("bundle_uuid")
+            if not isinstance(bundle_uuid, str) or not bundle_uuid.strip():
+                continue
+            new_id = f"bundle/{settings.organization_id}/{document.path.stem}--{bundle_uuid}"
         else:
             continue
         if document_id != new_id:
@@ -272,9 +275,11 @@ def create_bundle(
     bundle_directory = knowledge_root / "bundles" / domain
     if bundle_type == "runbook":
         bundle_directory = bundle_directory / "runbooks"
-    path = bundle_directory / f"{slug}_{bundle_uuid}.md"
-    bundle_id = f"bundle/{organization_id}/{path.name}"
+    path = bundle_directory / f"{slug}.md"
+    bundle_id = f"bundle/{organization_id}/{slug}--{bundle_uuid}"
     path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists():
+        raise ValueError("a Bundle with this domain and slug already exists")
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     data = {
         "type": bundle_type, "id": bundle_id, "bundle_uuid": bundle_uuid, "title": title,

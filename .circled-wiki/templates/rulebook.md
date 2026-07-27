@@ -14,7 +14,7 @@ Business Rulebook은 별도 Bundle type이 아니다. `type: guide`와 `extensio
 ```yaml
 ---
 type: guide
-id: bundle/{organization_id}/{slug}_{bundle_uuid}.md
+id: bundle/{organization_id}/{slug}--{bundle_uuid}
 bundle_uuid: {bundle_uuid}
 title: {업무명} Rulebook
 status: draft

@@ -195,14 +195,14 @@ extensions:
 - 파일 경로 변경과 분리 가능
 - 공식 v0.1의 Concept ID와는 별도 식별자다.
 - Evidence `id`는 `source_uuid`(UUIDv4/v7)를 포함하므로 생성 시점에 유일성이 실질적으로 보장된다.
-- Bundle `id`는 `bundle/{organization_id}/{slug}_{bundle_uuid}.md` 형식이다. 물리적 도메인 경로가 아니라 UUID를 포함한 파일명이 식별자이며, 저장 경로는 탐색용이다.
+- Bundle `id`는 `bundle/{organization_id}/{slug}--{bundle_uuid}` 형식이다. `slug`는 사람이 읽는 Bundle 이름이고 UUID는 논리 식별자를 고유하게 만든다. 물리적 도메인 경로와 파일명은 탐색용이다.
 - `bundle_uuid`는 Bundle 최초 생성 시 한 번만 발급하고, 이후 해당 Bundle을 갱신할 때는 새로 만들지 않고 그대로 유지한다. Evidence의 `source_uuid` 발급/유지 원칙과 동일하다.
-- 파일명도 같은 원칙으로 `{slug}_{bundle_uuid}.md`를 사용한다.
+- 파일명은 사람이 탐색하기 쉬운 `{slug}.md`를 사용한다. 파일명 변경은 링크 보정이 필요한 명시적 작업이며, Bundle `id`와 `bundle_uuid`는 변경하지 않는다.
 
 ### bundle_uuid
 
 - Bundle 최초 생성 시 발급하는 UUIDv4 또는 UUIDv7
-- `id`의 마지막 세그먼트, 그리고 파일명의 `_{bundle_uuid}` 부분과 항상 같은 값이어야 한다.
+- `id`의 마지막 세그먼트는 `{slug}--{bundle_uuid}`이며, 포함된 UUID는 `bundle_uuid`와 항상 같은 값이어야 한다.
 - Bundle을 갱신(같은 파일 수정)할 때는 유지하고, 완전히 새로운 개념으로 신규 Bundle을 만들 때만 새로 발급한다.
 
 ### type
@@ -455,8 +455,8 @@ Evidence Record는 `why_collected`와 non-empty `intended_use` 배열을 필수�
 - Evidence 원본 파일이 10MB 이하이면 Git 추적 대상이고, 10MB 초과이면 `original_file_git_tracked: false` 및 `extensions.storage` 정보가 있음
 - Bundle Frontmatter는 `.circled-wiki/schemas/bundle.schema.json`을 통과해야 함
 - Evidence Record Frontmatter는 호환성 파일명인 `.circled-wiki/schemas/evidence-manifest.schema.json`을 통과해야 함
-- `id`의 마지막 UUID 세그먼트와 `bundle_uuid` 필드 값이 일치함
-- 파일명의 `_{bundle_uuid}` 부분과 `bundle_uuid` 필드 값이 일치함
+- `id`의 `--{bundle_uuid}` 접미사가 `bundle_uuid` 필드 값과 일치함
+- `id`의 slug와 파일명 `{slug}.md`가 일치함
 - (방어적 점검) `knowledge/bundles/**/*.md` 전체에서 동일한 `id` 또는 동일한 `bundle_uuid`를 가진 문서가 두 개 이상 존재하지 않음
 - `.circled-wiki/policies/sensitive-data-masking.md` 기준의 민감정보 마스킹 검토를 거쳤음(`extensions.pii_masked`)
 
@@ -485,8 +485,8 @@ OKF v0.1은 Bundle 내부 하위 디렉터리를 허용하며 도메인별 저�
 공식 OKF 요구가 아니라 Example Organization Profile의 도메인 우선 운영 규칙이다.
 
 - 도메인 기준으로 `bundles/<domain>/` 아래에 저장한다.
-- 파일명은 `{slug}_{bundle_uuid}.md` 형식으로 관리한다.
-- 파일 경로와 `id`는 직접 동일할 필요는 없지만 의미 충돌이 없어야 하며, 최소한 `bundle_uuid` 세그먼트는 항상 일치해야 한다.
+- 파일명은 `{slug}.md` 형식으로 관리한다.
+- 파일 경로와 `id`는 직접 동일할 필요는 없지만, `id`의 slug는 파일명 stem과 일치해야 하며 `id`의 UUID 세그먼트는 `bundle_uuid`와 항상 일치해야 한다.
 - `index.md`는 디렉터리 안내용 문서로 사용할 수 있다.
 - `log.md`는 변경 이력 또는 운영 로그용 보조 문서로 사용할 수 있다.
 - `bundles/` 아래 일반 문서는 정제된 공식 지식 문서여야 하며 임시 작업 문서를 두지 않는다.

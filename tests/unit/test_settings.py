@@ -146,7 +146,11 @@ class SettingsTests(unittest.TestCase):
             )
             validation = validate_document(bundle.path, knowledge)
         self.assertTrue(evidence.evidence_id.startswith("evidence/acme/"))
-        self.assertTrue(bundle.frontmatter["id"].startswith("bundle/acme/"))
+        self.assertEqual(bundle.path.name, "pilot-policy.md")
+        self.assertEqual(
+            bundle.frontmatter["id"],
+            f"bundle/acme/pilot-policy--{bundle.frontmatter['bundle_uuid']}",
+        )
         self.assertEqual(len(bundle.frontmatter["evidence_links"]), 1)
         self.assertTrue(bundle.frontmatter["evidence_links"][0].startswith("["))
         self.assertIn("](evidence/manual/", bundle.frontmatter["evidence_links"][0])
@@ -338,7 +342,10 @@ class SettingsTests(unittest.TestCase):
             migrated_bundle = parse_markdown(bundle.path)
             migrated_evidence = parse_markdown(evidence_document.path)
             self.assertEqual(applied["applied_count"], 2)
-            self.assertEqual(migrated_bundle.frontmatter["id"], f"bundle/example-org/{bundle.path.name}")
+            self.assertEqual(
+                migrated_bundle.frontmatter["id"],
+                f"bundle/example-org/{bundle.path.stem}--{bundle.frontmatter['bundle_uuid']}",
+            )
             self.assertEqual(migrated_evidence.frontmatter["id"], f"evidence/example-org/{evidence_document.path.name}")
             self.assertEqual(migrated_bundle.frontmatter["evidence"], [migrated_evidence.frontmatter["id"]])
             self.assertNotIn("curated_into", migrated_evidence.frontmatter)

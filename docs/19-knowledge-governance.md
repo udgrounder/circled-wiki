@@ -34,13 +34,13 @@ knowledge/bundles/
     ├── index.md
     └── runbooks/
         ├── index.md
-        └── campsite-registration_<uuid>.md
+        └── campsite-registration.md
 ```
 
 - 도메인을 먼저 분류하고 그 아래 `runbooks/`를 둔다.
 - `runbooks/`의 비예약 Markdown은 반드시 `type: runbook`이어야 한다.
 - `type: runbook` Bundle은 반드시 해당 도메인의 `runbooks/`에 저장한다.
-- 파일명은 `{slug}_{bundle_uuid}.md`를 유지한다.
+- 파일명은 사람이 읽는 `{slug}.md`를 유지하고, 안정적 식별자는 Frontmatter의 `id`와 `bundle_uuid`로 관리한다.
 - Runbook을 이동할 때 경로 링크와 index를 함께 갱신한다.
 - 여러 도메인에 적용되는 Runbook은 오너십이 가장 명확한 도메인에 두고 다른 도메인에서 링크한다.
 

@@ -8,8 +8,8 @@ timestamp: 2026-07-08T00:00:00+09:00
 
 # Knowledge Bundles
 
-정제된 공식 지식 문서는 이 디렉터리 아래에 도메인별로 저장한다. 파일 위치는 탐색용이며, 영구 참조는
-`bundle/{organization_id}/{filename}.md` ID를 사용한다.
+정제된 공식 지식 문서는 이 디렉터리 아래에 도메인별로 저장한다. 파일명은 사람이 탐색하는 `{slug}.md`이고,
+영구 참조는 `bundle/{organization_id}/{slug}--{bundle_uuid}` ID를 사용한다.
 
 ## 규칙
 
@@ -46,10 +46,10 @@ timestamp: 2026-07-08T00:00:00+09:00
 ```text
 bundles/
   marketing/
-    channel-guide_<bundle_uuid>.md
+    channel-guide.md
     runbooks/
-      campaign-launch_<bundle_uuid>.md
+      campaign-launch.md
 ```
 
-파일 경로는 탐색을 위한 것이고, 공식 참조에는 Bundle Frontmatter의 `bundle/{organization_id}/{filename}.md`
-ID를 사용한다.
+파일 경로는 탐색을 위한 것이고, 공식 참조에는 Bundle Frontmatter의
+`bundle/{organization_id}/{slug}--{bundle_uuid}` ID를 사용한다.

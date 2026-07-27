@@ -31,7 +31,7 @@
     },
     "id": {
       "type": "string",
-      "pattern": "^bundle/[a-z0-9][a-z0-9_-]*/[^/]+_[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\\.md$"
+      "pattern": "^bundle/[a-z0-9][a-z0-9_-]*/[^/]+(?:--[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|_[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\\.md)$"
     },
     "bundle_uuid": {
       "type": "string",

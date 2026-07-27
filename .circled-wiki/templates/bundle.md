@@ -11,7 +11,7 @@ timestamp: 2026-07-09T00:00:00+09:00
 ```yaml
 ---
 type: {policy|guide|runbook|manual|decision|spec|reference|report}
-id: bundle/{organization_id}/{slug}_{bundle_uuid}.md
+id: bundle/{organization_id}/{slug}--{bundle_uuid}
 bundle_uuid: {bundle_uuid}
 title: {title}
 description: {description}

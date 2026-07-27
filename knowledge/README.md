@@ -36,7 +36,7 @@ updated_at: 2026-07-22T00:00:00+09:00
 | 항목 | 규칙 |
 | --- | --- |
 | 공식 지식 | `bundles/`의 `active` Bundle만 기본 검색·질의·Workflow 실행에 사용한다. |
-| Bundle ID | `bundle/{organization_id}/{filename}.md`; 실제 폴더 경로와 분리된 불변 식별자다. |
+| Bundle ID | `bundle/{organization_id}/{slug}--{bundle_uuid}`; 파일명 `{slug}.md`와 분리된 불변 식별자다. |
 | Evidence ID | `evidence/{organization_id}/{filename}.md`; provider·날짜 폴더 이동으로 바꾸지 않는다. |
 | 파일 링크 | `evidence_links`에는 `[표시명](evidence/.../file.md)` 형식의 실제 Markdown 링크만 기록한다. |
 | 태그 | Bundle에는 `bundles`, type, domain을; Evidence에는 `evidence`, provider, `source`를 포함한다. |

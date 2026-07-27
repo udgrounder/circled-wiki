@@ -64,7 +64,7 @@ tests/
 ### 4.2 Example Organization OKF Profile
 
 Bundle은 `id`, `bundle_uuid`, `title`, `type`, `status`, `summary`, `updated_at`, `evidence`를
-가져야 하며 `evidence`는 빈 배열일 수 없다. `id`와 파일명은 동일한 `bundle_uuid`를 사용한다.
+가져야 하며 `evidence`는 빈 배열일 수 없다. `id`는 `{slug}--{bundle_uuid}`로 Bundle의 안정적 정체성을 나타내고 파일명은 사람이 읽는 `{slug}.md`를 사용한다.
 조직 특화 메타데이터는 `extensions` 이외의 위치에 추가하지 않는다.
 `type: runbook`은 `bundles/<domain>/runbooks/`에만 저장한다. `active` Bundle은 Owner와 검토 기한을
 포함한 `extensions.governance`를 가진다.

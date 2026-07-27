@@ -31,11 +31,24 @@ class PushPublicationTests(unittest.TestCase):
                 subprocess.CompletedProcess([], 0, stdout="main\n", stderr=""),
                 subprocess.CompletedProcess([], 0, stdout="origin\n", stderr=""),
                 subprocess.CompletedProcess([], 0, stdout="", stderr=""),
+                subprocess.CompletedProcess([], 0, stdout="def\n", stderr=""),
+                subprocess.CompletedProcess([], 0, stdout="", stderr=""),
             ]
-            with patch("circled_wiki.core.publisher._git", side_effect=responses) as git:
+            with (
+                patch("circled_wiki.core.publisher._git", side_effect=responses) as git,
+                patch(
+                    "circled_wiki.core.publisher._git_result",
+                    return_value=subprocess.CompletedProcess([], 0, stdout="", stderr=""),
+                ) as git_result,
+            ):
                 result = push_committed_changes(project, "abc")
 
             self.assertTrue(result["pushed"])
+            self.assertEqual(
+                git.call_args_list[3].args[1:],
+                ("fetch", "--quiet", "origin", "refs/heads/main:refs/remotes/origin/main"),
+            )
+            self.assertEqual(git_result.call_args.args[1:], ("merge-base", "--is-ancestor", "def", "abc"))
             self.assertEqual(git.call_args_list[-1].args[1:], ("push", "origin", "HEAD:refs/heads/main"))
             self.assertEqual(result["receipt"]["status"], "pushed")
 
@@ -53,15 +66,54 @@ class PushPublicationTests(unittest.TestCase):
                 subprocess.CompletedProcess([], 0, stdout="abc\n", stderr=""),
                 subprocess.CompletedProcess([], 0, stdout="main\n", stderr=""),
                 subprocess.CompletedProcess([], 0, stdout="origin\n", stderr=""),
+                subprocess.CompletedProcess([], 0, stdout="", stderr=""),
+                subprocess.CompletedProcess([], 0, stdout="def\n", stderr=""),
                 subprocess.CalledProcessError(1, ["git", "push"]),
             ]
-            with patch("circled_wiki.core.publisher._git", side_effect=responses):
+            with (
+                patch("circled_wiki.core.publisher._git", side_effect=responses),
+                patch(
+                    "circled_wiki.core.publisher._git_result",
+                    return_value=subprocess.CompletedProcess([], 0, stdout="", stderr=""),
+                ),
+            ):
                 with self.assertRaisesRegex(PublishError, "commit_pending_push receipt recorded"):
                     push_committed_changes(project, "abc")
 
             receipt = json.loads((project / ".runtime" / "publication" / "push" / "abc.json").read_text(encoding="utf-8"))
             self.assertEqual(receipt["status"], "commit_pending_push")
             self.assertEqual(receipt["attempts"], 1)
+
+    def test_push_stops_when_remote_branch_is_ahead(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            (project / ".git").mkdir()
+            config = project / ".circled-wiki" / "config.yaml"
+            config.parent.mkdir()
+            config.write_text(
+                "schema_version: 1\npublication:\n  push_enabled: true\n  push_remote: origin\n  push_branch: main\n",
+                encoding="utf-8",
+            )
+            responses = [
+                subprocess.CompletedProcess([], 0, stdout="abc\n", stderr=""),
+                subprocess.CompletedProcess([], 0, stdout="main\n", stderr=""),
+                subprocess.CompletedProcess([], 0, stdout="origin\n", stderr=""),
+                subprocess.CompletedProcess([], 0, stdout="", stderr=""),
+                subprocess.CompletedProcess([], 0, stdout="def\n", stderr=""),
+            ]
+            with (
+                patch("circled_wiki.core.publisher._git", side_effect=responses) as git,
+                patch(
+                    "circled_wiki.core.publisher._git_result",
+                    return_value=subprocess.CompletedProcess([], 1, stdout="", stderr=""),
+                ),
+            ):
+                with self.assertRaisesRegex(PublishError, "remote_advanced receipt recorded"):
+                    push_committed_changes(project, "abc")
+
+            self.assertNotIn("push", [call.args[1] for call in git.call_args_list])
+            receipt = json.loads((project / ".runtime" / "publication" / "push" / "abc.json").read_text(encoding="utf-8"))
+            self.assertEqual(receipt["status"], "remote_advanced")
 
     def test_push_blocks_current_branch_other_than_configured_branch(self):
         with tempfile.TemporaryDirectory() as directory:

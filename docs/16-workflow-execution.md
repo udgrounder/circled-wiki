@@ -55,7 +55,7 @@ Circled Wiki는 문서를 검색해 반환하는 데서 끝나지 않고 다음 
 ```yaml
 ---
 type: runbook
-id: bundle/example-org/poster-production_<bundle_uuid>.md
+id: bundle/example-org/poster-production--<bundle_uuid>
 bundle_uuid: <bundle_uuid>
 title: 포스터 이미지 제작
 status: active
@@ -144,7 +144,7 @@ Task는 Runbook을 시작할 때 생성하는 실행 스냅샷이다.
 {
   "task_id": "<uuid>",
   "workflow_id": "poster-production",
-  "workflow_bundle_id": "bundle/<organization-id>/<slug>_<bundle-uuid>.md",
+  "workflow_bundle_id": "bundle/<organization-id>/<slug>--<bundle-uuid>",
   "workflow_version": 1,
   "knowledge_revision": 1,
   "request": "여름 이벤트 포스터를 만들어줘",

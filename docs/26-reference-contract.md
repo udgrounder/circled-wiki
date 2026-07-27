@@ -23,9 +23,10 @@
 - `source_uuid` is generated once when an Inbox item enters processing, then reused on retry and idempotent ingest.
 - Evidence IDs use the manifest filename. The filename includes the globally unique `source_uuid`; provider/date
   directories are storage locations, not identity.
-- `bundle_uuid` is generated once at Bundle creation. Bundle IDs use the Bundle filename, which includes that UUID.
-- `id`, `source_uuid`, and `bundle_uuid` are machine identifiers. Human titles, display labels, and paths must not
-  be used as lookup identity.
+- `bundle_uuid` is generated once at Bundle creation. Bundle IDs use `{slug}--{bundle_uuid}`, while the Bundle
+  filename remains the human-readable `{slug}.md`.
+- `id`, `source_uuid`, and `bundle_uuid` are machine identifiers. A Bundle ID's slug is a stable human-readable
+  label, not a file-path dependency; titles, display labels, and paths must not be used as lookup identity.
 
 ## Legacy migration boundary
 

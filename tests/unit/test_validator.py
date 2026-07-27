@@ -77,6 +77,34 @@ class ValidatorTests(unittest.TestCase):
 
         self.assertTrue(result.is_valid, result.as_dict())
 
+    def test_canonical_bundle_id_slug_must_match_human_readable_filename(self):
+        bundle_uuid = str(uuid.uuid4())
+        evidence_uuid = str(uuid.uuid4())
+        path = self.root / "bundles" / "cs" / "refund.md"
+        path.write_text(
+            render_markdown(
+                {
+                    "type": "policy",
+                    "id": f"bundle/example-org/other-policy--{bundle_uuid}",
+                    "bundle_uuid": bundle_uuid,
+                    "title": "Refund",
+                    "status": "draft",
+                    "summary": "Refund policy",
+                    "updated_at": "2026-07-10T10:00:00+09:00",
+                    "evidence": [f"evidence/example-org/refund-source_{evidence_uuid}.md"],
+                    "extensions": {"knowledge_revision": 1},
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        result = validate_document(path, self.root)
+
+        self.assertIn(
+            "canonical Bundle id slug must match the human-readable Bundle filename",
+            result.profile_errors,
+        )
+
     def test_repository_validation_reports_malformed_bundle_evidence_without_crashing(self):
         bundle_uuid = str(uuid.uuid4())
         path = self.root / "bundles" / "cs" / f"broken-evidence_{bundle_uuid}.md"

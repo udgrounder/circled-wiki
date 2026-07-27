@@ -420,7 +420,7 @@ Slack·Notion·Hermes cron처럼 저장소 밖에서 실행되는 자동화도 �
   - [x] 관리 영역 line 비교·영역 치환·사용자 규칙 보존 구현
   - [x] cache·backup·temp·egg-info·Obsidian UI 상태 신규 추적 차단
   - [x] Bundle의 영구 Evidence ID와 Obsidian용 `knowledge/` root 기준 Evidence 파일 링크 분리
-  - [x] ID를 `bundle/{organization_id}/{filename}.md`·`evidence/{organization_id}/{filename}.md`로 단순화하고, 기존 URI ID의 dry-run/apply 참조 일괄 마이그레이션 추가
+  - [x] Evidence ID를 `evidence/{organization_id}/{filename}.md`로 단순화하고, Bundle ID는 파일명과 분리된 `bundle/{organization_id}/{slug}--{bundle_uuid}`로 정착; 기존 URI ID의 dry-run/apply 참조 일괄 마이그레이션 추가
   - [x] `evidence_links`를 실제 Markdown 링크(`[표시명](evidence/...md)`)로 생성·검증하도록 변경
   - [x] `knowledge/` 루트 진입 문서는 `README.md`로 관리하고, 1-depth 폴더는 설명용 `README.md`와 탐색용 `index.md`를 둘 수 있으며, Inbox는 깊이와 무관하게 자동 index·README 생성·갱신·삭제 대상에서 제외
   - [x] 운영본에서 이미 추적된 생성물의 읽기 전용 목록 산출

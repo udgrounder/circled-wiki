@@ -65,6 +65,43 @@ def push_committed_changes(project_root: Path, commit: str) -> Dict[str, object]
         if settings.push_remote not in remotes:
             raise PublishError("configured publication push remote is unavailable")
         try:
+            _git(
+                project_root,
+                "fetch",
+                "--quiet",
+                settings.push_remote,
+                f"refs/heads/{settings.push_branch}:refs/remotes/{settings.push_remote}/{settings.push_branch}",
+            )
+            remote_head = _git(
+                project_root, "rev-parse", f"refs/remotes/{settings.push_remote}/{settings.push_branch}"
+            ).stdout.strip()
+            ancestry = _git_result(project_root, "merge-base", "--is-ancestor", remote_head, current)
+        except subprocess.CalledProcessError as error:
+            receipt = _record_push_receipt(
+                project_root, current, settings.push_remote, settings.push_branch,
+                status="remote_fetch_failed",
+            )
+            raise PublishError(
+                "remote fetch failed; remote_fetch_failed receipt recorded at " + receipt["path"]
+            ) from error
+        if ancestry.returncode == 1:
+            receipt = _record_push_receipt(
+                project_root, current, settings.push_remote, settings.push_branch,
+                status="remote_advanced",
+            )
+            raise PublishError(
+                "remote branch contains commits not in the publication commit; "
+                "remote_advanced receipt recorded at " + receipt["path"]
+            )
+        if ancestry.returncode != 0:
+            receipt = _record_push_receipt(
+                project_root, current, settings.push_remote, settings.push_branch,
+                status="remote_check_failed",
+            )
+            raise PublishError(
+                "remote ancestry check failed; remote_check_failed receipt recorded at " + receipt["path"]
+            )
+        try:
             _git(project_root, "push", settings.push_remote, f"HEAD:refs/heads/{settings.push_branch}")
         except subprocess.CalledProcessError as error:
             receipt = _record_push_receipt(
@@ -150,6 +187,16 @@ def _git(project_root: Path, *args: str) -> subprocess.CompletedProcess:
     return subprocess.run(
         ["git", "-C", str(project_root), *args],
         check=True,
+        capture_output=True,
+        text=True,
+    )
+
+
+def _git_result(project_root: Path, *args: str) -> subprocess.CompletedProcess:
+    """Run a Git command whose non-zero status is part of the expected result."""
+    return subprocess.run(
+        ["git", "-C", str(project_root), *args],
+        check=False,
         capture_output=True,
         text=True,
     )
