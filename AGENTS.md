@@ -20,6 +20,8 @@ Inbox 처리와 발행은 이 Router가 직접 수행하지 않으며 설치본�
 | 수집·검토된 운영 Issue 분류와 개선 작업 연결 | `product-agent-rules/system-issue-triage.md` |
 | 검토된 변경을 설치 가능한 release로 준비 | `product-agent-rules/release-preparation.md` |
 | 승인된 release 배포 계획·적용·receipt 기록 | `product-agent-rules/deployment-coordination.md` |
+| 명시된 backup으로 설치본 rollback | `product-agent-rules/deployment-coordination.md` |
+| release checksum·Receipt·source revision 재현성 점검 | `product-agent-rules/release-preparation.md` |
 
 라우팅이 모호하면 변경을 시작하지 않고 목적과 기대 출력을 확인한다. 운영 Issue 기반 제품 변경은
 `operational-issue-intake -> 사용자 검토 -> system-issue-triage -> repository-engineering` 순서를 건너뛰지 않는다.

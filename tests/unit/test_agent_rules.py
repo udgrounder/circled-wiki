@@ -148,3 +148,37 @@ class AgentRuleProfileTests(unittest.TestCase):
         self.assertIn("`record-system-issue`", startup)
         self.assertIn("직접 `find`,\n   `grep`, `rg` 탐색은", bootstrap)
         self.assertIn("`record-system-issue`", bootstrap)
+
+    def test_bundle_identity_contract_is_directly_discoverable_to_runtime_agents(self):
+        router = (ROOT / ".circled-wiki" / "AGENT_ROUTER.md").read_text(
+            encoding="utf-8"
+        )
+        operating = (ROOT / "OPERATING_RULES.md").read_text(encoding="utf-8")
+        curation = (ROOT / "agent-rules" / "knowledge-curation.md").read_text(
+            encoding="utf-8"
+        )
+        publication = (ROOT / "agent-rules" / "publication.md").read_text(
+            encoding="utf-8"
+        )
+
+        for content in (router, curation, publication):
+            self.assertIn("RB-KNW-026", content)
+        self.assertIn("파일명: {slug}.md", router)
+        self.assertIn("bundle/{organization_id}/{slug}--{bundle_uuid}", router)
+        self.assertIn("**RB-KNW-026**", operating)
+
+    def test_runtime_router_redirects_version_deployment_to_product_profiles(self):
+        router = (ROOT / ".circled-wiki" / "AGENT_ROUTER.md").read_text(
+            encoding="utf-8"
+        )
+        bootstrap = (ROOT / ".circled-wiki" / "AGENT_BOOTSTRAP.md").read_text(
+            encoding="utf-8"
+        )
+        product_router = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+
+        self.assertIn("Circled Wiki OS version 준비·배포·rollback", router)
+        self.assertIn("Runtime mutation 금지", router)
+        self.assertIn("release-preparation", router)
+        self.assertIn("deployment-coordination", router)
+        self.assertIn("Runtime Agent 권한이 아니다", bootstrap)
+        self.assertIn("rollback", product_router)

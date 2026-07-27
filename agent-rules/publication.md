@@ -19,11 +19,13 @@
 
 - 품질 경고와 신선도
 - 변경 영향과 롤백 조건
+- Bundle 파일명·Frontmatter ID 변경이면 `OPERATING_RULES.md`의 RB-KNW-026 Bundle Identity Contract, 대상 파일 목록, 참조·링크 영향과 rollback 경로
 
 ## Gates
 
 - OKF·Profile Validator
 - Bundle `evidence` 참조 무결성
+- Bundle 정규화면 파일명 `{slug}.md`, `id` `bundle/{organization_id}/{slug}--{bundle_uuid}`, `bundle_uuid` 불변성과 전체 Validator
 - Publication Security Review
 - 승인 상태와 발행 권한
 - 기존 staged 변경 없음

@@ -59,6 +59,10 @@ proposal 검토·반영 또는 안전한 upgrade가 끝날 때까지 시작하�
 8. 여러 단계 Pipeline은 독립·제한된 하위 작업을 먼저 식별하고, 사용할 수 있는 위임 수단이 있으면 위임을 우선
    검토한다. 위임한 작업도 원래 Profile의 Gate·승인·최종 책임을 유지하며, 안전하게 분리할 수 없거나 위임 수단이
    없으면 직접 수행할 수 있다.
+9. Circled Wiki OS version의 release 준비·배포·rollback 요청은 이 설치본의 Runtime Agent 권한이 아니다. 대상에서
+   Runtime을 직접 바꾸거나 전체 검색으로 배포 절차를 추정하지 않고, 제품 source repository의 `AGENTS.md` Routing
+   Table에서 `release-preparation` 또는 `deployment-coordination` Profile로 전환한다. 대상 Runtime Agent는 배포 후
+   `runtime-upgrade-verification`만 독립적으로 수행한다.
 
 ## Runtime Boundary
 
