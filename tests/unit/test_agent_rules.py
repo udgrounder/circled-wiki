@@ -171,6 +171,24 @@ class AgentRuleProfileTests(unittest.TestCase):
         self.assertIn("사용자와 소통하는 언어", operating)
         self.assertIn("판단할 수 없으면 한국어", operating)
 
+    def test_bundle_identity_router_requires_rule_first_read_only_audit(self):
+        router = (ROOT / ".circled-wiki" / "AGENT_ROUTER.md").read_text(
+            encoding="utf-8"
+        )
+        bootstrap = (ROOT / ".circled-wiki" / "AGENT_BOOTSTRAP.md").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("## Bundle Identity Routing", router)
+        self.assertIn("Fallback 탐색", router)
+        self.assertIn("제한된 `rg` 탐색을 허용", router)
+        self.assertIn("저장소 전체 검색은 이 제한 탐색으로도 해결되지 않을 때만", router)
+        self.assertIn("변경 전에는 `agent-rules/knowledge-curation.md`", router)
+        self.assertIn("승인 전에는 rename·frontmatter 변경을 하지 않는다", router)
+        self.assertIn("Bundle Identity Routing", bootstrap)
+        self.assertIn("shell 검색하지 않는다", bootstrap)
+        self.assertIn("제한 검색으로\n   fallback", bootstrap)
+
     def test_runtime_router_redirects_version_deployment_to_product_profiles(self):
         router = (ROOT / ".circled-wiki" / "AGENT_ROUTER.md").read_text(
             encoding="utf-8"

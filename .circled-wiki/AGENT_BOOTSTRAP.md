@@ -59,7 +59,12 @@ proposal 검토·반영 또는 안전한 upgrade가 끝날 때까지 시작하�
 8. 여러 단계 Pipeline은 독립·제한된 하위 작업을 먼저 식별하고, 사용할 수 있는 위임 수단이 있으면 위임을 우선
    검토한다. 위임한 작업도 원래 Profile의 Gate·승인·최종 책임을 유지하며, 안전하게 분리할 수 없거나 위임 수단이
    없으면 직접 수행할 수 있다.
-9. Circled Wiki OS version의 release 준비·배포·rollback 요청은 이 설치본의 Runtime Agent 권한이 아니다. 대상에서
+9. Bundle 파일명·Frontmatter `id`·`bundle_uuid` 요청은 `.circled-wiki/AGENT_ROUTER.md`의 **Bundle Identity Routing**을
+   먼저 적용한다. 규칙 확인 또는 충돌 점검은 read-only이며, Router와 `OPERATING_RULES.md`의 RB-KNW-026을 읽기 전에
+   Bundle 본문·저장소 전체를 shell 검색하지 않는다. 정본 규칙이 없거나 불충분하면 실패 사유·범위를 밝힌 제한 검색으로
+   fallback하고, 저장소 전체 검색은 그 fallback도 부족할 때만 사용한다. 일괄 정규화는 대상·ID·UUID·참조·rollback 계획과
+   사용자 승인 뒤에만 Publication Profile로 전환한다.
+10. Circled Wiki OS version의 release 준비·배포·rollback 요청은 이 설치본의 Runtime Agent 권한이 아니다. 대상에서
    Runtime을 직접 바꾸거나 전체 검색으로 배포 절차를 추정하지 않고, 제품 source repository의 `AGENTS.md` Routing
    Table에서 `release-preparation` 또는 `deployment-coordination` Profile로 전환한다. 대상 Runtime Agent는 배포 후
    `runtime-upgrade-verification`만 독립적으로 수행한다.
