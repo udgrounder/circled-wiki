@@ -714,6 +714,29 @@ class BootstrapKnowledgeRootTests(unittest.TestCase):
             self.assertNotIn(".circled-wiki/bin/knowledge-os.py", updated["assets"])
             self.assertEqual(report["legacy_asset_warnings"], [])
 
+    def test_upgrade_retires_unmodified_legacy_operational_issue_readme(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "team-project"
+            bootstrap_circled_wiki(target, ROOT, apply=True)
+            legacy = target / ".circled-wiki/issues/README.md"
+            legacy.parent.mkdir(parents=True, exist_ok=True)
+            legacy.write_text("# Legacy issues\n", encoding="utf-8")
+            manifest_path = target / MANIFEST_PATH
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            relative = legacy.relative_to(target).as_posix()
+            manifest["assets"][relative] = _checksum(legacy.read_bytes())
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+            report = bootstrap_circled_wiki(target, ROOT, apply=True)
+
+            self.assertFalse(legacy.exists())
+            self.assertEqual(
+                next(item["action"] for item in report["actions"] if item["path"] == relative),
+                "retire_legacy_asset",
+            )
+            updated = json.loads(manifest_path.read_text(encoding="utf-8"))
+            self.assertNotIn(relative, updated["assets"])
+
     def test_upgrade_preserves_and_warns_about_modified_legacy_product_profile(self):
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory) / "team-project"

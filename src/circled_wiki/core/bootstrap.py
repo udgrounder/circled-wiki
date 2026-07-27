@@ -47,6 +47,7 @@ LEGACY_PRODUCT_PROFILE_NAMES = (
 LEGACY_ASSET_PREFIXES = (f"{CONTROL_PLANE}/runtime/knowledge_os/",)
 LEGACY_ASSET_PATHS = (
     f"{CONTROL_PLANE}/bin/knowledge-os.py",
+    f"{CONTROL_PLANE}/issues/README.md",
     *(f"{CONTROL_PLANE}/agent-rules/{name}" for name in LEGACY_PRODUCT_PROFILE_NAMES),
 )
 MANAGED_DIRECTORIES = (
