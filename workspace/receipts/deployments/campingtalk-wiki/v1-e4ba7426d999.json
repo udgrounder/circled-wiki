@@ -1,0 +1,29 @@
+{
+  "receipt_type": "deployment",
+  "release_id": "v1-e4ba7426d999",
+  "previous_release": "v1-6ca03e60176f",
+  "target_ref": "campingtalk-wiki",
+  "planned_at": "2026-07-27T07:43:36.847602+00:00",
+  "applied_at": "2026-07-27T07:43:36.847714+00:00",
+  "backup_ref": ".circled-wiki-backups/v1-6ca03e60176f-20260727T074309Z",
+  "actions": {
+    "applied": [
+      ".circled-wiki/templates/bundle.md",
+      ".circled-wiki/templates/decision.md",
+      ".circled-wiki/templates/inquiry.md",
+      ".circled-wiki/templates/organization-context.md",
+      ".circled-wiki/templates/rulebook.md",
+      ".circled-wiki/templates/runbook.md",
+      ".circled-wiki/schemas/bundle.schema.json",
+      ".circled-wiki/runtime/circled_wiki/core/publisher.py",
+      ".circled-wiki/runtime/circled_wiki/core/repository.py",
+      ".circled-wiki/runtime/circled_wiki/core/validator.py"
+    ],
+    "preserved": [
+      ".circled-wiki/config.yaml"
+    ],
+    "proposed": []
+  },
+  "status": "verification_pending",
+  "release_receipt": "/Users/kjkim/Study/circled-wiki/workspace/receipts/releases/v1-e4ba7426d999.json"
+}
