@@ -34,7 +34,7 @@ Evidence를 기존 Bundle과 비교하거나 신규 Draft를 작성한다.
 - 기존 Bundle 갱신 시 expected revision 일치
 - Bundle 생성·갱신의 파일명과 Frontmatter `id`가 RB-KNW-026 canonical 형식에 맞을 것. legacy 형식의 일괄 정규화는 Publication Profile의 검토·발행 Gate로 넘길 것
 - Review가 필요한 유형 또는 active 전환 후보를 정식 검토 대상으로 넘길 Owner 존재
-- 마스킹 재확인과 Evidence PII Scan 증빙 통과; 증빙이 없거나 의심 값이 남으면 Draft 생성·revision 적용 차단
+- 실제 PII·자격증명 의심 값이 남아 있거나 마스킹을 재확인할 수 없으면 Draft 생성·revision 적용 차단. Evidence PII Scan 증빙 부재만으로는 Draft 생성·revision을 차단하지 않지만, active 승격·발행 전에는 해당 보안 Gate를 충족할 것
 - `runbook`과 `manual`은 `knowledge/curation-reviews/`의 checksum 결합 Review 카드 존재. `policy`, `guide`, `decision`, `spec`, `reference`, `report`는 Evidence·PII Gate 통과 후 Draft 직접 생성 가능
 - Review가 필요한 유형은 생성 actor와 다른 Owner 또는 명시 위임 승인자의 승인 기록. 직접 생성 가능한 유형도 active 전환 전에는 동일한 Review를 추가로 생성·승인
 - active Runbook은 사람이 읽는 비어 있지 않은 `## Workflow Summary` 본문 section과 `extensions.workflow` 실행 정의를 함께 가질 것

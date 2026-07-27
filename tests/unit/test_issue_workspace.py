@@ -156,7 +156,7 @@ class IssueWorkspaceTests(unittest.TestCase):
             )
             triage_workspace_issue(item, classification="product_defect")
             link_workspace_issue_resolution(item, disposition="resolved", release="v2")
-            with self.assertRaisesRegex(ValueError, "deployment, and verification"):
+            with self.assertRaisesRegex(ValueError, "release/deployment/verification"):
                 archive_workspace_issue(
                     product_workspace,
                     item,

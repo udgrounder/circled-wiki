@@ -84,6 +84,7 @@ def intake_operational_issue(
             "linked_release": None,
             "linked_deployment_receipt": None,
             "linked_verification_receipt": None,
+            "current_release_verification": None,
         },
         "archive": {
             "archived_at": None,
@@ -208,6 +209,9 @@ def link_workspace_issue_resolution(
     release: Optional[str] = None,
     deployment_receipt: Optional[str] = None,
     verification_receipt: Optional[str] = None,
+    current_release: Optional[str] = None,
+    current_verified_by: Optional[str] = None,
+    current_verification: Optional[str] = None,
 ) -> Dict[str, object]:
     """Attach processing results which the archive gate can verify."""
     if disposition not in ARCHIVE_DISPOSITIONS:
@@ -221,6 +225,18 @@ def link_workspace_issue_resolution(
     processing["linked_release"] = release
     processing["linked_deployment_receipt"] = deployment_receipt
     processing["linked_verification_receipt"] = verification_receipt
+    current_values = (current_release, current_verified_by, current_verification)
+    if any(current_values) and not all(
+        isinstance(value, str) and value.strip() for value in current_values
+    ):
+        raise ValueError("current release verification requires release, verifier, and evidence")
+    if all(current_values):
+        processing["current_release_verification"] = {
+            "release": current_release.strip(),
+            "verified_by": current_verified_by.strip(),
+            "evidence": current_verification.strip(),
+            "verified_at": datetime.now(timezone.utc).isoformat(),
+        }
     item_path.write_text(render_markdown(metadata, document.body), encoding="utf-8")
     return {"path": item_path.as_posix(), "disposition": disposition}
 
@@ -254,16 +270,22 @@ def archive_workspace_issue(
     if not canonical_key:
         canonical_key = _default_canonical_key(metadata.get("source_issue_id", "issue"))
         metadata["canonical_issue_key"] = canonical_key
-    if disposition == "resolved" and not all(
+    receipt_resolution = all(
         processing.get(field)
         for field in (
             "linked_release",
             "linked_deployment_receipt",
             "linked_verification_receipt",
         )
-    ):
+    )
+    current_resolution = processing.get("current_release_verification") or {}
+    current_resolution_valid = all(
+        isinstance(current_resolution.get(field), str) and current_resolution[field].strip()
+        for field in ("release", "verified_by", "evidence", "verified_at")
+    )
+    if disposition == "resolved" and not (receipt_resolution or current_resolution_valid):
         raise ValueError(
-            "resolved archive requires release, deployment, and verification receipts"
+            "resolved archive requires release/deployment/verification receipts or current release verification evidence"
         )
     archived_at = datetime.now(timezone.utc)
     archive_root = workspace_root / "issues" / "archived"

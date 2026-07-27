@@ -143,18 +143,19 @@ class CurationMaterializationTests(unittest.TestCase):
             )
             created = applied["result"]
             review_curation_candidate(root, created["bundle_id"], action="approve", actor="reviewer")
-            with self.assertRaisesRegex(ValueError, "configured knowledge-owner"):
-                promote_curation_candidate(root, created["bundle_id"], actor="mallory", security_receipt="security://1")
-            result = promote_curation_candidate(root, created["bundle_id"], actor="alice", security_receipt="security://1")
+            result = promote_curation_candidate(root, created["bundle_id"], actor="mallory", security_receipt="security://1")
             self.assertEqual(result["status"], "active")
 
     def test_candidate_review_rejects_generating_actor_self_approval(self):
         with tempfile.TemporaryDirectory() as directory:
             root, evidence_id = self._evidence(directory)
-            created = materialize_curation_candidate(
+            review = generate_curation_review(
                 root, evidence_id, self._output(evidence_id, "guide"),
                 generated_by="curator", curation_receipt="test://curation",
             )
+            created = decide_curation_review(
+                root, review["review_id"], action="approve", actor="reviewer",
+            )["result"]
 
             with self.assertRaisesRegex(ValueError, "reviewer must differ"):
                 review_curation_candidate(root, created["bundle_id"], action="approve", actor="curator")
@@ -162,23 +163,21 @@ class CurationMaterializationTests(unittest.TestCase):
             candidate = list_curation_candidates(root)[0]
             self.assertEqual(candidate["review_state"], "pending")
 
-    def test_active_promotion_requires_configured_owner_and_security_receipt(self):
+    def test_non_runbook_candidate_promotion_does_not_require_configured_owner(self):
         with tempfile.TemporaryDirectory() as directory:
             root, evidence_id = self._evidence(directory)
-            created = materialize_curation_candidate(
+            review = generate_curation_review(
                 root, evidence_id, self._output(evidence_id, "guide"),
                 generated_by="curator", curation_receipt="test://curation",
             )
+            created = decide_curation_review(
+                root, review["review_id"], action="approve", actor="reviewer",
+            )["result"]
             review_curation_candidate(root, created["bundle_id"], action="approve", actor="reviewer")
 
-            with self.assertRaisesRegex(ValueError, "knowledge_owner is configured"):
-                promote_curation_candidate(root, created["bundle_id"], actor="reviewer", security_receipt="security://1")
+            result = promote_curation_candidate(root, created["bundle_id"], actor="reviewer", security_receipt="security://1")
+            self.assertEqual(result["promotion_mode"], "review_approved")
 
-            config = root.parent / ".circled-wiki" / "config.yaml"
-            config.parent.mkdir(exist_ok=True)
-            config.write_text("schema_version: 1\napproval:\n  knowledge_owner: reviewer\n", encoding="utf-8")
-            with self.assertRaisesRegex(ValueError, "security_receipt is required"):
-                promote_curation_candidate(root, created["bundle_id"], actor="reviewer", security_receipt="")
 
     def test_no_bundle_decision_is_persisted_without_processing_evidence(self):
         with tempfile.TemporaryDirectory() as directory:

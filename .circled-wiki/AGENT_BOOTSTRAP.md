@@ -56,9 +56,9 @@ proposal 검토·반영 또는 안전한 upgrade가 끝날 때까지 시작하�
 7. `capture-conversation`이 exit code 3과 `idempotency_checksum_conflict`를 반환하면 이는 원문 변경 보호다.
    응답의 `existing_intake_id`를 `inspect-inbox`로 확인한다. 기존 항목을 덮어쓰지 않으며, 변경된 원문이 의도된
    새 revision이라는 근거가 있을 때만 새 idempotency key로 다시 수집한다.
-8. 여러 단계 Pipeline은 독립·제한된 하위 작업을 먼저 식별하고, 사용할 수 있는 위임 수단이 있으면 위임을 우선
-   검토한다. 위임한 작업도 원래 Profile의 Gate·승인·최종 책임을 유지하며, 안전하게 분리할 수 없거나 위임 수단이
-   없으면 직접 수행할 수 있다.
+8. 여러 단계 Pipeline은 독립·제한된 하위 작업을 먼저 식별하고, 사용할 수 있는 위임 수단이 있으면 위임을 권장한다.
+   위임한 작업도 원래 Profile의 Gate·승인·최종 책임을 유지하며, 안전하게 분리할 수 없거나 위임 수단이 없으면 직접
+   수행할 수 있다. 위임 여부만으로 작업을 차단하지 않는다.
 9. Bundle 파일명·Frontmatter `id`·`bundle_uuid` 요청은 `.circled-wiki/AGENT_ROUTER.md`의 **Bundle Identity Routing**을
    먼저 적용한다. 규칙 확인 또는 충돌 점검은 read-only이며, Router와 `OPERATING_RULES.md`의 RB-KNW-026을 읽기 전에
    Bundle 본문·저장소 전체를 shell 검색하지 않는다. 정본 규칙이 없거나 불충분하면 실패 사유·범위를 밝힌 제한 검색으로

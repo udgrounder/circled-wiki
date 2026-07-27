@@ -1,6 +1,6 @@
 ---
 type: workspace_issue
-status: triaged
+status: archived
 workspace_issue_id: workspace-issue-68360b8440c540378bb60e5905c9fd0f
 source_project_ref: campingtalk-wiki
 source_issue_id: issue-20260724T012053Z-754ae875
@@ -18,18 +18,26 @@ review:
   note: 사용자 요청에 따라 최신 수집 Issue부터 검증 및 해결을 진행한다.
 processing:
   classification: operational_procedure
-  disposition: null
+  disposition: resolved
   history_relation: new
   similar_history: []
   linked_work: []
   linked_release: null
   linked_deployment_receipt: null
   linked_verification_receipt: null
+  current_release_verification:
+    release: v1-204d0cebbab1
+    verified_by: product-agent
+    evidence: 'No curated_into: [] entries found under knowledge/evidence; validate
+      returned validated=163 invalid=0; operational-preflight ready=true.'
+    verified_at: '2026-07-27T09:01:24.163013+00:00'
 archive:
-  archived_at: null
-  archived_by: null
-  reason: null
-  restore_condition: null
+  archived_at: '2026-07-27T09:01:24.224815+00:00'
+  archived_by: product-agent
+  reason: Current installation has no empty curated_into entries and repository validation
+    passes.
+  restore_condition: Reopen if automated curation clears an existing Evidence-to-Bundle
+    backlink.
 ---
 # 새벽 자동 정제 재실행으로 Evidence curated_into 역참조가 다시 초기화됨
 

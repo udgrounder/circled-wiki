@@ -615,6 +615,10 @@ python3 .circled-wiki/bin/circled-wiki.py migrate-legacy-system-issues \
 `workspace/issues/inbox/`로 이동한다. 사용자 검토와 Archive 유사 이력 확인 후 처리하고, 완료 항목은
 `workspace/issues/archived/YYYY/MM/YYYYMMDDTHHMMSSZ-<canonical-key>-vNNNN.md`로 이동한다.
 
+과거 운영 Issue에 당시 release·Deployment·Verification Receipt가 없으면, 사용자 검토 후 현재 설치본에서 증상이
+재현되지 않는지 확인해 종료할 수 있다. 이 경로는 현재 release ID, 검증자, 실행 명령과 결과를 Issue의
+`processing.current_release_verification`에 기록한 경우에만 사용한다.
+
 Product Workspace의 수집·검토·Triage·Archive와 Receipt 기록은 source repository에서만 다음 CLI로 수행한다.
 설치본 `.circled-wiki/bin/circled-wiki.py`에는 이 Product Agent 명령을 배포하지 않는다.
 

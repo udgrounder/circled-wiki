@@ -101,6 +101,9 @@ def main() -> int:
     resolution.add_argument("--release")
     resolution.add_argument("--deployment-receipt")
     resolution.add_argument("--verification-receipt")
+    resolution.add_argument("--current-release")
+    resolution.add_argument("--current-verified-by")
+    resolution.add_argument("--current-verification")
 
     archive = commands.add_parser("archive-workspace-issue")
     archive.add_argument("--item", required=True)
@@ -171,6 +174,9 @@ def main() -> int:
             release=args.release,
             deployment_receipt=args.deployment_receipt,
             verification_receipt=args.verification_receipt,
+            current_release=args.current_release,
+            current_verified_by=args.current_verified_by,
+            current_verification=args.current_verification,
         )
     elif args.command == "archive-workspace-issue":
         result = archive_workspace_issue(

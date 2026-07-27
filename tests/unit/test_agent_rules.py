@@ -82,9 +82,11 @@ class AgentRuleProfileTests(unittest.TestCase):
             encoding="utf-8"
         )
 
-        self.assertIn("위임을 우선 검토", profiles)
+        self.assertIn("위임을 권장", profiles)
+        self.assertIn("위임 여부만으로 작업을 차단하지 않는다", profiles)
         self.assertIn("Gate·승인·최종 책임을 이전하지 않으며", profiles)
-        self.assertIn("위임을 우선\n   검토", bootstrap)
+        self.assertIn("위임을 권장", bootstrap)
+        self.assertIn("위임 여부만으로 작업을 차단하지 않는다", bootstrap)
         self.assertIn("Gate·승인·최종 책임을 유지", bootstrap)
 
     def test_legacy_issue_is_runtime_read_only_but_product_intake_can_move_it(self):
@@ -129,6 +131,15 @@ class AgentRuleProfileTests(unittest.TestCase):
         self.assertIn("응답 전 최종 마스킹 확인", profiles["knowledge-query.md"])
         for name, content in profiles.items():
             self.assertIn("PII", content, name)
+
+    def test_curation_allows_draft_without_pii_receipt_but_preserves_sensitive_data_gate(self):
+        curation = (ROOT / "agent-rules" / "knowledge-curation.md").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("증빙 부재만으로는 Draft 생성·revision을 차단하지 않지만", curation)
+        self.assertIn("실제 PII·자격증명 의심 값", curation)
+        self.assertIn("active 승격·발행 전", curation)
 
     def test_runtime_discovery_uses_official_tools_before_raw_filesystem_search(self):
         query = (ROOT / "agent-rules" / "knowledge-query.md").read_text(encoding="utf-8")

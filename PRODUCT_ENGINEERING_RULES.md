@@ -34,6 +34,11 @@ operational issue
   -> workspace/issues/archived/YYYY/MM/YYYYMMDDTHHMMSSZ-<canonical-key>-vNNNN.md
 ```
 
+과거 Intake에 당시 release·Deployment·독립 Verification Receipt가 없더라도, 사용자가 검토한 뒤 현재 설치본에서
+증상이 재현되지 않음을 확인하면 `resolved` archive를 허용한다. 이 경우 archive 전 Issue `processing`에는 현재
+release ID, 식별된 검증자, 실행한 검증 명령과 결과를 `current_release_verification`으로 남겨야 한다. 이는 과거
+배포 Receipt를 대체하는 종료 근거일 뿐, 새 제품 변경의 독립 검증 Gate를 완화하지 않는다.
+
 - 이동 대상 운영 Issue는 Git에 추적·커밋되어 있고 미커밋 변경이 없어야 한다.
 - 이동 실패 시 원본이 남아 있는지 확인하고 성공을 주장하지 않는다.
 - 재발·회귀는 날짜별 Archive 파일의 동일 canonical key·occurrence와 해결책·회귀 테스트·검증 결과를 검토한다.

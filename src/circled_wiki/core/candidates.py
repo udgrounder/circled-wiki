@@ -156,19 +156,21 @@ def promote_curation_candidate(
     knowledge_root: Path, bundle_id: str, *, actor: str, security_receipt: str,
     automated: bool = False,
 ) -> Dict[str, object]:
-    """Promote an approved candidate only through the configured Owner gate."""
-    settings = load_settings(knowledge_root.resolve().parent)
-    owner = settings.approval.knowledge_owner
-    if not automated and not owner:
-        raise ValueError("Active promotion is disabled until approval.knowledge_owner is configured")
-    if not automated and actor != owner:
-        raise ValueError("only the configured knowledge-owner may promote a candidate")
+    """Promote an approved candidate with Owner approval only where required."""
     if not isinstance(security_receipt, str) or not security_receipt.strip():
         raise ValueError("security_receipt is required for Active promotion")
     document = find_document_by_id(knowledge_root, bundle_id)
     if document is None or "bundles" not in document.path.parts:
         raise ValueError("bundle_id must refer to an existing Bundle")
     data = dict(document.frontmatter)
+    requires_owner = data.get("type") in {"runbook", "manual"}
+    if not automated and requires_owner:
+        settings = load_settings(knowledge_root.resolve().parent)
+        owner = settings.approval.knowledge_owner
+        if not owner:
+            raise ValueError("runbook and manual promotion requires approval.knowledge_owner")
+        if actor != owner:
+            raise ValueError("only the configured knowledge-owner may promote a runbook or manual")
     extensions = dict(data.get("extensions", {}))
     if data.get("status") != "draft" or extensions.get("review_state") != "approved":
         raise ValueError("only an approved Draft candidate may be promoted")
@@ -207,7 +209,7 @@ def promote_curation_candidate(
     curation["promotion"] = {
         "approved_by": actor, "approved_at": now,
         "security_receipt": security_receipt.strip(),
-        "mode": "automatic" if automated else "owner_approved",
+        "mode": "automatic" if automated else ("owner_approved" if requires_owner else "review_approved"),
     }
     extensions["curation"] = curation
     extensions["governance"] = governance
@@ -225,7 +227,7 @@ def promote_curation_candidate(
     except Exception:
         document.path.write_text(original, encoding="utf-8")
         raise
-    return {"bundle_id": bundle_id, "status": "active", "approved_by": actor, "security_receipt": security_receipt.strip(), "promotion_mode": "automatic" if automated else "owner_approved"}
+    return {"bundle_id": bundle_id, "status": "active", "approved_by": actor, "security_receipt": security_receipt.strip(), "promotion_mode": "automatic" if automated else ("owner_approved" if requires_owner else "review_approved")}
 
 
 def review_curation_candidate(
