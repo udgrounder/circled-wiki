@@ -183,9 +183,10 @@ class IssueWorkspaceTests(unittest.TestCase):
             self.assertFalse(item.exists())
             self.assertTrue(Path(archived["path"]).is_file())
             path = Path(archived["path"])
-            self.assertEqual(path.parent.parent.name, str(datetime.now(timezone.utc).year))
-            self.assertEqual(path.parent.name, f"{datetime.now(timezone.utc).month:02d}")
-            self.assertRegex(path.name, r"^\d{8}T\d{6}Z-runtime-failure-v0001\.md$")
+            self.assertEqual(path.parent.parent.parent.name, str(datetime.now(timezone.utc).year))
+            self.assertEqual(path.parent.parent.name, f"{datetime.now(timezone.utc).month:02d}")
+            self.assertEqual(path.parent.name, "team-wiki")
+            self.assertEqual(path.name, "issue-runtime-1.md")
 
     def test_resolved_issue_can_archive_with_verified_source_commit_before_deployment(self):
         with tempfile.TemporaryDirectory() as directory:

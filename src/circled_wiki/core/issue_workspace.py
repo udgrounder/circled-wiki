@@ -313,11 +313,15 @@ def archive_workspace_issue(
     archived_at = datetime.now(timezone.utc)
     archive_root = workspace_root / "issues" / "archived"
     occurrence = _next_occurrence(workspace_root, str(canonical_key))
+    source_project_ref = str(metadata.get("source_project_ref") or "").strip()
+    if not _SAFE_REF.fullmatch(source_project_ref):
+        raise ValueError("archive requires a safe source_project_ref")
     destination = (
         archive_root
         / archived_at.strftime("%Y")
         / archived_at.strftime("%m")
-        / f"{archived_at.strftime('%Y%m%dT%H%M%SZ')}-{canonical_key}-v{occurrence:04d}.md"
+        / source_project_ref
+        / item_path.name
     )
     if destination.exists():
         raise ValueError("Archive occurrence already exists")

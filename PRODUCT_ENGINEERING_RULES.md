@@ -31,7 +31,7 @@ operational issue
   -> release
   -> deployment
   -> independent runtime verification
-  -> workspace/issues/archived/YYYY/MM/YYYYMMDDTHHMMSSZ-<canonical-key>-vNNNN.md
+  -> workspace/issues/archived/YYYY/MM/<source-project-ref>/<original-issue-filename>.md
 ```
 
 제품 Issue는 수정 범위의 회귀 테스트·Validator가 통과하고 해당 source revision이 커밋되었으면, 배포 전에도
@@ -47,7 +47,8 @@ release ID, 식별된 검증자, 실행한 검증 명령과 결과를 `current_r
 - 이동 대상 운영 Issue는 Git에 추적·커밋되어 있고 미커밋 변경이 없어야 한다.
 - 이동 실패 시 원본이 남아 있는지 확인하고 성공을 주장하지 않는다.
 - 재발·회귀는 날짜별 Archive 파일의 동일 canonical key·occurrence와 해결책·회귀 테스트·검증 결과를 검토한다.
-- Workspace Issue Archive는 `YYYY/MM` 날짜 폴더에 파일 하나씩 보관하며, 파일명과 Frontmatter에 occurrence를 보존한다.
+- Workspace Issue Archive는 `YYYY/MM/<source-project-ref>/` 날짜·원본 프로젝트 폴더에 원본 파일명을 보존해 보관하며,
+  occurrence는 Frontmatter에만 기록한다.
   Archive는 삭제 대체물이 아니라 처리 완료 이력이며 Git이 이동 전 원본의 복구 수단이다.
 
 ## Verification and Publication

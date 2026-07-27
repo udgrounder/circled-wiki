@@ -613,7 +613,8 @@ python3 .circled-wiki/bin/circled-wiki.py migrate-legacy-system-issues \
 이슈 기록은 후속 시스템 개선 검토의 입력이며 자동 수정·정책 변경·발행을 수행하지 않는다. 사용자가 특정
 운영 프로젝트와 Issue를 명시해 수집을 요청하면 Git 추적·커밋·미변경 Gate를 확인한 뒤 source repository의
 `workspace/issues/inbox/`로 이동한다. 사용자 검토와 Archive 유사 이력 확인 후 처리하고, 완료 항목은
-`workspace/issues/archived/YYYY/MM/YYYYMMDDTHHMMSSZ-<canonical-key>-vNNNN.md`로 이동한다.
+`workspace/issues/archived/YYYY/MM/<source-project-ref>/<original-issue-filename>.md`로 이동한다. 원본 파일명은
+그대로 유지하고, 재발 횟수는 Frontmatter의 `occurrence`로 기록한다.
 
 제품 Issue는 관련 테스트·Validator를 통과한 변경이 커밋되면 배포 전에도 종료할 수 있다. 이 경우 커밋 revision,
 검증자, 실행 명령과 결과를 `processing.source_commit_verification`에 기록한다. 설치본 배포와 독립 Runtime 검증은
