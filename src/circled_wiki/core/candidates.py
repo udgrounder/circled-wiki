@@ -180,10 +180,10 @@ def promote_curation_candidate(
     if not curation:
         raise ValueError("only a Curation candidate may be promoted")
     review_decision = curation.get("review_decision")
-    if (not automated and (
-        not isinstance(review_decision, dict)
-        or not str(review_decision.get("review_id", "")).strip()
-    )):
+    has_review_decision = isinstance(review_decision, dict) and bool(
+        str(review_decision.get("review_id", "")).strip()
+    )
+    if not automated and not (has_review_decision or _has_current_review_history_approval(curation)):
         raise ValueError("candidate promotion requires an approved curation review record")
     evidence_ids = data.get("evidence")
     if not isinstance(evidence_ids, list) or not evidence_ids:
@@ -228,6 +228,21 @@ def promote_curation_candidate(
         document.path.write_text(original, encoding="utf-8")
         raise
     return {"bundle_id": bundle_id, "status": "active", "approved_by": actor, "security_receipt": security_receipt.strip(), "promotion_mode": "automatic" if automated else ("owner_approved" if requires_owner else "review_approved")}
+
+
+def _has_current_review_history_approval(curation: Dict[str, object]) -> bool:
+    """Accept the latest valid candidate-review approval as a promotion receipt."""
+    history = curation.get("review_history")
+    if not isinstance(history, list):
+        return False
+    for entry in reversed(history):
+        if not isinstance(entry, dict):
+            continue
+        action = entry.get("action")
+        if action not in REVIEW_ACTIONS:
+            continue
+        return action == "approve" and bool(str(entry.get("actor", "")).strip())
+    return False
 
 
 def review_curation_candidate(

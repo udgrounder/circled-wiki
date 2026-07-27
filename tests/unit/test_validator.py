@@ -105,6 +105,34 @@ class ValidatorTests(unittest.TestCase):
             result.profile_errors,
         )
 
+    def test_canonical_bundle_slug_must_be_lowercase_ascii(self):
+        bundle_uuid = str(uuid.uuid4())
+        evidence_uuid = str(uuid.uuid4())
+        path = self.root / "bundles" / "cs" / "환불.md"
+        path.write_text(
+            render_markdown(
+                {
+                    "type": "policy",
+                    "id": f"bundle/example-org/환불--{bundle_uuid}",
+                    "bundle_uuid": bundle_uuid,
+                    "title": "환불",
+                    "status": "draft",
+                    "summary": "환불 정책",
+                    "updated_at": "2026-07-10T10:00:00+09:00",
+                    "evidence": [f"evidence/example-org/refund-source_{evidence_uuid}.md"],
+                    "extensions": {"knowledge_revision": 1},
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        result = validate_document(path, self.root)
+
+        self.assertIn(
+            "canonical Bundle id slug and filename must use a lowercase ASCII slug",
+            result.profile_errors,
+        )
+
     def test_repository_validation_reports_malformed_bundle_evidence_without_crashing(self):
         bundle_uuid = str(uuid.uuid4())
         path = self.root / "bundles" / "cs" / f"broken-evidence_{bundle_uuid}.md"

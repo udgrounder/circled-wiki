@@ -146,10 +146,12 @@ def backfill_evidence_links(knowledge_root: Path, *, apply: bool = False) -> Dic
 
 
 def migrate_document_ids(knowledge_root: Path, *, apply: bool = False) -> Dict[str, object]:
-    """Migrate legacy URI IDs to stable organization-scoped document IDs.
+    """Migrate legacy IDs and Bundle filenames to the canonical identity contract.
 
-    The operation is deliberately explicit because it changes reference values;
-    both Frontmatter references and literal body references are updated together.
+    The operation is deliberately explicit because it changes reference values and
+    Bundle paths.  It updates Frontmatter references, literal body references, and
+    knowledge-root-relative Bundle paths together.  Unsafe or ambiguous filename
+    conversions are reported and prevent an apply, rather than guessed.
     """
     settings = load_settings(knowledge_root.resolve().parent)
     documents = [
@@ -157,6 +159,9 @@ def migrate_document_ids(knowledge_root: Path, *, apply: bool = False) -> Dict[s
         if path.name not in {"index.md", "log.md"}
     ]
     id_map: Dict[str, str] = {}
+    path_map: Dict[str, str] = {}
+    renames: list[Dict[str, str]] = []
+    blocked: list[Dict[str, str]] = []
     for document in documents:
         document_id = document.frontmatter.get("id")
         if not isinstance(document_id, str):
@@ -167,34 +172,105 @@ def migrate_document_ids(knowledge_root: Path, *, apply: bool = False) -> Dict[s
         elif "bundles" in document.path.parts:
             bundle_uuid = document.frontmatter.get("bundle_uuid")
             if not isinstance(bundle_uuid, str) or not bundle_uuid.strip():
+                blocked.append({
+                    "path": document.path.relative_to(knowledge_root).as_posix(),
+                    "reason": "Bundle has no bundle_uuid; canonical filename cannot be derived",
+                })
                 continue
-            new_id = f"bundle/{settings.organization_id}/{document.path.stem}--{bundle_uuid}"
+            slug = _canonical_bundle_slug(document.path.stem, bundle_uuid)
+            if slug is None:
+                blocked.append({
+                    "path": document.path.relative_to(knowledge_root).as_posix(),
+                    "reason": "Bundle filename cannot be converted to a lowercase ASCII slug",
+                })
+                continue
+            destination = document.path.with_name(f"{slug}.md")
+            if destination != document.path:
+                old_path = document.path.relative_to(knowledge_root).as_posix()
+                new_path = destination.relative_to(knowledge_root).as_posix()
+                path_map[old_path] = new_path
+                renames.append({"from": old_path, "to": new_path})
+            new_id = f"bundle/{settings.organization_id}/{slug}--{bundle_uuid}"
         else:
             continue
         if document_id != new_id:
             id_map[document_id] = new_id
+    blocked.extend(_migration_collision_errors(knowledge_root, documents, id_map, renames))
     report: Dict[str, object] = {
         "mode": "apply" if apply else "dry_run", "change_count": len(id_map),
-        "id_map": id_map,
+        "id_map": id_map, "rename_count": len(renames), "renames": renames,
+        "blocked_count": len(blocked), "blocked": blocked,
     }
-    if not apply or not id_map:
+    if not apply or blocked or (not id_map and not renames):
         return report
     backups = {document.path: document.path.read_text(encoding="utf-8") for document in documents}
     try:
         for document in documents:
             data = _replace_identifier_references(deepcopy(document.frontmatter), id_map)
-            body = _replace_identifier_text(document.body, id_map)
+            data = _replace_identifier_references(data, path_map)
+            body = _replace_identifier_text(document.body, {**id_map, **path_map})
             document.path.write_text(render_markdown(data, body), encoding="utf-8")
+        for rename in renames:
+            (knowledge_root / rename["from"]).rename(knowledge_root / rename["to"])
         invalid = [item for item in validate_repository(knowledge_root) if not item.is_valid]
         if invalid:
             messages = [error for item in invalid for error in item.profile_errors]
             raise ValueError("ID migration validation failed: " + "; ".join(messages))
     except Exception:
+        for rename in reversed(renames):
+            source = knowledge_root / rename["from"]
+            destination = knowledge_root / rename["to"]
+            if destination.exists() and not source.exists():
+                destination.rename(source)
         for path, content in backups.items():
             path.write_text(content, encoding="utf-8")
         raise
     report["applied_count"] = len(id_map)
     return report
+
+
+def _canonical_bundle_slug(stem: str, bundle_uuid: str) -> Optional[str]:
+    """Derive the canonical slug from a legacy ``{slug}_{uuid}`` filename."""
+    legacy_suffix = f"_{bundle_uuid}"
+    slug = stem[:-len(legacy_suffix)] if stem.endswith(legacy_suffix) else stem
+    return slug if SAFE_PATH_SEGMENT.fullmatch(slug) else None
+
+
+def _migration_collision_errors(
+    knowledge_root: Path,
+    documents: list[MarkdownDocument],
+    id_map: Dict[str, str],
+    renames: list[Dict[str, str]],
+) -> list[Dict[str, str]]:
+    """Return blockers for ID or filename collisions before any migration write."""
+    blocked: list[Dict[str, str]] = []
+    new_ids: Dict[str, str] = {}
+    for document in documents:
+        document_id = document.frontmatter.get("id")
+        if not isinstance(document_id, str):
+            continue
+        final_id = id_map.get(document_id, document_id)
+        previous = new_ids.setdefault(final_id, document.path.relative_to(knowledge_root).as_posix())
+        if previous != document.path.relative_to(knowledge_root).as_posix():
+            blocked.append({
+                "path": document.path.relative_to(knowledge_root).as_posix(),
+                "reason": f"canonical ID collides with {previous}",
+            })
+    destinations: Dict[Path, str] = {}
+    for rename in renames:
+        source = Path(rename["from"])
+        destination = Path(rename["to"])
+        previous = destinations.setdefault(destination, rename["from"])
+        if previous != rename["from"]:
+            blocked.append({"path": rename["from"], "reason": f"canonical filename collides with {previous}"})
+    for rename in renames:
+        destination = Path(rename["to"])
+        if (knowledge_root / destination).exists():
+            blocked.append({
+                "path": rename["from"],
+                "reason": f"canonical filename already exists: {rename['to']}",
+            })
+    return blocked
 
 
 def _replace_identifier_references(value: Any, id_map: Dict[str, str]) -> Any:

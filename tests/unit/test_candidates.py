@@ -3,7 +3,7 @@ import unittest
 from datetime import datetime, timezone
 from pathlib import Path
 
-from circled_wiki.core.candidates import curation_backlog_metrics, curation_candidate_digest, curation_daily_transitions, list_curation_candidates, review_curation_candidate
+from circled_wiki.core.candidates import curation_backlog_metrics, curation_candidate_digest, curation_daily_transitions, list_curation_candidates, promote_curation_candidate, review_curation_candidate
 from circled_wiki.core.frontmatter import parse_markdown, render_markdown
 from circled_wiki.core.ingest import ingest_evidence
 from circled_wiki.core.repository import create_bundle, find_document_by_id
@@ -49,6 +49,37 @@ class CurationCandidateTests(unittest.TestCase):
 
             self.assertEqual(result["status"], "draft")
             self.assertEqual(result["review_state"], "approved")
+            self.assertTrue(all(item.is_valid for item in validate_repository(knowledge_root)))
+
+    def test_review_history_approval_allows_candidate_promotion(self):
+        with tempfile.TemporaryDirectory() as directory:
+            knowledge_root, bundle = self._candidate(directory)
+            document = parse_markdown(bundle.path)
+            data = dict(document.frontmatter)
+            extensions = dict(data["extensions"])
+            evidence = find_document_by_id(knowledge_root, data["evidence"][0])
+            curation = {
+                "generated_by": "test-curator",
+                "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                "generation_reason": "test",
+                "evidence_checksum": evidence.frontmatter["checksum"],
+                "curation_receipt": "test://curation",
+                "recommendation": "guide",
+                "profile_version": "v1",
+            }
+            extensions["curation"] = curation
+            data["extensions"] = extensions
+            bundle.path.write_text(render_markdown(data, document.body), encoding="utf-8")
+            review_curation_candidate(
+                knowledge_root, bundle.frontmatter["id"], action="approve", actor="reviewer"
+            )
+
+            result = promote_curation_candidate(
+                knowledge_root, bundle.frontmatter["id"], actor="reviewer", security_receipt="security://1"
+            )
+
+            self.assertEqual(result["status"], "active")
+            self.assertEqual(result["promotion_mode"], "review_approved")
             self.assertTrue(all(item.is_valid for item in validate_repository(knowledge_root)))
 
     def test_rejection_archives_candidate_with_audit_fields(self):

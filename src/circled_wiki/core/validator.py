@@ -263,6 +263,10 @@ def _validate_bundle(
                 result.profile_errors.append(
                     "canonical Bundle id slug must match the human-readable Bundle filename"
                 )
+            elif not re.fullmatch(r"[a-z0-9][a-z0-9_-]*", slug):
+                result.profile_errors.append(
+                    "canonical Bundle id slug and filename must use a lowercase ASCII slug"
+                )
         elif identifier.endswith(legacy_suffix):
             if document.path.name != identifier.rsplit("/", 1)[-1]:
                 result.profile_errors.append("legacy Bundle id must match its Bundle filename")
