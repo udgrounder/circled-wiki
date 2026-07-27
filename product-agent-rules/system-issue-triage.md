@@ -20,7 +20,9 @@
 
 - 과거 fixed release의 실제 배포 여부
 - 기존 회귀 테스트의 현재 release 결과
-- 과거 Receipt가 없으면 현재 설치본의 release ID, 검증자와 재현 불가를 보이는 명령·결과
+- 제품 변경 완료는 검증된 커밋 revision, 검증자와 테스트·Validator 결과
+- 설치본 검증이 필요하면 현재 release ID, 검증자와 재현 불가를 보이는 명령·결과
+- 설치본 확인은 사용자가 지정한 대표 Wiki 하나로 충분하며, 같은 제품 Issue의 모든 설치본을 개별 추적하지 않는다.
 - 설정·schema·Runtime drift와 다른 원인 가능성
 
 ## Gates
@@ -28,7 +30,7 @@
 - 민감정보가 있으면 제품 작업 생성 금지
 - 사용자 review receipt 없으면 Triage 금지
 - 원인 근거가 없으면 가설로 유지
-- `resolved` archive는 기존 release·deployment·독립 검증 Receipt 또는 현재 release의 식별된 검증 근거를 기록할 것
+- `resolved` archive는 검증된 source commit, 기존 release·deployment·독립 검증 Receipt 또는 현재 release의 식별된 검증 근거를 기록할 것
 - `product_defect`가 아니면 Repository Engineering 자동 전환 금지
 
 ## Output

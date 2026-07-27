@@ -187,6 +187,32 @@ class IssueWorkspaceTests(unittest.TestCase):
             self.assertEqual(path.parent.name, f"{datetime.now(timezone.utc).month:02d}")
             self.assertRegex(path.name, r"^\d{8}T\d{6}Z-runtime-failure-v0001\.md$")
 
+    def test_resolved_issue_can_archive_with_verified_source_commit_before_deployment(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = self._source_repo(root)
+            product_workspace = root / "product" / "workspace"
+            item = Path(
+                intake_operational_issue(
+                    product_workspace, source, project_ref="team-wiki", issue_ref="issue-runtime-1",
+                    requested_by="user-1", moved_by="agent-1",
+                )["path"]
+            )
+            review_workspace_issue(item, reviewed_by="user-1", decision="accepted", history_relation="new")
+            triage_workspace_issue(item, classification="product_defect")
+            link_workspace_issue_resolution(
+                item, disposition="resolved", source_revision="abc1234", source_verified_by="agent-1",
+                source_verification="unit tests passed; repository validator passed",
+            )
+
+            archived = archive_workspace_issue(
+                product_workspace, item, archived_by="agent-1", reason="fixed in committed source",
+                restore_condition="reopen on recurrence",
+            )
+
+            metadata = parse_markdown(Path(archived["path"])).frontmatter
+            self.assertEqual(metadata["processing"]["source_commit_verification"]["revision"], "abc1234")
+
     def test_recurrence_intake_surfaces_previous_resolution_history(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
