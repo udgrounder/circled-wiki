@@ -36,3 +36,4 @@ bundle_uuid: 최초 생성 시 발급한 전체 UUID (변경하지 않음)
 
 `organization_id`는 `.circled-wiki/config.yaml`에서 확인한다. 이전
 `{slug}_{bundle_uuid}.md` 형식은 호환 읽기용 legacy 형식일 뿐 신규 생성·정규화의 목표 형식이 아니다.
+`title`, `description`, 본문은 현재 사용자와 소통하는 언어를 기본으로 하며, 이를 판단할 수 없으면 한국어를 사용한다.

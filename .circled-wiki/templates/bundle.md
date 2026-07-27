@@ -14,7 +14,7 @@ type: {policy|guide|runbook|manual|decision|spec|reference|report}
 id: bundle/{organization_id}/{slug}--{bundle_uuid}
 bundle_uuid: {bundle_uuid}
 title: {title}
-description: {description}
+description: {사용자와 소통하는 언어로 작성한 Bundle 설명; 기본 언어를 알 수 없으면 한국어}
 status: draft
 summary: {summary}
 updated_at: {updated_at}

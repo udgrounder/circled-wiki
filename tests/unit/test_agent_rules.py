@@ -165,7 +165,11 @@ class AgentRuleProfileTests(unittest.TestCase):
             self.assertIn("RB-KNW-026", content)
         self.assertIn("파일명: {slug}.md", router)
         self.assertIn("bundle/{organization_id}/{slug}--{bundle_uuid}", router)
+        self.assertIn("사용자와 소통하는 언어", router)
+        self.assertIn("판단할 수 없으면 한국어", router)
         self.assertIn("**RB-KNW-026**", operating)
+        self.assertIn("사용자와 소통하는 언어", operating)
+        self.assertIn("판단할 수 없으면 한국어", operating)
 
     def test_runtime_router_redirects_version_deployment_to_product_profiles(self):
         router = (ROOT / ".circled-wiki" / "AGENT_ROUTER.md").read_text(
