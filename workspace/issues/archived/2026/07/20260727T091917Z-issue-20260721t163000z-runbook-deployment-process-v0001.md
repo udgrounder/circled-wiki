@@ -1,6 +1,6 @@
 ---
 type: workspace_issue
-status: triaged
+status: archived
 workspace_issue_id: workspace-issue-00307f78532e4d5288c922c809fd521b
 source_project_ref: campingtalk-wiki
 source_issue_id: issue-20260721T163000Z-runbook-deployment-process
@@ -9,36 +9,44 @@ source_git_revision: b3192996e27485c1a589e6a2f6631cbb05bf339b
 moved_at: '2026-07-23T10:19:55.129244+00:00'
 moved_by: codex
 requested_by: user
-canonical_issue_key: null
+canonical_issue_key: issue-20260721t163000z-runbook-deployment-process
 occurrence: 1
 review:
   reviewed_by: user
   reviewed_at: '2026-07-24T09:39:44+00:00'
   decision: accepted
-  note: >-
-    User approved delegation-first guidance for independent pipeline work and a human-readable
-    Workflow Summary section for active Runbooks while extensions.workflow remains the executable source of truth.
+  note: User approved delegation-first guidance for independent pipeline work and
+    a human-readable Workflow Summary section for active Runbooks while extensions.workflow
+    remains the executable source of truth.
 processing:
   classification: product_defect
-  disposition: null
+  disposition: resolved
   history_relation: new
   similar_history: []
   linked_work:
-    - agent-rules/README.md
-    - .circled-wiki/AGENT_BOOTSTRAP.md
-    - agent-rules/knowledge-curation.md
-    - src/circled_wiki/core/validator.py
-    - .circled-wiki/templates/bundle.md
-    - workspace/tests/unit/test_agent_rules.py
-    - workspace/tests/unit/test_validator.py
+  - agent-rules/README.md
+  - .circled-wiki/AGENT_BOOTSTRAP.md
+  - agent-rules/knowledge-curation.md
+  - src/circled_wiki/core/validator.py
+  - .circled-wiki/templates/bundle.md
+  - workspace/tests/unit/test_agent_rules.py
+  - workspace/tests/unit/test_validator.py
   linked_release: null
   linked_deployment_receipt: null
   linked_verification_receipt: null
+  source_commit_verification:
+    revision: 651749e
+    verified_by: product-agent
+    evidence: '2026-07-27: delegation guidance was changed to recommendation-only;
+      agent rule tests passed and repository validator returned validated=18 invalid=0.'
+    verified_at: '2026-07-27T09:19:17.811259+00:00'
 archive:
-  archived_at: null
-  archived_by: null
-  reason: null
-  restore_condition: null
+  archived_at: '2026-07-27T09:19:17.873194+00:00'
+  archived_by: product-agent
+  reason: Runbook pipeline guidance now recommends delegation without making it a
+    blocking requirement; associated rule validation passed in committed source.
+  restore_condition: Reopen if delegation is treated as a mandatory gate or pipeline
+    responsibility gates are bypassed.
 ---
 # runbook 생성 및 배포 작업 미흡 사항
 
