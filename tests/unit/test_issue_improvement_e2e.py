@@ -188,7 +188,5 @@ class IssueImprovementEndToEndTests(unittest.TestCase):
 
             self.assertTrue(Path(archived["path"]).is_file())
             self.assertFalse(item.exists())
-            self.assertRegex(
-                Path(archived["path"]).name,
-                r"^\d{8}T\d{6}Z-runtime-upgrade-failure-v0001\.md$",
-            )
+            self.assertEqual(Path(archived["path"]).name, item.name)
+            self.assertEqual(Path(archived["path"]).parent.name, "team-wiki")
