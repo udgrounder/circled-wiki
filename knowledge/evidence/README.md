@@ -38,6 +38,8 @@ evidence/
 - Inbox 민감성 검토와 Evidence PII Scan은 별개의 Gate다.
 - `restricted` Evidence는 일반 검색·자동 Curation·일반 Inventory에 노출하지 않는다.
 - 10MB 이하 원본은 manifest와 함께 Git 추적할 수 있고, 대용량 원본은 외부 보관 위치와 checksum만 기록한다.
+- Evidence별 정제 상태는 `extensions.curation_queue`에 기록한다. 미완료 항목의 작업 목록은
+  `workspace/task/curation-review-queue.md`에 파생하며, 해당 파일은 Evidence 전체 스캔으로 재생성할 수 있다.
 
 ## 자동화 경계
 

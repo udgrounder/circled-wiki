@@ -21,7 +21,7 @@ timestamp: 2026-07-08T00:00:00+09:00
 - Business Rulebook은 관련 Policy·Guide·Runbook을 연결하는 `type: guide`로 도메인 루트에 저장한다.
 - `active` Bundle은 Owner와 신선도 Governance를 가진다.
 - `draft` Bundle은 후보이며 기본 질의·Workflow 실행 결과에는 포함하지 않는다.
-- Bundle의 `tags`에는 최소 `bundles`, 문서 type, domain을 기록한다.
+- Bundle의 `tags`에는 최소 `bundles`, 문서 type, domain을 기록하고, 생성·갱신 때 Evidence와 본문에서 확인한 주제 태그를 하나 이상 추가한다.
 
 ## 검토 흐름
 

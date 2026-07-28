@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 
 from circled_wiki.config.settings import load_settings
 
-from .candidates import list_curation_candidates, promote_curation_candidate
+from .candidates import list_curation_candidates
 from .curator import propose_update
 from .curation_contract import CurationOutput
 from .curation_contract import validate_curation_output
@@ -29,7 +29,6 @@ def materialize_curation_candidate(
     generated_by: str, curation_receipt: str,
     receipt_metadata: Optional[Dict[str, object]] = None,
     approved_review_id: Optional[str] = None,
-    auto_promote: bool = False,
 ) -> Dict[str, object]:
     """Create one idempotent Draft from validated output; never invokes a model."""
     if not generated_by.strip() or not curation_receipt.strip():
@@ -66,7 +65,7 @@ def materialize_curation_candidate(
         knowledge_root, domain=output.domain, slug=_safe_slug(output.title, checksum),
         title=output.title, bundle_type=output.bundle_type, summary=output.summary,
         evidence_id=evidence_id, body=output.body, curated_by=generated_by,
-        approved_review_id=approved_review_id,
+        approved_review_id=approved_review_id, tags=output.tags,
     )
     data = dict(bundle.frontmatter)
     extensions = dict(data["extensions"])
@@ -86,17 +85,14 @@ def materialize_curation_candidate(
         bundle.path.unlink(missing_ok=True)
         raise ValueError("curation candidate validation failed: " + "; ".join(validation.profile_errors))
     result = {"action": "created", "bundle_id": data["id"], "path": bundle.path.relative_to(knowledge_root.parent).as_posix()}
-    if auto_promote and output.bundle_type not in PRE_CREATION_REVIEW_TYPES:
-        promoted = dict(parse_markdown(bundle.path).frontmatter)
-        extensions = dict(promoted["extensions"])
-        extensions["review_state"] = "approved"
-        promoted["extensions"] = extensions
-        bundle.path.write_text(render_markdown(promoted, bundle.body), encoding="utf-8")
-        result.update(promote_curation_candidate(
-            knowledge_root, data["id"], actor=generated_by,
-            security_receipt=f"auto://curation/{checksum}", automated=True,
-        ))
-        result["action"] = "auto_promoted"
+    evidence_data = dict(evidence.frontmatter)
+    evidence_extensions = dict(evidence_data.get("extensions", {}))
+    evidence_extensions["curation_queue"] = {
+        "status": "bundled", "bundle_id": data["id"],
+        "updated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    }
+    evidence_data["extensions"] = evidence_extensions
+    evidence.path.write_text(render_markdown(evidence_data, evidence.body), encoding="utf-8")
     return result
 
 
@@ -147,13 +143,6 @@ def run_configured_curation(knowledge_root: Path, evidence_id: str) -> Dict[str,
             payload = json.loads(completed.stdout)
             output = validate_curation_output(payload, [evidence_id])
             receipt = f"curation://{config.provider}/{config.model}/{config.profile_version}"
-            if output.bundle_type not in PRE_CREATION_REVIEW_TYPES:
-                return materialize_curation_candidate(
-                    knowledge_root, evidence_id, output, generated_by=settings.operator_agent,
-                    curation_receipt=receipt,
-                    receipt_metadata=_completed_receipt(receipt_metadata, "completed"),
-                    auto_promote=True,
-                )
             return generate_curation_review(
                 knowledge_root, evidence_id, output, generated_by=settings.operator_agent,
                 curation_receipt=receipt,
@@ -195,6 +184,7 @@ def _record_curation_failure(
         "failure_kind": failure_kind,
         "recorded_at": now,
     }
+    extensions["curation_queue"] = {"status": "needs_review", "updated_at": now}
     if receipt_metadata is not None:
         extensions["curation_attempt"]["receipt"] = receipt_metadata
     data["extensions"] = extensions
@@ -271,19 +261,6 @@ def _configured_receipt_metadata(evidence, config, *, started_at: str, status: s
     }
 
 
-def _can_auto_materialize_reference(output: CurationOutput, proposal: Dict[str, object], enabled: bool) -> bool:
-    """Allow only a high-confidence, non-overlapping Reference Draft by opt-in."""
-    return bool(
-        enabled
-        and output.action == "reference"
-        and output.bundle_type == "reference"
-        and output.confidence == "high"
-        and not output.existing_bundle_candidates
-        and proposal.get("recommended_action") == "create_draft_bundle"
-        and not proposal.get("candidate_bundles")
-    )
-
-
 def _completed_receipt(receipt: Dict[str, object], status: str) -> Dict[str, object]:
     completed = dict(receipt)
     completed["completed_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -333,6 +310,9 @@ def _record_no_bundle_decision(evidence, knowledge_root: Path, output: CurationO
         "rationale": output.rationale,
         "recheck_condition": output.recheck_condition,
         "profile_version": settings.curation.profile_version,
+    }
+    extensions["curation_queue"] = {
+        "status": "no_bundle", "updated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
     data["extensions"] = extensions
     original = evidence.path.read_text(encoding="utf-8")

@@ -29,6 +29,7 @@ class CurationOutput:
     existing_bundle_candidates: Tuple[str, ...] = ()
     confidence: str = ""
     recheck_condition: str = ""
+    tags: Tuple[str, ...] = ()
 
 
 def validate_curation_output(
@@ -63,6 +64,9 @@ def validate_curation_output(
     if set(evidence_ids) != set(allowed) or len(evidence_ids) != len(set(evidence_ids)):
         raise ValueError("curation evidence_ids must exactly match the allowed Evidence IDs")
     existing = _string_list(payload.get("existing_bundle_candidates", []), "existing_bundle_candidates")
+    tags = _string_list(payload.get("tags"), "tags")
+    if not tags:
+        raise ValueError("curation tags must contain at least one topical tag")
     return CurationOutput(
         action=action,
         domain=domain,
@@ -75,6 +79,7 @@ def validate_curation_output(
         limitations=_optional_string(payload, "limitations"),
         existing_bundle_candidates=tuple(existing),
         confidence=_optional_string(payload, "confidence"),
+        tags=tuple(tags),
     )
 
 

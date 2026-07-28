@@ -28,9 +28,11 @@ TOOLS = [
     {"name": "review_inbox_sensitivity", "description": "Record an identified human sensitivity-review decision before Inbox acceptance.", "inputSchema": {"type": "object", "required": ["intake_id", "actor", "decision"], "properties": {"intake_id": {"type": "string"}, "actor": {"type": "string"}, "decision": {"type": "string", "enum": ["completed", "not_applicable"]}}}},
     {"name": "accept_inbox", "description": "Record an identified inspector acceptance for one pending Inbox item that passes all gates.", "inputSchema": {"type": "object", "required": ["intake_id", "actor"], "properties": {"intake_id": {"type": "string"}, "actor": {"type": "string"}}}},
     {"name": "ingest_accepted", "description": "Convert accepted Inbox items to Evidence without performing curation.", "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer", "minimum": 1, "maximum": 1000, "default": 100}}}},
-    {"name": "create_draft_bundle", "description": "Create a policy, guide, decision, spec, reference, or report Draft from one Evidence item. Manual and runbook Drafts require pre-creation curation review. This tool cannot activate a Bundle.", "inputSchema": {"type": "object", "required": ["domain", "slug", "title", "bundle_type", "summary", "evidence_id", "body", "actor"], "properties": {"domain": {"type": "string"}, "slug": {"type": "string"}, "title": {"type": "string"}, "bundle_type": {"type": "string", "enum": ["policy", "guide", "decision", "spec", "reference", "report"]}, "summary": {"type": "string"}, "evidence_id": {"type": "string"}, "body": {"type": "string"}, "actor": {"type": "string"}}}},
+    {"name": "create_draft_bundle", "description": "Create a tagged policy, guide, decision, spec, reference, or report Draft from one Evidence item. Manual and runbook Drafts require pre-creation curation review. This tool cannot activate a Bundle.", "inputSchema": {"type": "object", "required": ["domain", "slug", "title", "bundle_type", "summary", "evidence_id", "body", "actor", "tags"], "properties": {"domain": {"type": "string"}, "slug": {"type": "string"}, "title": {"type": "string"}, "bundle_type": {"type": "string", "enum": ["policy", "guide", "decision", "spec", "reference", "report"]}, "summary": {"type": "string"}, "evidence_id": {"type": "string"}, "body": {"type": "string"}, "actor": {"type": "string"}, "tags": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}}}},
     {"name": "list_curation_candidates", "description": "List Draft Bundle candidates that need or have recorded review. Active knowledge is excluded.", "inputSchema": {"type": "object", "properties": {}}},
     {"name": "list_curation_reviews", "description": "List Git-tracked Curation review cards. Evidence originals are not returned.", "inputSchema": {"type": "object", "properties": {"include_resolved": {"type": "boolean", "default": False}}}},
+    {"name": "list_curation_queue", "description": "List Evidence-derived curation work items. The queue excludes restricted Evidence and is not its own source of truth.", "inputSchema": {"type": "object", "properties": {"include_resolved": {"type": "boolean", "default": False}}}},
+    {"name": "refresh_curation_queue", "description": "Regenerate workspace/task/curation-review-queue.md from all non-restricted Evidence records.", "inputSchema": {"type": "object", "properties": {}}},
     {"name": "decide_curation_review", "description": "Record a reviewer decision. A successful new-Draft approval moves the decision receipt into the Bundle and deletes the consumed review card; no_bundle preserves Evidence and prevents repeat review for the same checksum.", "inputSchema": {"type": "object", "required": ["review_id", "action", "actor"], "properties": {"review_id": {"type": "string"}, "action": {"type": "string", "enum": ["approve", "no_bundle", "needs_changes", "needs_review"]}, "actor": {"type": "string"}, "note": {"type": "string"}}}},
     {"name": "review_curation_candidate", "description": "Record needs-changes, approval, rejection, or merge of a Draft candidate. Approval remains Draft until a separate Active-publication Gate passes.", "inputSchema": {"type": "object", "required": ["bundle_id", "action", "actor"], "properties": {"bundle_id": {"type": "string"}, "action": {"type": "string", "enum": ["needs_changes", "approve", "reject", "merge"]}, "actor": {"type": "string"}, "note": {"type": "string"}, "merged_into": {"type": "string"}}}},
     {"name": "promote_curation_candidate", "description": "Promote an approved Draft only when the authenticated actor is the configured knowledge-owner and supplies a Security receipt.", "inputSchema": {"type": "object", "required": ["bundle_id", "actor", "security_receipt"], "properties": {"bundle_id": {"type": "string"}, "actor": {"type": "string"}, "security_receipt": {"type": "string"}}}},
@@ -62,7 +64,7 @@ TOOLS = [
 ]
 
 READ_ONLY_TOOLS = {
-    "search_knowledge", "read_bundle", "prepare_context", "propose_update", "propose_pending", "inspect_inbox", "list_curation_candidates", "list_curation_reviews",
+    "search_knowledge", "read_bundle", "prepare_context", "propose_update", "propose_pending", "inspect_inbox", "list_curation_candidates", "list_curation_reviews", "list_curation_queue",
     "validate_result", "find_workflow", "audit_knowledge", "list_knowledge_inventory", "audit_hardcoded_install_values", "curation_backlog_metrics",
     "validate_claim_support", "measure_runbook_effectiveness", "get_task",
 }
@@ -159,10 +161,12 @@ def handle_request(
                 domain=arguments["domain"], slug=arguments["slug"],
                 title=arguments["title"], bundle_type=arguments["bundle_type"],
                 summary=arguments["summary"], evidence_id=arguments["evidence_id"],
-                body=arguments["body"], actor=arguments["actor"],
+                body=arguments["body"], actor=arguments["actor"], tags=arguments["tags"],
             )
             elif name == "list_curation_candidates": content = service.list_curation_candidates()
             elif name == "list_curation_reviews": content = service.list_curation_reviews(include_resolved=arguments.get("include_resolved", False))
+            elif name == "list_curation_queue": content = service.list_curation_queue(include_resolved=arguments.get("include_resolved", False))
+            elif name == "refresh_curation_queue": content = service.refresh_curation_queue()
             elif name == "decide_curation_review": content = service.decide_curation_review(
                 arguments["review_id"], action=arguments["action"], actor=arguments["actor"], note=arguments.get("note", ""),
             )

@@ -24,6 +24,7 @@ Evidence를 기존 Bundle과 비교하거나 신규 Draft를 작성한다.
 - Bundle을 만들거나 기존 Bundle의 `id`·파일명 관계를 판단할 때 `OPERATING_RULES.md`의 RB-KNW-026 Bundle Identity Contract
 - 여러 단계 정제 작업에서 독립·제한된 조사 또는 검증 작업을 위임할 수 있는지와, 위임해도 Owner 승인·Security Gate·최종 책임이 유지되는지
 - 후보의 제목·요약과 Evidence 제목·intended use 간 의미 관련성, 그리고 적합한 Bundle type
+- Bundle 태그는 기본 구조 태그(`bundles`, Bundle type, domain)와 Evidence·본문에서 확인한 주제 태그를 함께 사용하며, 원문에 없는 사실·민감정보·자격증명을 태그로 만들지 않는다.
 - Evidence 본문·excerpt·생성할 Bundle 내용을 읽을 때 자격증명·PII 평문과 문맥상 재식별 가능성을 다시 확인
 - Evidence PII Scan 증빙과 마스킹 상태가 실제 원문 checksum에 대응하는지 확인
 
@@ -47,6 +48,10 @@ Evidence를 기존 Bundle과 비교하거나 신규 Draft를 작성한다.
 제품·시스템 사용 절차는 `manual`, 반복 운영·장애 대응 절차는 `runbook`으로 구분한다. Business Rulebook은
 `guide`와 `extensions.rulebook`으로 표현한다. Owner가 없는 Draft 후보는
 `assign_owner_and_review_draft`와 차단 조건을 반환한다.
+
+모든 Evidence는 파일의 `extensions.curation_queue` 상태를 원장으로 남긴다. `workspace/task/curation-review-queue.md`는
+미완료(`pending`, `review_pending`, `needs_review`) 항목만 Evidence 전체 스캔으로 재생성하는 파생 작업 큐다. 큐 파일을
+직접 상태 원장으로 사용하지 않으며, 누락·중복·불일치가 의심되면 `refresh-curation-queue`로 다시 만든다.
 
 ## Failure State
 

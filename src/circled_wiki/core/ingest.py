@@ -500,6 +500,7 @@ def ingest_evidence(
                 "sensitivity_review": sensitivity_review,
             },
             "review_state": "pending",
+            "curation_queue": {"status": "pending", "updated_at": timestamp},
             "visibility": "internal",
             "pii_scanned": pii_scanned,
             "pii_masked": False,

@@ -13,7 +13,7 @@ class CurationContractTests(unittest.TestCase):
             "title": "SNS campaign launch", "summary": "Prepare and launch a campaign.",
             "body": "# Steps\n\n1. Define the audience.", "evidence_ids": [EVIDENCE_ID],
             "rationale": "Contains repeatable steps.", "limitations": "Budget is not specified.",
-            "existing_bundle_candidates": [], "confidence": "medium",
+            "existing_bundle_candidates": [], "confidence": "medium", "tags": ["sns", "campaign"],
         }
 
     def test_accepts_typed_output_with_authorized_evidence(self):
@@ -21,6 +21,13 @@ class CurationContractTests(unittest.TestCase):
 
         self.assertEqual(output.bundle_type, "runbook")
         self.assertEqual(output.evidence_ids, (EVIDENCE_ID,))
+        self.assertEqual(output.tags, ("sns", "campaign"))
+
+    def test_rejects_empty_or_missing_topical_tags(self):
+        payload = self._payload()
+        payload["tags"] = []
+        with self.assertRaisesRegex(ValueError, "tags"):
+            validate_curation_output(payload, [EVIDENCE_ID])
 
     def test_rejects_invented_or_partial_evidence_references(self):
         payload = self._payload()

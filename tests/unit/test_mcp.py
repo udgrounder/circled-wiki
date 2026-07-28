@@ -30,6 +30,8 @@ class McpServerTests(unittest.TestCase):
         names = {tool["name"] for tool in available_tools("read_only")}
         self.assertIn("audit_knowledge", names)
         self.assertIn("list_curation_candidates", names)
+        self.assertIn("list_curation_queue", names)
+        self.assertNotIn("refresh_curation_queue", names)
         self.assertNotIn("record_evidence_pii_scan", names)
         self.assertNotIn("review_curation_candidate", names)
         operator_names = {tool["name"] for tool in available_tools("operator")}
@@ -86,7 +88,7 @@ class McpServerTests(unittest.TestCase):
                     "domain": "operations", "slug": "pilot-guide", "title": "Pilot Guide",
                     "bundle_type": "policy", "summary": "Pilot summary",
                     "evidence_id": evidence["evidence_id"], "body": "# Guide\n\nDraft.\n",
-                    "actor": "hermes-curator",
+                    "actor": "hermes-curator", "tags": ["pilot", "guide"],
                 }},
             }, service, access_mode="operator")
             self.assertFalse(created["result"].get("isError", False))

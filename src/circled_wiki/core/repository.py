@@ -4,7 +4,7 @@ from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
 import re
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Iterable, Optional
 from uuid import uuid4
 
 from circled_wiki.config.settings import load_settings
@@ -326,7 +326,7 @@ def remove_evidence_backlinks(knowledge_root: Path, *, apply: bool = False) -> D
 def create_bundle(
     knowledge_root: Path, *, domain: str, slug: str, title: str, bundle_type: str,
     summary: str, evidence_id: str, body: str = "", curated_by: str = "manual",
-    approved_review_id: Optional[str] = None,
+    approved_review_id: Optional[str] = None, tags: Optional[Iterable[str]] = None,
 ) -> MarkdownDocument:
     """Create a draft Bundle only when its Evidence Record already exists."""
     if not SAFE_PATH_SEGMENT.fullmatch(domain) or not SAFE_PATH_SEGMENT.fullmatch(slug):
@@ -361,7 +361,7 @@ def create_bundle(
         "type": bundle_type, "id": bundle_id, "bundle_uuid": bundle_uuid, "title": title,
         "status": "draft", "summary": summary, "updated_at": now, "evidence": [evidence_id],
         "evidence_links": [evidence_markdown_link(knowledge_root, evidence)],
-        "tags": ["bundles", bundle_type, domain],
+        "tags": _normalized_bundle_tags(tags, bundle_type=bundle_type, domain=domain),
         "owners": list(settings.workflow.default_owners) or [settings.operator_agent],
         "extensions": {
             "source_uuids": [evidence.frontmatter["source_uuid"]],
@@ -450,6 +450,11 @@ def apply_bundle_revision(
             "Bundle status transitions require the dedicated curation Promotion or archive workflow"
         )
 
+    relative = existing.path.relative_to(knowledge_root / "bundles")
+    proposed["tags"] = _normalized_bundle_tags(
+        proposed.get("tags"), bundle_type=str(existing.frontmatter["type"]), domain=relative.parts[0],
+    )
+
     existing_extensions = existing.frontmatter.get("extensions")
     current_curation = existing_extensions.get("curation") if isinstance(existing_extensions, dict) else None
     if isinstance(current_curation, dict) and proposed.get("status") == "active":
@@ -510,3 +515,26 @@ def apply_bundle_revision(
             path.write_text(content, encoding="utf-8")
         raise
     return parse_markdown(existing.path)
+
+
+def _normalized_bundle_tags(
+    tags: Optional[Iterable[str]], *, bundle_type: str, domain: str
+) -> list[str]:
+    """Keep structural tags while preserving curator-provided topical tags."""
+    if tags is None:
+        supplied: list[str] = []
+    elif isinstance(tags, (str, bytes)):
+        raise ValueError("Bundle tags must be an array of non-empty strings")
+    else:
+        supplied = list(tags)
+    if any(not isinstance(tag, str) or not tag.strip() for tag in supplied):
+        raise ValueError("Bundle tags must be an array of non-empty strings")
+    result: list[str] = []
+    seen = set()
+    for tag in ["bundles", bundle_type, domain, *supplied]:
+        value = tag.strip()
+        key = value.casefold()
+        if key not in seen:
+            seen.add(key)
+            result.append(value)
+    return result

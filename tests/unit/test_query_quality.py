@@ -24,7 +24,7 @@ class KoreanQueryQualityTests(unittest.TestCase):
             output = validate_curation_output({
                 "action": "guide", "domain": "marketing", "bundle_type": "guide", "title": "SNS 마케팅 시작 가이드",
                 "summary": "캠페인 목표와 채널을 정하는 방법", "body": "# SNS 마케팅\n\n목표와 고객을 먼저 정한다.",
-                "evidence_ids": [evidence.evidence_id],
+                "evidence_ids": [evidence.evidence_id], "tags": ["sns", "마케팅", "캠페인"],
             }, [evidence.evidence_id])
             review = generate_curation_review(
                 root, evidence.evidence_id, output,

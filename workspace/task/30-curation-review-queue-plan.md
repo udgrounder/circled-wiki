@@ -54,6 +54,16 @@ flowchart LR
 
 ## 4. 데이터 모델
 
+### 4.0 Evidence 정제 작업 큐
+
+Evidence별 상태는 Evidence Frontmatter의 `extensions.curation_queue`에 기록한다. 새 Evidence는 `pending`으로
+시작하고, 검토카드가 생성되면 `review_pending`, adapter·검토 실패는 `needs_review`, Bundle 연결 또는
+`no_bundle` 결정은 각각 `bundled`, `no_bundle`으로 전환한다.
+
+`workspace/task/curation-review-queue.md`는 `pending`, `review_pending`, `needs_review` Evidence만 모은 파생
+작업 큐다. 이 파일은 상태 원장이 아니며, `refresh-curation-queue`가 모든 비제한 Evidence를 스캔해 재생성한다.
+따라서 큐 파일의 누락·중복·불일치는 원본 Evidence를 수정하지 않고 복구할 수 있다.
+
 ### 4.1 검토 카드
 
 카드는 `knowledge/curation-reviews/<YYYY-MM>/<review-id>.md`에 저장하고, 루트 `README.md`와 `index.md`는

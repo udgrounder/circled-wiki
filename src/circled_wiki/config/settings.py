@@ -54,7 +54,6 @@ class CurationSettings:
     max_retries: int = DEFAULT_CURATION_MAX_RETRIES
     max_input_bytes: int = DEFAULT_CURATION_MAX_INPUT_BYTES
     profile_version: str = "v1"
-    auto_materialize_reference: bool = True
 
 
 @dataclass(frozen=True)
@@ -98,7 +97,7 @@ def render_settings(
         },
         "workflow": {"default_owners": list(workflow_default_owners)},
         "publication": {"allowed_paths": list(publication_allowed_paths), "push_enabled": False, "push_remote": "", "push_branch": ""},
-        "curation": {"enabled": curation_enabled, "auto_materialize_reference": True},
+        "curation": {"enabled": curation_enabled},
         "approval": {"knowledge_owner": ""},
     })
     payload = {
@@ -133,7 +132,6 @@ def render_settings(
             "max_retries": settings.curation.max_retries,
             "max_input_bytes": settings.curation.max_input_bytes,
             "profile_version": settings.curation.profile_version,
-            "auto_materialize_reference": settings.curation.auto_materialize_reference,
         },
         "approval": {"knowledge_owner": settings.approval.knowledge_owner},
     }
@@ -262,11 +260,8 @@ def _validate_settings(payload: Dict[str, Any]) -> CircledWikiSettings:
     max_retries = curation.get("max_retries", DEFAULT_CURATION_MAX_RETRIES)
     max_input_bytes = curation.get("max_input_bytes", DEFAULT_CURATION_MAX_INPUT_BYTES)
     profile_version = curation.get("profile_version", "v1")
-    auto_materialize_reference = curation.get("auto_materialize_reference", True)
     if not isinstance(curation_enabled, bool):
         raise ValueError("curation.enabled must be boolean")
-    if not isinstance(auto_materialize_reference, bool):
-        raise ValueError("curation.auto_materialize_reference must be boolean")
     if any(not isinstance(value, str) for value in (provider, model, curation_command, profile_version)):
         raise ValueError("curation provider, model, command, and profile_version must be strings")
     if curation_enabled and any(not value.strip() for value in (provider, model, curation_command)):
@@ -307,7 +302,6 @@ def _validate_settings(payload: Dict[str, Any]) -> CircledWikiSettings:
             max_retries=max_retries,
             max_input_bytes=max_input_bytes,
             profile_version=profile_version.strip(),
-            auto_materialize_reference=auto_materialize_reference,
         ),
         approval=ApprovalSettings(knowledge_owner=knowledge_owner.strip()),
     )

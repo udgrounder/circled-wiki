@@ -21,6 +21,7 @@ from circled_wiki.core.curation_reviews import (
     generate_curation_review,
     list_curation_reviews,
 )
+from circled_wiki.core.curation_queue import list_curation_queue, refresh_curation_queue
 
 
 class CurationMaterializationTests(unittest.TestCase):
@@ -33,7 +34,7 @@ class CurationMaterializationTests(unittest.TestCase):
         return root, evidence.evidence_id
 
     def _output(self, evidence_id, kind="guide"):
-        return validate_curation_output({"action": kind, "domain": "marketing", "bundle_type": kind, "title": "SNS campaign launch", "summary": "Launch a campaign.", "body": "# Steps\n\n1. Define audience.", "evidence_ids": [evidence_id], "rationale": "repeatable process", "limitations": "budget omitted", "existing_bundle_candidates": [], "confidence": "medium"}, [evidence_id])
+        return validate_curation_output({"action": kind, "domain": "marketing", "bundle_type": kind, "title": "SNS campaign launch", "summary": "Launch a campaign.", "body": "# Steps\n\n1. Define audience.", "evidence_ids": [evidence_id], "rationale": "repeatable process", "limitations": "budget omitted", "existing_bundle_candidates": [], "confidence": "medium", "tags": ["sns", "campaign"]}, [evidence_id])
 
     def test_creates_candidate_and_reuses_same_evidence_receipt(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -42,6 +43,8 @@ class CurationMaterializationTests(unittest.TestCase):
             second = materialize_curation_candidate(root, evidence_id, self._output(evidence_id), generated_by="curator", curation_receipt="test://curation")
             self.assertEqual(first["action"], "created")
             self.assertEqual(second["action"], "reused")
+            bundle = find_document_by_id(root, first["bundle_id"])
+            self.assertEqual(bundle.frontmatter["tags"], ["bundles", "guide", "marketing", "sns", "campaign"])
 
     def test_uses_the_installation_operator_when_no_default_owner_is_configured(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -197,7 +200,7 @@ class CurationMaterializationTests(unittest.TestCase):
             root, evidence_id = self._evidence(directory)
             output = validate_curation_output({
                 "action": "guide", "domain": "marketing", "bundle_type": "guide", "title": "한국어 SNS 가이드",
-                "summary": "요약", "body": "# 본문", "evidence_ids": [evidence_id],
+                "summary": "요약", "body": "# 본문", "evidence_ids": [evidence_id], "tags": ["sns", "marketing"],
             }, [evidence_id])
             result = materialize_curation_candidate(root, evidence_id, output, generated_by="curator", curation_receipt="test://curation")
             filename = Path(result["path"]).name
@@ -260,14 +263,14 @@ class CurationMaterializationTests(unittest.TestCase):
             output = {
                 "action": "guide", "domain": "marketing", "bundle_type": "guide",
                 "title": "Curated guide", "summary": "Summary.", "body": "# Guide",
-                "evidence_ids": [evidence_id],
+                "evidence_ids": [evidence_id], "tags": ["curated", "guide"],
             }
             completed = type("Completed", (), {"stdout": json.dumps(output)})()
             with patch("circled_wiki.core.curation.propose_update", return_value={"recommended_action": "create_draft_bundle", "blocking_conditions": []}):
                 with patch("circled_wiki.core.curation.subprocess.run", return_value=completed) as adapter:
                     result = run_configured_curation(root, evidence_id)
 
-            self.assertEqual(result["action"], "auto_promoted")
+            self.assertEqual(result["action"], "created_review")
             request = json.loads(adapter.call_args.kwargs["input"])
             self.assertEqual(
                 {item["type"] for item in request["bundle_taxonomy"]},
@@ -278,19 +281,11 @@ class CurationMaterializationTests(unittest.TestCase):
             with patch("circled_wiki.core.curation.propose_update", return_value={"recommended_action": "create_draft_bundle", "blocking_conditions": []}):
                 with patch("circled_wiki.core.curation.subprocess.run", return_value=completed):
                     repeated = run_configured_curation(root, evidence_id)
-            self.assertEqual(repeated["action"], "reused")
-            self.assertEqual(list_curation_reviews(root, include_resolved=True), [])
-            candidate = find_document_by_id(root, result["bundle_id"])
-            self.assertEqual(candidate.frontmatter["status"], "active")
-            receipt = candidate.frontmatter["extensions"]["curation"]["receipt"]
-            self.assertEqual(receipt["provider"], "test")
-            self.assertEqual(receipt["model"], "curated")
-            self.assertEqual(receipt["status"], "completed")
-            self.assertIn("completed_at", receipt)
-            self.assertEqual(candidate.frontmatter["extensions"]["curation"]["promotion"]["mode"], "automatic")
+            self.assertEqual(repeated["action"], "reused_review")
+            self.assertEqual(len(list_curation_reviews(root, include_resolved=True)), 1)
             evidence = find_document_by_id(root, evidence_id)
             self.assertNotIn("curated_into", evidence.frontmatter)
-            self.assertNotIn("curation_review", evidence.frontmatter["extensions"])
+            self.assertEqual(evidence.frontmatter["extensions"]["curation_queue"]["status"], "review_pending")
 
     def test_failed_review_approval_preserves_review_card(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -325,23 +320,51 @@ class CurationMaterializationTests(unittest.TestCase):
             config.parent.mkdir(exist_ok=True)
             config.write_text(
                 "schema_version: 1\ncuration:\n"
-                "  enabled: true\n  provider: test\n  model: reference\n  command: adapter\n"
-                "  auto_materialize_reference: true\n",
+                "  enabled: true\n  provider: test\n  model: reference\n  command: adapter\n",
                 encoding="utf-8",
             )
             output = {
                 "action": "reference", "domain": "marketing", "bundle_type": "reference",
                 "title": "Campaign reference", "summary": "Reference summary.", "body": "# Reference",
-                "evidence_ids": [evidence_id], "confidence": "high", "existing_bundle_candidates": [],
+                "evidence_ids": [evidence_id], "confidence": "high", "existing_bundle_candidates": [], "tags": ["campaign", "reference"],
             }
             completed = type("Completed", (), {"stdout": json.dumps(output)})()
             proposal = {"recommended_action": "create_draft_bundle", "blocking_conditions": [], "candidate_bundles": []}
             with patch("circled_wiki.core.curation.propose_update", return_value=proposal):
                 with patch("circled_wiki.core.curation.subprocess.run", return_value=completed):
                     result = run_configured_curation(root, evidence_id)
-            self.assertEqual(result["action"], "auto_promoted")
-            self.assertEqual(len(list_curation_reviews(root)), 0)
+            self.assertEqual(result["action"], "created_review")
+            self.assertEqual(len(list_curation_reviews(root)), 1)
             self.assertEqual(list_curation_candidates(root), [])
+
+    def test_rebuildable_workspace_queue_tracks_pending_and_resolved_evidence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, evidence_id = self._evidence(directory)
+            queue = list_curation_queue(root)
+            self.assertEqual(queue[0]["evidence_id"], evidence_id)
+            self.assertEqual(queue[0]["status"], "pending")
+
+            refreshed = refresh_curation_queue(root)
+            queue_path = root.parent / refreshed["path"]
+            self.assertTrue(queue_path.is_file())
+            self.assertIn(evidence_id, queue_path.read_text(encoding="utf-8"))
+
+            result = materialize_curation_candidate(
+                root, evidence_id, self._output(evidence_id),
+                generated_by="curator", curation_receipt="test://curation",
+            )
+            self.assertEqual(result["action"], "created")
+            self.assertEqual(list_curation_queue(root), [])
+
+    def test_queue_scan_excludes_legacy_evidence_already_linked_by_a_bundle(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, evidence_id = self._evidence(directory)
+            create_bundle(
+                root, domain="marketing", slug="existing-guide", title="Existing Guide",
+                bundle_type="guide", summary="Existing.", evidence_id=evidence_id,
+            )
+            self.assertEqual(list_curation_queue(root), [])
+            self.assertEqual(list_curation_queue(root, include_resolved=True)[0]["status"], "bundled")
 
     def test_validator_rejects_curation_receipt_for_another_evidence_checksum(self):
         with tempfile.TemporaryDirectory() as directory:

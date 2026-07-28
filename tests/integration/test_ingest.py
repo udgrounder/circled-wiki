@@ -648,16 +648,18 @@ class IngestEvidenceTests(unittest.TestCase):
                 domain="operations", slug="operations-policy", title="Operations Policy",
                 bundle_type="policy", summary="Initial summary.",
                 evidence_id=str(evidence["evidence_id"]), body="# Policy\n\nInitial.\n",
-                actor="hermes-curator",
+                actor="hermes-curator", tags=["operations", "policy"],
             )
             proposal = dict(draft["frontmatter"])
             proposal["summary"] = "Reviewed summary."
+            proposal["tags"] = ["operations", "policy", "reviewed"]
             updated = service.apply_bundle_revision(
                 str(draft["id"]), expected_revision=1, frontmatter=proposal,
                 body="# Policy\n\nReviewed.\n", actor="verification-agent",
             )
 
             self.assertEqual(updated["frontmatter"]["extensions"]["knowledge_revision"], 2)
+            self.assertEqual(updated["frontmatter"]["tags"], ["bundles", "policy", "operations", "reviewed"])
             self.assertEqual(updated["frontmatter"]["extensions"]["updated_by"], "verification-agent")
             self.assertIn("Reviewed.", updated["body"])
             evidence_manifest = parse_markdown(

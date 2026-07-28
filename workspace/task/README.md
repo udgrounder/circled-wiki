@@ -5,5 +5,5 @@
 
 ## 계획서
 
-- `30-curation-review-queue-plan.md`: Curation 검토 큐 도입과 외부 자동화 전환 계획
+- `30-curation-review-queue-plan.md`: Curation 검토 큐 도입, Evidence 상태 원장과 재생성 가능한 작업 큐 계획
 - `31-agent-role-separation-plan.md`: 제품 개발·릴리스/배포·Runtime 운영과 Workspace Issue Inbox·검토·Archive를 포함한 운영 이슈 환류 Agent 역할 분리 계획

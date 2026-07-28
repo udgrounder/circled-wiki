@@ -25,6 +25,7 @@ from .curation import (
     run_configured_curation_batch,
 )
 from .curation_reviews import decide_curation_review, generate_curation_review, list_curation_reviews
+from .curation_queue import list_curation_queue, refresh_curation_queue
 from .curation_contract import validate_curation_output
 from .config_audit import audit_hardcoded_install_values
 from .search import search_knowledge
@@ -131,6 +132,12 @@ class KnowledgeService:
 
     def list_curation_reviews(self, *, include_resolved: bool = False) -> List[Dict[str, object]]:
         return list_curation_reviews(self.knowledge_root, include_resolved=include_resolved)
+
+    def list_curation_queue(self, *, include_resolved: bool = False) -> List[Dict[str, object]]:
+        return list_curation_queue(self.knowledge_root, include_resolved=include_resolved)
+
+    def refresh_curation_queue(self) -> Dict[str, object]:
+        return refresh_curation_queue(self.knowledge_root)
 
     def decide_curation_review(self, review_id: str, *, action: str, actor: str, note: str = "") -> Dict[str, object]:
         return decide_curation_review(self.knowledge_root, review_id, action=action, actor=actor, note=note)
@@ -398,6 +405,7 @@ class KnowledgeService:
         evidence_id: str,
         body: str,
         actor: str,
+        tags: List[str],
     ) -> Dict[str, object]:
         if bundle_type not in DIRECT_DRAFT_TYPES:
             raise ValueError(
@@ -417,6 +425,7 @@ class KnowledgeService:
             evidence_id=evidence_id,
             body=body,
             curated_by=actor,
+            tags=tags,
         )
         return self.read_bundle(str(document.frontmatter["id"])) or {}
 

@@ -104,6 +104,9 @@ def generate_curation_review(
         extensions["curation_review"] = {
             "review_id": review_id, "status": "pending", "evidence_checksum": checksum,
         }
+        extensions["curation_queue"] = {
+            "status": "review_pending", "review_id": review_id, "updated_at": now,
+        }
         evidence_data["extensions"] = extensions
         evidence.path.write_text(render_markdown(evidence_data, evidence.body), encoding="utf-8")
     except Exception:
@@ -187,6 +190,10 @@ def decide_curation_review(knowledge_root: Path, review_id: str, *, action: str,
         evidence_data = dict(current_evidence.frontmatter)
         evidence_extensions = dict(evidence_data.get("extensions", {}))
         evidence_extensions.pop("curation_review", None)
+        evidence_extensions["curation_queue"] = {
+            "status": "bundled", "bundle_id": str(result["bundle_id"]),
+            "updated_at": data["decided_at"],
+        }
         evidence_data["extensions"] = evidence_extensions
         bundle_data = dict(bundle.frontmatter)
         bundle_extensions = dict(bundle_data.get("extensions", {}))
@@ -228,6 +235,10 @@ def decide_curation_review(knowledge_root: Path, review_id: str, *, action: str,
     review_state["status"] = data["status"]
     review_state["decided_at"] = data["decided_at"]
     extensions["curation_review"] = review_state
+    queue_state = dict(extensions.get("curation_queue", {}))
+    queue_state["status"] = "no_bundle" if data["status"] == "no_bundle" else "needs_review"
+    queue_state["updated_at"] = data["decided_at"]
+    extensions["curation_queue"] = queue_state
     evidence_data["extensions"] = extensions
     evidence.path.write_text(render_markdown(evidence_data, evidence.body), encoding="utf-8")
     return {"review_id": review_id, "status": data["status"], "result": result}
