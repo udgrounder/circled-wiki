@@ -1,0 +1,32 @@
+{
+  "receipt_type": "release",
+  "release_id": "v1-e5b87c660ecd",
+  "source_revision": "e8f20cd525dc7e068f7bf5d923c161d8f1a65b3d",
+  "runtime_checksum": "sha256:799231e225fef51bff71a61f09fe3a91d7915720e9875c3518a8a8dc18aefde4",
+  "router_checksum": "sha256:9fbb307bad9c695514d49842ad7025ee9023415eca2eab15490d7705d6457e8f",
+  "runtime_profiles": [
+    "evidence-ingest.md",
+    "inbox-capture.md",
+    "inbox-inspection.md",
+    "knowledge-curation.md",
+    "knowledge-query.md",
+    "publication.md",
+    "runtime-upgrade-verification.md",
+    "system-observation.md",
+    "workflow-execution.md"
+  ],
+  "included_issue_ids": [
+    "issue-20260727T114039Z-16fa5a13",
+    "issue-20260728T015354Z-32b21848",
+    "issue-20260728T060519Z-11354afc",
+    "issue-20260728T065036Z-9ef43165",
+    "issue-20260728T073336Z-4442d479"
+  ],
+  "validation": {
+    "unit": "passed",
+    "integration": "passed",
+    "repository_validator": "passed"
+  },
+  "verified_by": "codex",
+  "verified_at": "2026-07-28T10:14:58.130934+00:00"
+}
