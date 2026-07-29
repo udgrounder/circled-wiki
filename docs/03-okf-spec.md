@@ -497,7 +497,7 @@ OKF v0.1은 Bundle 내부 하위 디렉터리를 허용하며 도메인별 저�
 추가 규칙:
 
 - 일반 concept 문서에는 `index.md`, `log.md` 파일명을 사용하지 않는다.
-- 루트 진입 문서는 `README.md` 하나로 관리한다. README에는 사람과 Agent가 Vault를 운영하는 데 필요한 구조·역할·운영 흐름·보관·검토 기준만 기록하며 개별 문서의 목록·요약·세부 내용은 기록하지 않는다. Bootstrap은 빈 Knowledge Vault의 최초 설치 때만 이 README를 만든다. 운영·관리에 필요한 정보가 새로 생기거나 변경되면 같은 변경에서 README를 갱신한다.
+- 루트 진입 문서는 `README.md` 하나로 관리한다. README에는 사람과 Agent가 Vault를 운영하는 데 필요한 구조·역할·운영 흐름·보관·검토 기준과 실제 사용 중인 domain·provider의 이름·용도를 기록하며 개별 문서의 목록·요약·세부 내용은 기록하지 않는다. Bootstrap은 빈 Knowledge Vault의 최초 설치 때만 이 README를 만든다. `bundles/<domain>/`, `evidence/<provider>/`, `inbox/<provider>/`는 고정 목록이 아닌 동적 경로이며, 새 이름을 처음 사용하거나 의미를 바꾸면 같은 변경에서 README의 운영 목록을 갱신한다.
 
 ### 14.1 예약 파일 구조
 
@@ -520,7 +520,7 @@ OKF v0.1은 Bundle 내부 하위 디렉터리를 허용하며 도메인별 저�
 `bundles/<domain>/`의 도메인 목록은 고정 값이 아니라 아래 절차로 확장 가능하다.
 
 1. `knowledge/bundles/<domain>/` 디렉터리를 만들고 도메인 오너(팀 또는 담당자)를 정한다.
-2. 사람과 Agent를 위한 운영·관리 안내는 `knowledge/README.md`에서 관리한다. 최상위 구조·역할·운영 흐름 또는 운영·관리에 필요한 정보가 새로 생기거나 변경되면 같은 변경에서 README를 갱신한다. 일반 문서 추가만으로는 갱신하지 않는다. 자동화는 `index.md` 또는 하위 README를 만들지 않는다.
+2. 사람과 Agent를 위한 운영·관리 안내는 `knowledge/README.md`에서 관리한다. 최상위 구조·역할·운영 흐름 또는 운영·관리에 필요한 정보가 새로 생기거나 변경되면 같은 변경에서 README를 갱신한다. 새 domain·provider를 처음 사용하거나 의미를 바꾸면 README의 운영 목록도 갱신한다. Vault 구조·domain·provider·운영 흐름을 관리하거나 변경하는 Agent는 작업 전에 이 README를 읽는다. 일반 문서 추가만으로는 갱신하지 않는다. 자동화는 `index.md` 또는 하위 README를 만들지 않는다.
 3. Bundle `type` enum은 `policy`, `guide`, `runbook`, `manual`, `decision`, `spec`, `reference`, `report`다. `manual`은 제품·시스템 사용 절차, `runbook`은 반복 운영·장애 대응 실행 절차, `report`는 기준 시점이 있는 현황·평가·주기 보고에 사용한다. 세부 산출물 형식은 `extensions`로 확장한다.
 4. 신규 도메인에서 유입되는 원본이 기존 Evidence `provider`로 표현되지 않으면 `knowledge/evidence/<provider>/`도 함께 추가한다.
 
