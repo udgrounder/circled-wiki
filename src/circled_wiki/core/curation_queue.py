@@ -1,10 +1,34 @@
 """Minimal, rebuildable curation work items stored outside immutable Evidence."""
 
+from contextlib import contextmanager
+import fcntl
 from pathlib import Path
-from typing import Dict, List
+import threading
+from typing import Dict, List, Optional
 from uuid import UUID, uuid4
 
 from .frontmatter import parse_markdown, render_markdown
+
+
+_QUEUE_LOCKS: Dict[Path, threading.RLock] = {}
+_QUEUE_LOCKS_GUARD = threading.Lock()
+
+
+@contextmanager
+def curation_queue_transaction(knowledge_root: Path):
+    """Serialize queue reconciliation and terminal queue mutations across processes."""
+    knowledge_root = knowledge_root.resolve()
+    lock_path = knowledge_root.parent / ".runtime" / "locks" / "curation-queue.lock"
+    with _QUEUE_LOCKS_GUARD:
+        thread_lock = _QUEUE_LOCKS.setdefault(lock_path, threading.RLock())
+    with thread_lock:
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+        with lock_path.open("a+b") as lock_file:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
 
 def enqueue_curation_work(knowledge_root: Path, evidence_id: str, evidence_path: Path) -> Path:
@@ -18,6 +42,19 @@ def enqueue_curation_work(knowledge_root: Path, evidence_id: str, evidence_path:
         raise ValueError("curation queue path must refer to knowledge/evidence") from error
     if not evidence_id:
         raise ValueError("curation queue evidence_id must be non-empty")
+    with curation_queue_transaction(knowledge_root):
+        return _enqueue_curation_work_unlocked(
+            knowledge_root, evidence_id, evidence_path, relative
+        )
+
+
+def _enqueue_curation_work_unlocked(
+    knowledge_root: Path, evidence_id: str, evidence_path: Path,
+    relative: Optional[Path] = None,
+) -> Path:
+    """Write one queue item while the caller holds the queue transaction lock."""
+    if relative is None:
+        relative = evidence_path.resolve().relative_to(knowledge_root.resolve())
     target = _item_path(knowledge_root, evidence_id)
     target.parent.mkdir(parents=True, exist_ok=True)
     payload = {"evidence_id": evidence_id, "evidence_path": relative.as_posix()}
@@ -29,7 +66,16 @@ def enqueue_curation_work(knowledge_root: Path, evidence_id: str, evidence_path:
 
 def complete_curation_work(knowledge_root: Path, evidence_id: str) -> bool:
     """Remove a work item only after a Bundle or Review card was created."""
-    target = _item_path(knowledge_root.resolve(), evidence_id)
+    knowledge_root = knowledge_root.resolve()
+    with curation_queue_transaction(knowledge_root):
+        return _complete_curation_work_unlocked(knowledge_root, evidence_id)
+
+
+def _complete_curation_work_unlocked(
+    knowledge_root: Path, evidence_id: str
+) -> bool:
+    """Remove one queue item while the caller holds the queue transaction lock."""
+    target = _item_path(knowledge_root, evidence_id)
     existed = target.exists()
     target.unlink(missing_ok=True)
     return existed
@@ -61,6 +107,14 @@ def list_curation_queue(knowledge_root: Path, *, include_resolved: bool = False)
 def refresh_curation_queue(knowledge_root: Path) -> Dict[str, object]:
     """Repair pending work items by scanning immutable Evidence and outcomes."""
     knowledge_root = knowledge_root.resolve()
+    with curation_queue_transaction(knowledge_root):
+        return _refresh_curation_queue_unlocked(knowledge_root)
+
+
+def _refresh_curation_queue_unlocked(
+    knowledge_root: Path,
+) -> Dict[str, object]:
+    """Reconcile the full queue while holding its namespace transaction lock."""
     completed = _completed_evidence_ids(knowledge_root)
     expected: Dict[str, Path] = {}
     for path in sorted((knowledge_root / "evidence").rglob("*.md")):
@@ -85,7 +139,9 @@ def refresh_curation_queue(knowledge_root: Path) -> Dict[str, object]:
         target = _item_path(knowledge_root, evidence_id)
         relative = path.relative_to(knowledge_root).as_posix()
         if not target.exists():
-            enqueue_curation_work(knowledge_root, evidence_id, path)
+            _enqueue_curation_work_unlocked(
+                knowledge_root, evidence_id, path, Path(relative)
+            )
             created += 1
             continue
         try:
@@ -93,7 +149,9 @@ def refresh_curation_queue(knowledge_root: Path) -> Dict[str, object]:
         except (OSError, ValueError):
             data = {}
         if data != {"evidence_id": evidence_id, "evidence_path": relative}:
-            enqueue_curation_work(knowledge_root, evidence_id, path)
+            _enqueue_curation_work_unlocked(
+                knowledge_root, evidence_id, path, Path(relative)
+            )
             repaired += 1
     for path in existing_paths - expected_paths:
         path.unlink(missing_ok=True)

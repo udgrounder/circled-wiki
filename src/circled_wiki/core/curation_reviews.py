@@ -7,7 +7,11 @@ import re
 from typing import Dict, List, Optional
 
 from .curation_contract import CurationOutput, validate_curation_output
-from .curation_queue import complete_curation_work, enqueue_curation_work
+from .curation_queue import (
+    _enqueue_curation_work_unlocked,
+    complete_curation_work,
+    curation_queue_transaction,
+)
 from .curation_safety import curation_body_safety_errors
 from .frontmatter import parse_markdown, render_markdown
 from .repository import find_document_by_id
@@ -291,21 +295,32 @@ def _find_review(knowledge_root: Path, review_id: str):
     raise ValueError("curation review was not found")
 
 
-def _archive_review(path: Path, data: Dict[str, object], body: str) -> None:
+def _archive_review(path: Path, data: Dict[str, object], body: str) -> Path:
     """Hide a consumed card while keeping its decision as a Git-tracked receipt."""
     archive_path = path.parent.parent / ".archive" / path.parent.name / path.name
     archive_path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(render_markdown(data, body), encoding="utf-8")
     path.replace(archive_path)
+    return archive_path
 
 
 def _stale_review(
     path: Path, data: Dict[str, object], body: str, knowledge_root: Path, evidence
 ) -> None:
     """Archive an obsolete decision and make its Evidence eligible for a fresh proposal."""
-    data["status"] = "stale"
-    _archive_review(path, data, body)
-    if evidence is not None:
-        enqueue_curation_work(
-            knowledge_root, str(evidence.frontmatter["id"]), evidence.path
-        )
+    previous_status = data.get("status")
+    with curation_queue_transaction(knowledge_root):
+        data["status"] = "stale"
+        archive_path = _archive_review(path, data, body)
+        try:
+            if evidence is not None:
+                _enqueue_curation_work_unlocked(
+                    knowledge_root,
+                    str(evidence.frontmatter["id"]),
+                    evidence.path,
+                )
+        except Exception:
+            archive_path.replace(path)
+            data["status"] = previous_status
+            path.write_text(render_markdown(data, body), encoding="utf-8")
+            raise

@@ -3,6 +3,8 @@ import unittest
 import sys
 import json
 import hashlib
+import multiprocessing
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import patch
 from pathlib import Path
@@ -24,10 +26,18 @@ from circled_wiki.core.curation_reviews import (
     list_curation_reviews,
 )
 from circled_wiki.core.curation_queue import (
+    curation_queue_transaction,
     enqueue_curation_work,
     list_curation_queue,
     refresh_curation_queue,
 )
+import circled_wiki.core.curation_queue as curation_queue
+
+
+def _acquire_queue_transaction(knowledge_root, started, acquired):
+    started.set()
+    with curation_queue_transaction(Path(knowledge_root)):
+        acquired.set()
 
 
 class CurationMaterializationTests(unittest.TestCase):
@@ -509,6 +519,164 @@ class CurationMaterializationTests(unittest.TestCase):
             temporary_files = list(paths[0].parent.glob("*.tmp"))
             self.assertEqual(temporary_files, [])
 
+    def test_queue_transaction_serializes_separate_processes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "knowledge"
+            context = multiprocessing.get_context("spawn")
+            started = context.Event()
+            acquired = context.Event()
+
+            with curation_queue_transaction(root):
+                process = context.Process(
+                    target=_acquire_queue_transaction,
+                    args=(str(root), started, acquired),
+                )
+                process.start()
+                self.assertTrue(started.wait(5))
+                self.assertFalse(acquired.wait(0.2))
+
+            self.assertTrue(acquired.wait(5))
+            process.join(5)
+            self.assertFalse(process.is_alive())
+            self.assertEqual(process.exitcode, 0)
+
+    def test_refresh_does_not_delete_queue_created_by_concurrent_ingest(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "knowledge"
+            refresh_paused = threading.Event()
+            resume_refresh = threading.Event()
+            ingest_waiting_for_lock = threading.Event()
+            original_queue_root = curation_queue._queue_root
+            original_enqueue = curation_queue.enqueue_curation_work
+            results = {}
+            errors = []
+
+            def gated_queue_root(value):
+                if (
+                    threading.current_thread().name == "refresh-thread"
+                    and not refresh_paused.is_set()
+                ):
+                    refresh_paused.set()
+                    resume_refresh.wait(5)
+                return original_queue_root(value)
+
+            def observed_enqueue(*args, **kwargs):
+                ingest_waiting_for_lock.set()
+                return original_enqueue(*args, **kwargs)
+
+            def run_refresh():
+                try:
+                    results["refresh"] = refresh_curation_queue(root)
+                except Exception as error:
+                    errors.append(error)
+
+            def run_ingest():
+                try:
+                    source = root / "inbox" / "manual" / "source.txt"
+                    source.parent.mkdir(parents=True)
+                    source.write_text("concurrent source", encoding="utf-8")
+                    results["evidence"] = ingest_evidence(
+                        root, source, "manual",
+                        why_collected="queue race test",
+                        intended_use=["queue-race"],
+                    )
+                except Exception as error:
+                    errors.append(error)
+
+            with (
+                patch.object(curation_queue, "_queue_root", side_effect=gated_queue_root),
+                patch.object(curation_queue, "enqueue_curation_work", side_effect=observed_enqueue),
+            ):
+                refresh_thread = threading.Thread(
+                    name="refresh-thread", target=run_refresh
+                )
+                ingest_thread = threading.Thread(
+                    name="ingest-thread", target=run_ingest
+                )
+                refresh_thread.start()
+                self.assertTrue(refresh_paused.wait(5))
+                ingest_thread.start()
+                self.assertTrue(ingest_waiting_for_lock.wait(5))
+                resume_refresh.set()
+                refresh_thread.join(5)
+                ingest_thread.join(5)
+
+            self.assertFalse(refresh_thread.is_alive())
+            self.assertFalse(ingest_thread.is_alive())
+            self.assertEqual(errors, [])
+            self.assertTrue(results["evidence"].manifest_path.is_file())
+            self.assertEqual(
+                list_curation_queue(root)[0]["evidence_id"],
+                results["evidence"].evidence_id,
+            )
+
+    def test_refresh_does_not_restore_queue_removed_by_concurrent_bundle_creation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, evidence_id = self._evidence(directory)
+            refresh_paused = threading.Event()
+            resume_refresh = threading.Event()
+            completion_waiting_for_lock = threading.Event()
+            original_queue_root = curation_queue._queue_root
+            original_complete = curation_queue.complete_curation_work
+            errors = []
+
+            def gated_queue_root(value):
+                if (
+                    threading.current_thread().name == "refresh-thread"
+                    and not refresh_paused.is_set()
+                ):
+                    refresh_paused.set()
+                    resume_refresh.wait(5)
+                return original_queue_root(value)
+
+            def observed_complete(*args, **kwargs):
+                completion_waiting_for_lock.set()
+                return original_complete(*args, **kwargs)
+
+            def run_refresh():
+                try:
+                    refresh_curation_queue(root)
+                except Exception as error:
+                    errors.append(error)
+
+            def run_bundle_creation():
+                try:
+                    create_bundle(
+                        root,
+                        domain="marketing",
+                        slug="concurrent-guide",
+                        title="Concurrent Guide",
+                        bundle_type="guide",
+                        summary="Queue race test.",
+                        evidence_id=evidence_id,
+                        tags=["concurrency", "guide"],
+                    )
+                except Exception as error:
+                    errors.append(error)
+
+            with (
+                patch.object(curation_queue, "_queue_root", side_effect=gated_queue_root),
+                patch.object(curation_queue, "complete_curation_work", side_effect=observed_complete),
+            ):
+                refresh_thread = threading.Thread(
+                    name="refresh-thread", target=run_refresh
+                )
+                bundle_thread = threading.Thread(
+                    name="bundle-thread", target=run_bundle_creation
+                )
+                refresh_thread.start()
+                self.assertTrue(refresh_paused.wait(5))
+                bundle_thread.start()
+                self.assertTrue(completion_waiting_for_lock.wait(5))
+                resume_refresh.set()
+                refresh_thread.join(5)
+                bundle_thread.join(5)
+
+            self.assertFalse(refresh_thread.is_alive())
+            self.assertFalse(bundle_thread.is_alive())
+            self.assertEqual(errors, [])
+            self.assertEqual(list_curation_queue(root), [])
+
     def test_queue_scan_excludes_legacy_evidence_already_linked_by_a_bundle(self):
         with tempfile.TemporaryDirectory() as directory:
             root, evidence_id = self._evidence(directory)
@@ -635,3 +803,66 @@ class CurationMaterializationTests(unittest.TestCase):
             self.assertNotEqual(replacement["review_id"], review["review_id"])
             self.assertEqual(list_curation_queue(root), [])
             self.assertEqual(refresh_curation_queue(root)["pending_count"], 0)
+
+    def test_stale_review_rolls_back_archive_when_requeue_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, evidence_id = self._evidence(directory)
+            target = create_bundle(
+                root,
+                domain="marketing",
+                slug="rollback-target",
+                title="Rollback target",
+                bundle_type="guide",
+                summary="Existing.",
+                evidence_id=evidence_id,
+            )
+            output = validate_curation_output({
+                "action": "guide",
+                "domain": "marketing",
+                "bundle_type": "guide",
+                "title": "Update target",
+                "summary": "Update.",
+                "body": "# Update",
+                "evidence_ids": [evidence_id],
+                "existing_bundle_candidates": [target.frontmatter["id"]],
+                "tags": ["marketing", "update"],
+            }, [evidence_id])
+            review = generate_curation_review(
+                root,
+                evidence_id,
+                output,
+                generated_by="curator",
+                curation_receipt="test://curation",
+            )
+            apply_bundle_revision(
+                root,
+                bundle_id=str(target.frontmatter["id"]),
+                expected_revision=1,
+                proposed_frontmatter=dict(target.frontmatter),
+                body=target.body + "\nChanged.\n",
+                actor="editor",
+            )
+
+            with (
+                patch(
+                    "circled_wiki.core.curation_reviews._enqueue_curation_work_unlocked",
+                    side_effect=OSError("queue unavailable"),
+                ),
+                self.assertRaisesRegex(OSError, "queue unavailable"),
+            ):
+                decide_curation_review(
+                    root,
+                    review["review_id"],
+                    action="approve",
+                    actor="reviewer",
+                )
+
+            review_path = root.parent / review["path"]
+            self.assertTrue(review_path.is_file())
+            self.assertEqual(
+                parse_markdown(review_path).frontmatter["status"], "pending"
+            )
+            self.assertEqual(
+                list((root / "curation-reviews" / ".archive").rglob("*.md")), []
+            )
+            self.assertEqual(list_curation_queue(root), [])
