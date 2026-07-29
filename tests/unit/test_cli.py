@@ -14,9 +14,18 @@ from circled_wiki.cli.__main__ import (
     run_cli,
 )
 from circled_wiki.config.settings import render_settings
+from circled_wiki.config.paths import project_root
 
 
 class CliTests(unittest.TestCase):
+    def test_project_root_resolves_source_repository_without_knowledge(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "pyproject.toml").write_text("[project]\nname = 'test'\n", encoding="utf-8")
+            (root / "src" / "circled_wiki").mkdir(parents=True)
+
+            self.assertEqual(project_root(root), root.resolve())
+
     def test_project_exposes_circled_wiki_cli_alias(self):
         project = Path(__file__).resolve().parents[2]
         metadata = (project / "pyproject.toml").read_text(encoding="utf-8")

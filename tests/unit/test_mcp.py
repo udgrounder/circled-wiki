@@ -8,18 +8,24 @@ from circled_wiki.mcp.server import available_tools, handle_request
 
 
 class McpServerTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary_directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary_directory.cleanup)
+        self.knowledge_root = Path(self.temporary_directory.name) / "knowledge"
+        self.knowledge_root.mkdir()
+
     def test_lists_documented_tools(self):
-        service = KnowledgeService(Path("knowledge"))
+        service = KnowledgeService(self.knowledge_root)
         response = handle_request({"jsonrpc": "2.0", "id": 1, "method": "tools/list"}, service)
         self.assertEqual(response["result"]["tools"], available_tools("read_only"))
 
     def test_unknown_tool_returns_tool_error(self):
-        service = KnowledgeService(Path("knowledge"))
+        service = KnowledgeService(self.knowledge_root)
         response = handle_request({"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "missing", "arguments": {}}}, service)
         self.assertTrue(response["result"]["isError"])
 
     def test_quality_tools_are_dispatched(self):
-        service = KnowledgeService(Path("knowledge"))
+        service = KnowledgeService(self.knowledge_root)
         response = handle_request({
             "jsonrpc": "2.0", "id": 3, "method": "tools/call",
             "params": {"name": "audit_knowledge", "arguments": {}},
@@ -55,7 +61,7 @@ class McpServerTests(unittest.TestCase):
             self.assertEqual(response["result"]["serverInfo"]["name"], "acme-knowledge")
 
     def test_read_only_mode_blocks_mutation_tools(self):
-        service = KnowledgeService(Path("knowledge"))
+        service = KnowledgeService(self.knowledge_root)
         response = handle_request({
             "jsonrpc": "2.0", "id": 4, "method": "tools/call",
             "params": {"name": "prepare_task", "arguments": {
