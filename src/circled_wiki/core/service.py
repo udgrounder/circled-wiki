@@ -159,8 +159,13 @@ class KnowledgeService:
             "direct candidate materialization is disabled; create a curation review and wait for independent approval"
         )
 
-    def promote_curation_candidate(self, bundle_id: str, *, actor: str, security_receipt: str) -> Dict[str, object]:
-        return promote_curation_candidate(self.knowledge_root, bundle_id, actor=actor, security_receipt=security_receipt)
+    def promote_curation_candidate(
+        self, bundle_id: str, *, actor: str, security_receipt: str, automated: bool = False,
+    ) -> Dict[str, object]:
+        return promote_curation_candidate(
+            self.knowledge_root, bundle_id, actor=actor,
+            security_receipt=security_receipt, automated=automated,
+        )
 
     def push_committed_changes(self, commit: str) -> Dict[str, object]:
         return push_committed_changes(self.knowledge_root.parent, commit)

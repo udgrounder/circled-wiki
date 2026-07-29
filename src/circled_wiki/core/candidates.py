@@ -11,6 +11,7 @@ from .pii import pii_scan_receipt_errors
 from .repository import bundle_references_by_evidence, find_document_by_id, iter_documents
 from .curation_queue import list_curation_queue
 from .validator import validate_repository
+from .bundle_types import DIRECT_DRAFT_TYPES
 
 
 REVIEW_STATES = {"pending", "needs_changes", "approved"}
@@ -159,7 +160,7 @@ def promote_curation_candidate(
     knowledge_root: Path, bundle_id: str, *, actor: str, security_receipt: str,
     automated: bool = False,
 ) -> Dict[str, object]:
-    """Promote an approved candidate with Owner approval only where required."""
+    """Promote a Draft through either the review or automatic publication Gate."""
     if not isinstance(security_receipt, str) or not security_receipt.strip():
         raise ValueError("security_receipt is required for Active promotion")
     document = find_document_by_id(knowledge_root, bundle_id)
@@ -167,6 +168,7 @@ def promote_curation_candidate(
         raise ValueError("bundle_id must refer to an existing Bundle")
     data = dict(document.frontmatter)
     requires_owner = data.get("type") in {"runbook", "manual"}
+    automatically_promotable = automated and data.get("type") in DIRECT_DRAFT_TYPES
     if not automated and requires_owner:
         settings = load_settings(knowledge_root.resolve().parent)
         owner = settings.approval.knowledge_owner
@@ -175,7 +177,10 @@ def promote_curation_candidate(
         if actor != owner:
             raise ValueError("only the configured knowledge-owner may promote a runbook or manual")
     extensions = dict(data.get("extensions", {}))
-    if data.get("status") != "draft" or extensions.get("review_state") != "approved":
+    allowed_review_states = {"pending", "approved"} if automatically_promotable else {"approved"}
+    if data.get("status") != "draft" or extensions.get("review_state") not in allowed_review_states:
+        if automatically_promotable:
+            raise ValueError("only a pending or approved automatic-promotion Draft candidate may be promoted")
         raise ValueError("only an approved Draft candidate may be promoted")
     if automated and data.get("type") in {"runbook", "manual"}:
         raise ValueError("runbook and manual require Owner promotion")
@@ -231,6 +236,9 @@ def promote_curation_candidate(
         "mode": "automatic" if automated else ("owner_approved" if requires_owner else "review_approved"),
     }
     extensions["curation"] = curation
+    # ``approved`` here is the lifecycle state consumed by the Validator; the
+    # provenance mode distinguishes a completed automatic Gate from a human review.
+    extensions["review_state"] = "approved"
     extensions["governance"] = governance
     data["status"] = "active"
     data["owners"] = [actor]

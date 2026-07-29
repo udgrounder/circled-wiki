@@ -66,6 +66,22 @@ class CurationCandidateTests(unittest.TestCase):
             self.assertEqual(result["promotion_mode"], "review_approved")
             self.assertTrue(all(item.is_valid for item in validate_repository(knowledge_root)))
 
+    def test_direct_draft_type_auto_promotes_without_human_review(self):
+        with tempfile.TemporaryDirectory() as directory:
+            knowledge_root, bundle = self._candidate(directory)
+
+            result = KnowledgeService(knowledge_root).promote_curation_candidate(
+                bundle.frontmatter["id"], actor="curation-worker",
+                security_receipt="security://automatic-1", automated=True,
+            )
+
+            promoted = find_document_by_id(knowledge_root, bundle.frontmatter["id"])
+            self.assertEqual(result["promotion_mode"], "automatic")
+            self.assertEqual(promoted.frontmatter["status"], "active")
+            self.assertEqual(promoted.frontmatter["extensions"]["review_state"], "approved")
+            self.assertEqual(promoted.frontmatter["extensions"]["curation"]["promotion"]["mode"], "automatic")
+            self.assertTrue(all(item.is_valid for item in validate_repository(knowledge_root)))
+
     def test_review_approval_backfills_missing_checksum_snapshot_for_legacy_draft(self):
         with tempfile.TemporaryDirectory() as directory:
             knowledge_root, bundle = self._candidate(directory)

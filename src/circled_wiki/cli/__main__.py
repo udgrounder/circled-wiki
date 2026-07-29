@@ -384,6 +384,10 @@ def main() -> int:
     promote_candidate.add_argument("--bundle", required=True)
     promote_candidate.add_argument("--actor", required=True)
     promote_candidate.add_argument("--security-receipt", required=True)
+    promote_candidate.add_argument(
+        "--automated", action="store_true",
+        help="Use the RB-CUR-006 automatic Gate for policy, guide, decision, spec, reference, or report.",
+    )
     revise_bundle = subparsers.add_parser("apply-bundle-revision")
     revise_bundle.add_argument("--bundle", required=True)
     revise_bundle.add_argument("--expected-revision", required=True, type=int)
@@ -839,6 +843,7 @@ def main() -> int:
     if args.command == "promote-curation-candidate":
         print(json.dumps(service.promote_curation_candidate(
             args.bundle, actor=args.actor, security_receipt=args.security_receipt,
+            automated=args.automated,
         ), ensure_ascii=False, indent=2)); return 0
     if args.command == "create-bundle":
         if args.type not in DIRECT_DRAFT_TYPES:

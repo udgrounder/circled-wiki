@@ -638,7 +638,7 @@ deprecation 공지, 자동화 마이그레이션 확인 후 제거 여부를 별
 | 운영 결정 | 확정 내용 | 구현 경계 |
 | --- | --- | --- |
 | Curation 실행 | 자율형 상위 Agent가 필요 시 다른 Agent를 호출하여 수행 | 외부 Agent는 Core CLI/MCP의 typed Curation API만 호출하고 Bundle/Evidence Frontmatter를 직접 수정하지 않는다. |
-| Active 승인 | 사용자 1명이 승인 | 인증된 사용자 주체를 `knowledge-owner` 승인자로 결합한다. self-approval, 단순 actor 문자열, 자동 Active 승격은 허용하지 않는다. |
+| Active 승인 | 유형별 Gate 적용 | `runbook`·`manual`은 인증된 `knowledge-owner`의 독립 승인이 필요하다. `policy`·`guide`·`decision`·`spec`·`reference`·`report`는 RB-CUR-006 Evidence·PII·참조 무결성·전체 Validator·Security Gate 통과 시 자동 Active 승격을 허용하고 provenance에 기록한다. |
 | 운영본 수정 | 현재 운영 중인 Agent가 수행 | 원본은 실행 계획·검증 도구·rollback 절차를 제공하고, 운영 Agent가 실제 Evidence 재검사·격리·수정을 수행한다. |
 | 저장소 모델 | 설치·upgrade 배포본 | 운영본은 공식 Circled Wiki 배포본의 Control Plane으로 취급하며, upgrade는 preflight·backup·checksum 검증 뒤에만 수행한다. |
 | Git Push | 자동화에 Push 권한 부여 | Commit과 Push API·권한·remote/branch 검증은 분리하고, Push 결과와 재시도 상태를 receipt로 남긴다. |

@@ -169,7 +169,8 @@ PYTHONPATH=src python3 -m circled_wiki.cli propose-update \
 `policy`, `guide`, `decision`, `spec`, `reference`, `report`는 신규 공식 지식 후보로 직접 Draft를 생성할 수 있다. `--evidence`에는
 위에서 생성된 URI를 그대로 넣는다. `manual`과 `runbook`은 아래 자동 정제와 같은
 Review 카드·독립 승인 흐름을 사용한다. 직접 생성한 Draft도 `active` 전환 전에는 동일한 Review·독립 Owner
-승인·Security Gate를 거쳐야 한다.
+승인·Security Gate를 거쳐야 한다. 그 밖의 직접 생성 가능 유형은 RB-CUR-006의 Evidence·PII·참조 무결성·전체
+Validator 및 Security Gate를 통과하면 `promote-curation-candidate --automated`로 사람 승인 없이 active로 승격할 수 있다.
 
 ```sh
 PYTHONPATH=src python3 -m circled_wiki.cli create-bundle \
@@ -185,6 +186,16 @@ PYTHONPATH=src python3 -m circled_wiki.cli create-bundle \
 
 ```sh
 PYTHONPATH=src python3 -m circled_wiki.cli validate
+```
+
+검증을 통과한 직접 생성 가능 유형은 Security Receipt를 지정해 자동 승격할 수 있다.
+
+```sh
+PYTHONPATH=src python3 -m circled_wiki.cli promote-curation-candidate \
+  --bundle bundle/<organization-id>/refund-policy--<bundle-uuid> \
+  --actor <curation-worker-id> \
+  --security-receipt <security-receipt> \
+  --automated
 ```
 
 자동 정제가 만든 후보는 `draft`와 `extensions.review_state`로 별도 관리하며, 기본 지식 조회에는 포함되지 않는다.
@@ -209,10 +220,10 @@ PYTHONPATH=src python3 -m circled_wiki.cli decide-curation-review \
   --review review-<id> --action approve --actor <reviewer-id>
 ```
 
-자동 정제 결과는 유형·신뢰도와 무관하게 항상 `curation-reviews/` Review 카드로 먼저 생성된다.
-`manual`과 `runbook`은 Review 카드와 독립 Owner 승인을 거쳐야 Draft를 만들 수 있다.
-`policy`, `guide`, `decision`, `spec`, `reference`, `report`는 Evidence Gate를 통과하면 직접 Draft 생성도 가능하며,
-모든 Draft의 `active` 전환은 Owner·Security Gate를 거친 전용 Promotion만 사용한다.
+자동 정제 결과 중 `manual`과 `runbook`은 항상 `curation-reviews/` Review 카드로 먼저 생성되며, 독립 Owner 승인을
+거쳐야 Draft를 만들 수 있다. `policy`, `guide`, `decision`, `spec`, `reference`, `report`는 Evidence Gate를 통과하면
+직접 Draft 생성이 가능하고, RB-CUR-006의 자동 Promotion Gate로 active 전환할 수 있다. 모든 active 전환에는 전용
+Promotion Gate와 Security Receipt를 사용한다.
 
 ### 3. 지식 조회
 
