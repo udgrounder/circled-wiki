@@ -216,6 +216,12 @@ extensions:
 - `spec`
 - `reference`
 
+### tags
+
+- Bundle에는 `bundles`, Bundle type, domain 같은 구조 태그와 함께 Evidence·제목·요약·본문에서 확인한 핵심 주제·개념, 적용 대상 또는 업무 영역, 주요 행위·산출물·결정 특성을 태그로 사용한다. 태그만으로도 문서의 성격을 빠르게 파악할 수 있어야 한다.
+- 핵심 주제 태그가 비어 있더라도 생성·revision·발행을 차단하지 않는다. 직접 생성·revision에서 구조·상태성 태그만 남으면 canonical slug를 보완 태그로 자동 추가한다.
+- 원문에 없는 사실, 민감정보 또는 자격증명을 태그로 만들지 않는다.
+
 ### evidence
 
 - URI 배열

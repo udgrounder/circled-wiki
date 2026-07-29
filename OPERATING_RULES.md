@@ -241,6 +241,7 @@ Evidence -> Curator -> Validator -> Reviewer -> Security Gate -> Commit
 - **RB-PUB-009** Bundle 변경은 현재 `knowledge_revision`을 사전 조건으로 사용하며 stale revision 변경을 거부한다.
 - **RB-PUB-010** Bundle Evidence 참조는 하나의 변경 단위로 검증하고 실패 시 Bundle 변경 전 상태로 원복한다.
 - **RB-PUB-011** Bundle Archive 절차는 (1) 중복·병합·폐기 근거를 검토하고, (2) `extensions.archive`에 시각·담당자·사유·복구 조건을 기록하고, (3) `knowledge/bundles/.archive/<domain>/`으로 이동하며, (4) 전체 Validator와 검색 제외를 확인하는 순서로 수행한다. 복구는 Reviewer 승인 후 Archive 메타데이터를 보존한 채 원래 도메인 경로로 이동하고 상태를 재검토한다.
+- **RB-PUB-012** Bundle 태그는 `bundles`, Bundle type, domain의 구조 태그에 더해 Evidence·제목·요약·본문에서 확인한 핵심 주제·개념, 적용 대상 또는 업무 영역, 주요 행위·산출물·결정 특성을 태그로 사용한다. 태그만으로 문서의 성격을 빠르게 파악할 수 있어야 하며, 근거가 약하거나 중복된 태그를 억지로 채우지 않는다. 태그 부족은 생성·revision·발행을 차단하지 않으며, 직접 생성·revision에서 구조·상태성 태그만 남으면 canonical slug를 보완 태그로 자동 추가한다. 원문에 없는 사실·민감정보·자격증명을 태그로 만들지 않는다.
 
 ### 9.1 Bundle Curation and Activation Contract
 

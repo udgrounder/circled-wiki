@@ -361,7 +361,9 @@ def create_bundle(
         "type": bundle_type, "id": bundle_id, "bundle_uuid": bundle_uuid, "title": title,
         "status": "draft", "summary": summary, "updated_at": now, "evidence": [evidence_id],
         "evidence_links": [evidence_markdown_link(knowledge_root, evidence)],
-        "tags": _normalized_bundle_tags(tags, bundle_type=bundle_type, domain=domain),
+        "tags": _normalized_bundle_tags(
+            tags, bundle_type=bundle_type, domain=domain, topic_fallback=slug
+        ),
         "owners": list(settings.workflow.default_owners) or [settings.operator_agent],
         "extensions": {
             "source_uuids": [evidence.frontmatter["source_uuid"]],
@@ -461,7 +463,8 @@ def apply_bundle_revision(
 
     relative = existing.path.relative_to(knowledge_root / "bundles")
     proposed["tags"] = _normalized_bundle_tags(
-        proposed.get("tags"), bundle_type=str(existing.frontmatter["type"]), domain=relative.parts[0],
+        proposed.get("tags"), bundle_type=str(existing.frontmatter["type"]),
+        domain=relative.parts[0], topic_fallback=existing.path.stem,
     )
 
     existing_extensions = existing.frontmatter.get("extensions")
@@ -527,9 +530,9 @@ def apply_bundle_revision(
 
 
 def _normalized_bundle_tags(
-    tags: Optional[Iterable[str]], *, bundle_type: str, domain: str
+    tags: Optional[Iterable[str]], *, bundle_type: str, domain: str, topic_fallback: str
 ) -> list[str]:
-    """Keep structural tags while preserving curator-provided topical tags."""
+    """Keep structural tags and automatically supplement a document-topic tag."""
     if tags is None:
         supplied: list[str] = []
     elif isinstance(tags, (str, bytes)):
@@ -546,4 +549,13 @@ def _normalized_bundle_tags(
         if key not in seen:
             seen.add(key)
             result.append(value)
+    structural = {"bundles", bundle_type.casefold(), domain.casefold()}
+    non_topical = structural | {
+        "active", "approved", "archived", "curated", "deprecated", "draft", "pending", "reviewed",
+    }
+    if not any(tag.casefold() not in non_topical for tag in result):
+        fallback = topic_fallback.strip() or "topic"
+        if fallback.casefold() in structural:
+            fallback = f"topic-{fallback}"
+        result.append(fallback)
     return result

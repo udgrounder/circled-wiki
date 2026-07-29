@@ -148,6 +148,7 @@ class IngestEvidenceTests(unittest.TestCase):
                 approved_review_id="review-simulated-owner-approval",
             )
             self.assertEqual(draft.frontmatter["status"], "draft")
+            self.assertIn("source-intake-simulation", draft.frontmatter["tags"])
             approved = deepcopy(draft.frontmatter)
             approved["status"] = "active"
             approved["owners"] = ["simulated-knowledge-owner"]
@@ -653,6 +654,7 @@ class IngestEvidenceTests(unittest.TestCase):
                 evidence_id=str(evidence["evidence_id"]), body="# Policy\n\nInitial.\n",
                 actor="hermes-curator", tags=["operations", "policy"],
             )
+            self.assertIn("operations-policy", draft["frontmatter"]["tags"])
             proposal = dict(draft["frontmatter"])
             proposal["summary"] = "Reviewed summary."
             proposal["tags"] = ["operations", "policy", "reviewed"]
@@ -662,7 +664,10 @@ class IngestEvidenceTests(unittest.TestCase):
             )
 
             self.assertEqual(updated["frontmatter"]["extensions"]["knowledge_revision"], 2)
-            self.assertEqual(updated["frontmatter"]["tags"], ["bundles", "policy", "operations", "reviewed"])
+            self.assertEqual(
+                updated["frontmatter"]["tags"],
+                ["bundles", "policy", "operations", "reviewed", "operations-policy"],
+            )
             self.assertEqual(updated["frontmatter"]["extensions"]["updated_by"], "verification-agent")
             self.assertIn("Reviewed.", updated["body"])
             evidence_manifest = parse_markdown(

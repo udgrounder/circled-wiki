@@ -23,7 +23,9 @@ owners:
 tags:
   - bundles
   - {policy|guide|runbook|manual|decision|spec|reference|report}
-  - {tag}
+  - {핵심-주제-or-개념-tag}
+  - {적용-대상-or-업무영역-tag}
+  - {주요-행위-or-산출물-or-결정특성-tag}
 evidence:
   - evidence/{organization_id}/{name}_{source_uuid}.md
 evidence_links:

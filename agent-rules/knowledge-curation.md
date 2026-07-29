@@ -26,7 +26,7 @@ Evidence를 기존 Bundle과 비교하거나 신규 Draft를 작성한다.
 - Bundle을 만들거나 기존 Bundle의 `id`·파일명 관계를 판단할 때 `OPERATING_RULES.md`의 RB-KNW-026 Bundle Identity Contract
 - 여러 단계 정제 작업에서 독립·제한된 조사 또는 검증 작업을 위임할 수 있는지와, 위임해도 Owner 승인·Security Gate·최종 책임이 유지되는지
 - 후보의 제목·요약과 Evidence 제목·intended use 간 의미 관련성, 그리고 적합한 Bundle type
-- Bundle 태그는 기본 구조 태그(`bundles`, Bundle type, domain)와 Evidence·본문에서 확인한 주제 태그를 함께 사용하며, 원문에 없는 사실·민감정보·자격증명을 태그로 만들지 않는다.
+- Bundle 태그는 구조 태그(`bundles`, Bundle type, domain)만으로 끝내지 않는다. Evidence·제목·요약·본문에서 확인한 (1) 핵심 주제·개념, (2) 적용 대상 또는 업무 영역, (3) 주요 행위·산출물·결정 특성 중 해당하는 것을 태그로 함께 사용해, 태그만으로도 문서의 성격을 빠르게 파악할 수 있게 한다. 서로 중복하거나 근거가 약한 태그를 채우기 위해 만들지 않으며, 원문에 없는 사실·민감정보·자격증명을 태그로 만들지 않는다.
 - Evidence 본문·excerpt·생성할 Bundle 내용을 읽을 때 자격증명·PII 평문과 문맥상 재식별 가능성을 다시 확인
 - Evidence PII Scan 증빙과 마스킹 상태가 실제 원문 checksum에 대응하는지 확인
 
