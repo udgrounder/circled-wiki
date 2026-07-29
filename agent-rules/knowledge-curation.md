@@ -49,7 +49,11 @@ Evidence를 기존 Bundle과 비교하거나 신규 Draft를 작성한다.
 `guide`와 `extensions.rulebook`으로 표현한다. Owner가 없는 Draft 후보는
 `assign_owner_and_review_draft`와 차단 조건을 반환한다.
 
-모든 Evidence는 파일의 `extensions.curation_queue` 상태를 원장으로 남긴다. `workspace/task/curation-review-queue.md`는
+모든 Evidence는 파일의 `extensions.curation_queue` 상태를 원장으로 남긴다. Curator가 Review 카드를 만들면 Evidence의
+정제 작업은 `review_pending`으로 handoff 완료 처리하고, 같은 Evidence를 다시 정제하지 않는다. Review 카드는 Evidence ID·상대
+경로·checksum·제목·수집 목적·intended use의 안전한 snapshot을 보존하며, 실제 Evidence 링크를 기준으로 검토한다. 승인 또는
+`no_bundle` 결정으로 작업을 소비하면 카드를 삭제한다.
+Evidence 원문은 카드에 복사하지 않는다. `workspace/task/curation-review-queue.md`는
 미완료(`pending`, `review_pending`, `needs_review`) 항목만 Evidence 전체 스캔으로 재생성하는 파생 작업 큐다. 큐 파일을
 직접 상태 원장으로 사용하지 않으며, 누락·중복·불일치가 의심되면 `refresh-curation-queue`로 다시 만든다.
 

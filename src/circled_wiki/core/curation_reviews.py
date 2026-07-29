@@ -90,7 +90,13 @@ def generate_curation_review(
         "evidence_refs": [{"evidence_id": evidence_id, "path": evidence_path, "checksum": checksum}],
         "target_bundle_id": target_bundle_id,
         "expected_knowledge_revision": expected_revision,
-        "extensions": {"curation_review": metadata},
+        "extensions": {"curation_review": {
+            **metadata,
+            # The card must stay reviewable even after its Evidence leaves the
+            # Curator's work queue.  Keep only safe metadata here; the Evidence
+            # original remains in its canonical record.
+            "evidence_snapshot": _evidence_snapshot(evidence, evidence_path, checksum),
+        }},
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     original_evidence = evidence.path.read_text(encoding="utf-8")
@@ -117,7 +123,7 @@ def generate_curation_review(
 
 
 def decide_curation_review(knowledge_root: Path, review_id: str, *, action: str, actor: str, note: str = "") -> Dict[str, object]:
-    """Record a human decision and remove a consumed review after Draft creation."""
+    """Apply a human decision and discard the consumed review work card."""
     if action not in {"approve", "no_bundle", "needs_changes", "needs_review"}:
         raise ValueError("action must be approve, no_bundle, needs_changes, or needs_review")
     if not actor.strip():
@@ -167,20 +173,24 @@ def decide_curation_review(knowledge_root: Path, review_id: str, *, action: str,
     elif action == "no_bundle":
         from .curation import materialize_curation_candidate
         no_bundle = output if output.action == "no_bundle" else CurationOutput(
-            action="no_bundle", rationale=note or "Reviewer determined no Bundle is needed.", recheck_condition="Evidence checksum changes or reviewer reopens the decision."
+            action="no_bundle", domain="", bundle_type="", title="", summary="", body="",
+            evidence_ids=(evidence_ref["evidence_id"],),
+            rationale=note or "Reviewer determined no Bundle is needed.",
+            recheck_condition="Evidence checksum changes or reviewer reopens the decision.",
         )
         result = materialize_curation_candidate(
             knowledge_root, evidence_ref["evidence_id"], no_bundle,
             generated_by=str(metadata["generated_by"]), curation_receipt=str(metadata["curation_receipt"]),
         )
         data["status"] = "no_bundle"
+        delete_review_after_decision = True
     else:
         data["status"] = "needs_changes" if action == "needs_changes" else "needs_review"
         result = {"action": data["status"]}
     data["decided_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
     data["decided_by"] = actor.strip()
     data["decision_note"] = note
-    if delete_review_after_decision:
+    if delete_review_after_decision and action == "approve":
         current_evidence = find_document_by_id(knowledge_root, evidence_ref["evidence_id"])
         bundle = find_document_by_id(knowledge_root, str(result.get("bundle_id", "")))
         if current_evidence is None or bundle is None:
@@ -220,6 +230,32 @@ def decide_curation_review(knowledge_root: Path, review_id: str, *, action: str,
             path.unlink()
         except Exception:
             bundle.path.write_text(original_bundle, encoding="utf-8")
+            current_evidence.path.write_text(original_evidence, encoding="utf-8")
+            raise
+        return {
+            "review_id": review_id,
+            "status": data["status"],
+            "review_deleted": True,
+            "result": result,
+        }
+    if delete_review_after_decision:
+        current_evidence = find_document_by_id(knowledge_root, evidence_ref["evidence_id"])
+        if current_evidence is None:
+            raise ValueError("Evidence must remain available before review cleanup")
+        evidence_data = dict(current_evidence.frontmatter)
+        evidence_extensions = dict(evidence_data.get("extensions", {}))
+        evidence_extensions.pop("curation_review", None)
+        evidence_extensions["curation_queue"] = {
+            "status": "no_bundle", "updated_at": data["decided_at"],
+        }
+        evidence_data["extensions"] = evidence_extensions
+        original_evidence = current_evidence.path.read_text(encoding="utf-8")
+        try:
+            current_evidence.path.write_text(
+                render_markdown(evidence_data, current_evidence.body), encoding="utf-8"
+            )
+            path.unlink()
+        except Exception:
             current_evidence.path.write_text(original_evidence, encoding="utf-8")
             raise
         return {
@@ -268,6 +304,22 @@ def _safe_title(output: CurationOutput, evidence_title: object) -> str:
 
 def _review_body(output: CurationOutput) -> str:
     return "# Review summary\n\n" + (output.summary or output.rationale or "Review the referenced Evidence before applying a change.") + "\n"
+
+
+def _evidence_snapshot(evidence, evidence_path: str, checksum: str) -> Dict[str, object]:
+    """Copy safe, checksum-bound context for a reviewer, never Evidence content."""
+    extensions = evidence.frontmatter.get("extensions", {})
+    context = extensions.get("capture_context", {}) if isinstance(extensions, dict) else {}
+    return {
+        "evidence_id": str(evidence.frontmatter["id"]),
+        "path": evidence_path,
+        "checksum": checksum,
+        "title": str(evidence.frontmatter.get("title", "")),
+        "provider": str(evidence.frontmatter.get("provider", "")),
+        "captured_at": str(evidence.frontmatter.get("captured_at", "")),
+        "why_collected": str(context.get("why_collected", "")) if isinstance(context, dict) else "",
+        "intended_use": list(context.get("intended_use", [])) if isinstance(context, dict) and isinstance(context.get("intended_use"), list) else [],
+    }
 
 
 def _single_evidence_ref(data: Dict[str, object]) -> Dict[str, str]:

@@ -220,10 +220,14 @@ def run_configured_curation_batch(knowledge_root: Path, *, limit: int = 100) -> 
         document = parse_markdown(path)
         data = document.frontmatter
         extensions = data.get("extensions", {})
+        queue = extensions.get("curation_queue", {}) if isinstance(extensions, dict) else {}
         if (
             data.get("type") != "evidence"
             or data.get("status") not in {"new", "needs_review"}
             or (isinstance(extensions, dict) and extensions.get("visibility") == "restricted")
+            # A review card is the completed handoff from Curator to Reviewer.
+            # Do not repeatedly run the Curator until the review is resolved.
+            or (isinstance(queue, dict) and queue.get("status") == "review_pending")
         ):
             continue
         result = run_configured_curation(knowledge_root, str(data["id"]))

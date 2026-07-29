@@ -213,6 +213,18 @@ def _validate_curation_review(document: MarkdownDocument, result: ValidationResu
         result.profile_errors.append("curation review extensions.curation_review must be an object")
     elif not _is_nonempty_string(metadata.get("idempotency_key")) or not _is_nonempty_string(metadata.get("generated_by")):
         result.profile_errors.append("curation review idempotency_key and generated_by must be non-empty")
+    else:
+        snapshot = metadata.get("evidence_snapshot")
+        if not isinstance(snapshot, dict):
+            result.profile_errors.append("curation review must preserve an Evidence snapshot")
+        elif refs and isinstance(refs, list) and isinstance(refs[0], dict):
+            for field in ("evidence_id", "path", "checksum"):
+                if snapshot.get(field) != refs[0].get(field):
+                    result.profile_errors.append(
+                        f"curation review Evidence snapshot {field} must match its Evidence reference"
+                    )
+            if not _is_nonempty_string(snapshot.get("title")):
+                result.profile_errors.append("curation review Evidence snapshot title must be non-empty")
 
 
 def _validate_bundle(

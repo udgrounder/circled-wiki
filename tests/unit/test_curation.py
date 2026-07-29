@@ -9,7 +9,7 @@ from circled_wiki.core.curation import materialize_curation_candidate
 from circled_wiki.core.curation import run_configured_curation, run_configured_curation_batch
 from circled_wiki.core.curation_contract import validate_curation_output
 from circled_wiki.core.ingest import ingest_evidence
-from circled_wiki.core.frontmatter import render_markdown
+from circled_wiki.core.frontmatter import parse_markdown, render_markdown
 from circled_wiki.core.pii import record_pii_scan_receipt
 from circled_wiki.core.service import KnowledgeService
 from circled_wiki.core.candidates import list_curation_candidates
@@ -120,6 +120,9 @@ class CurationMaterializationTests(unittest.TestCase):
                 bundle.frontmatter["extensions"]["curation"]["review_decision"]["review_id"],
                 review["review_id"],
             )
+            self.assertTrue(applied["review_deleted"])
+            review_path = root.parent / review["path"]
+            self.assertFalse(review_path.exists())
 
     def test_general_revision_api_cannot_promote_any_draft_bundle(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -286,6 +289,14 @@ class CurationMaterializationTests(unittest.TestCase):
             evidence = find_document_by_id(root, evidence_id)
             self.assertNotIn("curated_into", evidence.frontmatter)
             self.assertEqual(evidence.frontmatter["extensions"]["curation_queue"]["status"], "review_pending")
+            review = list_curation_reviews(root)[0]
+            snapshot = parse_markdown(root.parent / review["path"]).frontmatter["extensions"]["curation_review"]["evidence_snapshot"]
+            self.assertEqual(snapshot["evidence_id"], evidence_id)
+            self.assertEqual(snapshot["checksum"], evidence.frontmatter["checksum"])
+            self.assertEqual(snapshot["why_collected"], "test")
+            self.assertEqual(snapshot["intended_use"], ["marketing"])
+            batch = run_configured_curation_batch(root, limit=1)
+            self.assertEqual(batch["attempted"], 0)
 
     def test_failed_review_approval_preserves_review_card(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -312,6 +323,25 @@ class CurationMaterializationTests(unittest.TestCase):
                 evidence.frontmatter["extensions"]["curation_review"]["status"],
                 "pending",
             )
+
+    def test_no_bundle_decision_discards_card_and_completes_curation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, evidence_id = self._evidence(directory)
+            review = generate_curation_review(
+                root, evidence_id, self._output(evidence_id),
+                generated_by="curator", curation_receipt="test://curation",
+            )
+
+            decided = decide_curation_review(
+                root, review["review_id"], action="no_bundle", actor="reviewer",
+                note="Not suitable for a Bundle.",
+            )
+
+            self.assertTrue(decided["review_deleted"])
+            self.assertFalse((root.parent / review["path"]).exists())
+            evidence = find_document_by_id(root, evidence_id)
+            self.assertEqual(evidence.frontmatter["extensions"]["curation_queue"]["status"], "no_bundle")
+            self.assertEqual(list_curation_queue(root), [])
 
     def test_high_confidence_reference_still_requires_curation_review(self):
         with tempfile.TemporaryDirectory() as directory:
