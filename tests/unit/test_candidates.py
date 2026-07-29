@@ -54,22 +54,6 @@ class CurationCandidateTests(unittest.TestCase):
     def test_review_history_approval_allows_candidate_promotion(self):
         with tempfile.TemporaryDirectory() as directory:
             knowledge_root, bundle = self._candidate(directory)
-            document = parse_markdown(bundle.path)
-            data = dict(document.frontmatter)
-            extensions = dict(data["extensions"])
-            evidence = find_document_by_id(knowledge_root, data["evidence"][0])
-            curation = {
-                "generated_by": "test-curator",
-                "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-                "generation_reason": "test",
-                "evidence_checksum": evidence.frontmatter["checksum"],
-                "curation_receipt": "test://curation",
-                "recommendation": "guide",
-                "profile_version": "v1",
-            }
-            extensions["curation"] = curation
-            data["extensions"] = extensions
-            bundle.path.write_text(render_markdown(data, document.body), encoding="utf-8")
             review_curation_candidate(
                 knowledge_root, bundle.frontmatter["id"], action="approve", actor="reviewer"
             )
@@ -81,6 +65,27 @@ class CurationCandidateTests(unittest.TestCase):
             self.assertEqual(result["status"], "active")
             self.assertEqual(result["promotion_mode"], "review_approved")
             self.assertTrue(all(item.is_valid for item in validate_repository(knowledge_root)))
+
+    def test_review_approval_backfills_missing_checksum_snapshot_for_legacy_draft(self):
+        with tempfile.TemporaryDirectory() as directory:
+            knowledge_root, bundle = self._candidate(directory)
+            document = parse_markdown(bundle.path)
+            data = dict(document.frontmatter)
+            extensions = dict(data["extensions"])
+            extensions["curation"] = {}
+            data["extensions"] = extensions
+            bundle.path.write_text(render_markdown(data, document.body), encoding="utf-8")
+
+            review_curation_candidate(
+                knowledge_root, bundle.frontmatter["id"], action="approve", actor="reviewer"
+            )
+
+            refreshed = find_document_by_id(knowledge_root, bundle.frontmatter["id"])
+            evidence = find_document_by_id(knowledge_root, refreshed.frontmatter["evidence"][0])
+            self.assertEqual(
+                refreshed.frontmatter["extensions"]["curation"]["evidence_checksum"],
+                evidence.frontmatter["checksum"],
+            )
 
     def test_rejection_archives_candidate_with_audit_fields(self):
         with tempfile.TemporaryDirectory() as directory:

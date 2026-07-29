@@ -52,6 +52,17 @@ class SensitiveDataPrecheckTests(unittest.TestCase):
             data["capture_details"]["sensitive_data_precheck"]["categories"], ["credential"]
         )
 
+    def test_masks_presigned_url_credential_parameters(self):
+        result = redact_sensitive_data(
+            "https://example.test/file?X-Amz-Security-Token=synthetic-token&"
+            "X-Amz-Credential=synthetic-credential&X-Amz-Signature=synthetic-signature"
+        )
+
+        self.assertNotIn("synthetic-token", result.content)
+        self.assertNotIn("synthetic-credential", result.content)
+        self.assertNotIn("synthetic-signature", result.content)
+        self.assertEqual(result.categories, ("credential",))
+
     def test_evidence_ingest_recheck_masks_a_legacy_unmasked_text_item(self):
         from pathlib import Path
         from tempfile import TemporaryDirectory

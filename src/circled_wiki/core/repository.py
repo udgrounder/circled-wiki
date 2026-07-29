@@ -366,6 +366,15 @@ def create_bundle(
         "extensions": {
             "source_uuids": [evidence.frontmatter["source_uuid"]],
             "curated_by": curated_by,
+            "curation": {
+                "generated_by": curated_by,
+                "generated_at": now,
+                "generation_reason": "direct Draft creation",
+                "evidence_checksum": evidence.frontmatter["checksum"],
+                "curation_receipt": f"direct://{curated_by}",
+                "recommendation": bundle_type,
+                "profile_version": "direct-v1",
+            },
             "review_state": "pending",
             "confidence": "draft",
             "knowledge_revision": 1,

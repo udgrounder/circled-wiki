@@ -188,12 +188,28 @@ def promote_curation_candidate(
     evidence_ids = data.get("evidence")
     if not isinstance(evidence_ids, list) or not evidence_ids:
         raise ValueError("candidate promotion requires Evidence")
+    expected_checksums = curation.get("evidence_checksums")
     expected_checksum = curation.get("evidence_checksum")
+    if not isinstance(expected_checksums, dict) and (
+        not isinstance(expected_checksum, str) or not expected_checksum
+    ):
+        raise ValueError(
+            "candidate promotion requires an Evidence checksum snapshot; re-approve the Draft before promotion"
+        )
+    if not isinstance(expected_checksums, dict) and len(evidence_ids) != 1:
+        raise ValueError(
+            "candidate promotion requires per-Evidence checksum snapshots; re-approve the Draft before promotion"
+        )
     for evidence_id in evidence_ids:
         evidence = find_document_by_id(knowledge_root, str(evidence_id))
         if evidence is None or evidence.frontmatter.get("type") != "evidence":
             raise ValueError("candidate promotion Evidence is unavailable")
-        if evidence.frontmatter.get("checksum") != expected_checksum:
+        expected = (
+            expected_checksums.get(str(evidence_id))
+            if isinstance(expected_checksums, dict)
+            else expected_checksum
+        )
+        if evidence.frontmatter.get("checksum") != expected:
             raise ValueError("candidate promotion Evidence checksum is stale")
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     governance = {
@@ -289,6 +305,20 @@ def review_curation_candidate(
         extensions["review_state"] = "needs_changes"
     elif action == "approve":
         # Active promotion is deliberately a separate security and Owner-gated operation.
+        evidence_ids = data.get("evidence")
+        if not isinstance(evidence_ids, list) or not evidence_ids:
+            raise ValueError("candidate approval requires Evidence")
+        snapshots = {}
+        for evidence_id in evidence_ids:
+            evidence = find_document_by_id(knowledge_root, str(evidence_id))
+            if evidence is None or evidence.frontmatter.get("type") != "evidence":
+                raise ValueError("candidate approval Evidence is unavailable")
+            snapshots[str(evidence_id)] = str(evidence.frontmatter.get("checksum", ""))
+        curation["evidence_checksums"] = snapshots
+        if len(snapshots) == 1:
+            curation["evidence_checksum"] = next(iter(snapshots.values()))
+        else:
+            curation.pop("evidence_checksum", None)
         extensions["review_state"] = "approved"
     else:
         data["status"] = "archived"

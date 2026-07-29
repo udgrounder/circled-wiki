@@ -36,6 +36,10 @@ _CREDENTIAL_ASSIGNMENT = re.compile(
     r"token|password|passwd|secret|client[_ -]?secret|private[_ -]?key)\b"
     r"\s*[:=]\s*)(?P<value>[^\s'\"`]+)"
 )
+_PRESIGNED_URL_CREDENTIAL = re.compile(
+    r"(?i)(?P<label>[?&]X-Amz-(?:Security-Token|Credential|Signature)=)"
+    r"(?P<value>[^&#\s'\"`]+)"
+)
 _PRIVATE_KEY_BLOCK = re.compile(
     r"-----BEGIN (?:[A-Z0-9 ]+ )?PRIVATE KEY-----.*?-----END (?:[A-Z0-9 ]+ )?PRIVATE KEY-----",
     re.DOTALL,
@@ -94,6 +98,7 @@ def redact_sensitive_data(content: str) -> SensitiveDataPrecheckResult:
     redacted = _PRIVATE_KEY_BLOCK.sub(REDACTED_VALUE, content)
     if redacted != content:
         categories.add("credential")
+    redacted = _PRESIGNED_URL_CREDENTIAL.sub(redact_credential, redacted)
     redacted = _CREDENTIAL_ASSIGNMENT.sub(redact_credential, redacted)
     redacted = _KNOWN_TOKEN.sub(lambda _match: _redact_token(categories), redacted)
     redacted = _RESIDENT_REGISTRATION_NUMBER.sub(redact_resident_registration, redacted)

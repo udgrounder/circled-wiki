@@ -211,6 +211,9 @@ class IngestEvidenceTests(unittest.TestCase):
             )
             fixture_data = dict(updated.frontmatter)
             fixture_data["status"] = "active"
+            fixture_extensions = dict(fixture_data["extensions"])
+            fixture_extensions.pop("curation", None)
+            fixture_data["extensions"] = fixture_extensions
             updated.path.write_text(
                 render_markdown(
                     fixture_data,
