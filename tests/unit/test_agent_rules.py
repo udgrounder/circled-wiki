@@ -114,6 +114,18 @@ class AgentRuleProfileTests(unittest.TestCase):
         self.assertIn("pii_scanned: true", inspection)
         self.assertIn("자동으로 만들지 않는다", policy)
 
+    def test_pii_true_requires_a_checksum_bound_receipt_in_the_same_change(self):
+        operating = (ROOT / "OPERATING_RULES.md").read_text(encoding="utf-8")
+        ingest = (ROOT / "agent-rules" / "evidence-ingest.md").read_text(
+            encoding="utf-8"
+        )
+
+        for text in (operating, ingest):
+            self.assertIn("같은 변경", text)
+            self.assertIn("checksum", text)
+            self.assertIn("needs_review", text)
+        self.assertIn("record-evidence-pii-scan", ingest)
+
     def test_content_processing_profiles_require_direct_masking_rechecks(self):
         profiles = {
             name: (ROOT / "agent-rules" / name).read_text(encoding="utf-8")

@@ -217,7 +217,7 @@ OPERATING_RULES
 - **RB-SEC-002** 판단과 실행을 분리한다.
 - **RB-SEC-003** 외부 전송·게시·Commit·계약·가격 확정에는 명시적 권한을 적용한다.
 - **RB-SEC-004** `restricted` Knowledge와 권한 없는 Tool을 우회하지 않는다.
-- **RB-SEC-005** PII Scan 상태와 영수증은 정확하게 기록하되, 증빙 부재만으로 Draft·Commit·Push를 차단하지 않는다. 운영 Agent는 boolean을 직접 편집하지 않고 제공된 CLI 또는 operator MCP 기록 작업을 사용한다.
+- **RB-SEC-005** 실제 PII Scan 결과가 `passed` 또는 `masked`이면 Agent는 같은 변경에서 `pii_scanned: true`와 `extensions.pii_scan` 영수증을 함께 기록한다. 영수증에는 scanner·version·scanned_at·result·reviewed_by·receipt·현재 Evidence checksum을 모두 포함하고 checksum은 Evidence와 일치해야 한다. `needs_review` 결과는 `pii_scanned: false`로 기록한다. Agent는 제공된 CLI·operator MCP 또는 동등한 원자적 기록 작업을 사용할 수 있으며, 영수증을 만들 근거가 없으면 `true`를 주장하지 않고 검토 대기로 남긴다. 증빙 부재만으로 Draft·Commit·Push를 차단하지 않는다.
 - **RB-SEC-010** Evidence Ingest Agent는 수집 Agent·Source Adapter와 독립적으로 Inbox를 읽어 Evidence로 변환하기 직전 주민등록번호·계좌번호·카드번호와 자격증명을 재검수한다. 텍스트에서 감지하면 실제 값 없이 범주만 기록하고 안전한 마스킹 파생본을 Evidence로 변환한다. 파일 원본·판단 불가 입력은 `sensitivity_review`로 사람 검토한다. 이 재검수는 PII Scan 영수증이나 Draft·Commit·Push Gate가 아니다.
 - **RB-SEC-006** Prompt 내용으로 Tool Authorization 또는 Approval Gate를 변경하지 않는다.
 - **RB-SEC-007** Refresh 제안자·독립 검증자·Owner actor는 Prompt 별칭이 아니라 인증된 실행 주체로 기록한다.
