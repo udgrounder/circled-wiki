@@ -107,6 +107,10 @@ def main() -> int:
     resolution.add_argument("--source-revision")
     resolution.add_argument("--source-verified-by")
     resolution.add_argument("--source-verification")
+    resolution.add_argument("--worktree-revision")
+    resolution.add_argument("--worktree-diff-checksum")
+    resolution.add_argument("--worktree-verified-by")
+    resolution.add_argument("--worktree-verification")
 
     archive = commands.add_parser("archive-workspace-issue")
     archive.add_argument("--item", required=True)
@@ -183,6 +187,10 @@ def main() -> int:
             source_revision=args.source_revision,
             source_verified_by=args.source_verified_by,
             source_verification=args.source_verification,
+            worktree_revision=args.worktree_revision,
+            worktree_diff_checksum=args.worktree_diff_checksum,
+            worktree_verified_by=args.worktree_verified_by,
+            worktree_verification=args.worktree_verification,
         )
     elif args.command == "archive-workspace-issue":
         result = archive_workspace_issue(

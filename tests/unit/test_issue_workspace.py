@@ -214,6 +214,34 @@ class IssueWorkspaceTests(unittest.TestCase):
             metadata = parse_markdown(Path(archived["path"])).frontmatter
             self.assertEqual(metadata["processing"]["source_commit_verification"]["revision"], "abc1234")
 
+    def test_resolved_issue_can_archive_with_verified_worktree_before_commit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = self._source_repo(root)
+            product_workspace = root / "product" / "workspace"
+            item = Path(
+                intake_operational_issue(
+                    product_workspace, source, project_ref="team-wiki", issue_ref="issue-runtime-1",
+                    requested_by="user-1", moved_by="agent-1",
+                )["path"]
+            )
+            review_workspace_issue(item, reviewed_by="user-1", decision="accepted", history_relation="new")
+            triage_workspace_issue(item, classification="product_defect")
+            link_workspace_issue_resolution(
+                item, disposition="resolved", worktree_revision="abc1234",
+                worktree_diff_checksum="sha256:" + "a" * 64,
+                worktree_verified_by="agent-1",
+                worktree_verification="unit tests passed; repository validator passed",
+            )
+
+            archived = archive_workspace_issue(
+                product_workspace, item, archived_by="agent-1", reason="fixed in verified worktree",
+                restore_condition="reopen on recurrence",
+            )
+
+            metadata = parse_markdown(Path(archived["path"])).frontmatter
+            self.assertEqual(metadata["processing"]["worktree_verification"]["revision"], "abc1234")
+
     def test_recurrence_intake_surfaces_previous_resolution_history(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

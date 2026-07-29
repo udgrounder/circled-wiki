@@ -216,6 +216,10 @@ def link_workspace_issue_resolution(
     source_revision: Optional[str] = None,
     source_verified_by: Optional[str] = None,
     source_verification: Optional[str] = None,
+    worktree_revision: Optional[str] = None,
+    worktree_diff_checksum: Optional[str] = None,
+    worktree_verified_by: Optional[str] = None,
+    worktree_verification: Optional[str] = None,
 ) -> Dict[str, object]:
     """Attach processing results which the archive gate can verify."""
     if disposition not in ARCHIVE_DISPOSITIONS:
@@ -251,6 +255,24 @@ def link_workspace_issue_resolution(
             "revision": source_revision.strip(),
             "verified_by": source_verified_by.strip(),
             "evidence": source_verification.strip(),
+            "verified_at": datetime.now(timezone.utc).isoformat(),
+        }
+    worktree_values = (
+        worktree_revision, worktree_diff_checksum,
+        worktree_verified_by, worktree_verification,
+    )
+    if any(worktree_values) and not all(
+        isinstance(value, str) and value.strip() for value in worktree_values
+    ):
+        raise ValueError(
+            "worktree verification requires revision, diff checksum, verifier, and evidence"
+        )
+    if all(worktree_values):
+        processing["worktree_verification"] = {
+            "revision": worktree_revision.strip(),
+            "diff_checksum": worktree_diff_checksum.strip(),
+            "verified_by": worktree_verified_by.strip(),
+            "evidence": worktree_verification.strip(),
             "verified_at": datetime.now(timezone.utc).isoformat(),
         }
     item_path.write_text(render_markdown(metadata, document.body), encoding="utf-8")
@@ -304,11 +326,19 @@ def archive_workspace_issue(
         isinstance(source_resolution.get(field), str) and source_resolution[field].strip()
         for field in ("revision", "verified_by", "evidence", "verified_at")
     )
+    worktree_resolution = processing.get("worktree_verification") or {}
+    worktree_resolution_valid = all(
+        isinstance(worktree_resolution.get(field), str) and worktree_resolution[field].strip()
+        for field in ("revision", "diff_checksum", "verified_by", "evidence", "verified_at")
+    )
     if disposition == "resolved" and not (
-        receipt_resolution or current_resolution_valid or source_resolution_valid
+        receipt_resolution
+        or current_resolution_valid
+        or source_resolution_valid
+        or worktree_resolution_valid
     ):
         raise ValueError(
-            "resolved archive requires release/deployment/verification receipts, current release verification evidence, or source commit verification evidence"
+            "resolved archive requires release/deployment/verification receipts, current release verification evidence, source commit verification evidence, or worktree verification evidence"
         )
     archived_at = datetime.now(timezone.utc)
     archive_root = workspace_root / "issues" / "archived"
