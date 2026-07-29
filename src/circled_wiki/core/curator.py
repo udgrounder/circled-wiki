@@ -51,7 +51,6 @@ def propose_update(knowledge_root: Path, evidence_id: str) -> Dict[str, object]:
     return {
         "evidence_id": evidence_id,
         "source_uuid": evidence.frontmatter["source_uuid"],
-        "evidence_status": evidence.frontmatter["status"],
         "original_available": original_bytes is not None,
         "excerpt": excerpt,
         "candidate_bundles": [

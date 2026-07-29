@@ -9,6 +9,7 @@ from circled_wiki.config.settings import load_settings
 from .frontmatter import parse_markdown, render_markdown
 from .pii import pii_scan_receipt_errors
 from .repository import bundle_references_by_evidence, find_document_by_id, iter_documents
+from .curation_queue import list_curation_queue
 from .validator import validate_repository
 
 
@@ -74,7 +75,8 @@ def curation_backlog_metrics(knowledge_root: Path) -> Dict[str, object]:
     """Return Evidence-to-candidate backlog metrics without persisting a dashboard."""
     now = datetime.now(timezone.utc)
     evidence_total = 0
-    evidence_new = 0
+    pending_ids = {str(item["evidence_id"]) for item in list_curation_queue(knowledge_root)}
+    evidence_new = len(pending_ids)
     evidence_curated = 0
     new_age_days: List[int] = []
     bundle_references = bundle_references_by_evidence(knowledge_root)
@@ -88,8 +90,9 @@ def curation_backlog_metrics(knowledge_root: Path) -> Dict[str, object]:
         evidence_total += 1
         if data.get("id") in bundle_references:
             evidence_curated += 1
-        if data.get("status") == "new":
-            evidence_new += 1
+        # A Bundle reference consumes the curation work without changing the
+        # immutable Evidence record itself.
+        if data.get("id") in pending_ids:
             captured_at = data.get("captured_at")
             if isinstance(captured_at, str):
                 try:

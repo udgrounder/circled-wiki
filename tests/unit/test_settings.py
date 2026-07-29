@@ -7,7 +7,7 @@ from circled_wiki.core.ingest import capture_document, capture_file, ingest_evid
 from circled_wiki.core.namespace import inspect_organization_namespace
 from circled_wiki.core.repository import (
     backfill_evidence_links, create_bundle, find_document_by_id, migrate_document_ids,
-    remove_evidence_backlinks,
+    inspect_legacy_evidence_backlinks,
 )
 from circled_wiki.core.frontmatter import parse_markdown, render_markdown
 from circled_wiki.core.validator import validate_document
@@ -378,13 +378,10 @@ class SettingsTests(unittest.TestCase):
             data["curated_into"] = ["bundle/example-org/legacy_7c9e6679-7425-40de-944b-e07fc1f90ae7.md"]
             document.path.write_text(render_markdown(data, document.body), encoding="utf-8")
 
-            dry_run = remove_evidence_backlinks(root)
+            dry_run = inspect_legacy_evidence_backlinks(root)
             self.assertEqual(dry_run["change_count"], 1)
             self.assertIn("curated_into", parse_markdown(document.path).frontmatter)
-
-            applied = remove_evidence_backlinks(root, apply=True)
-            self.assertEqual(applied["applied_count"], 1)
-            self.assertNotIn("curated_into", parse_markdown(document.path).frontmatter)
+            self.assertEqual(dry_run["mode"], "read_only")
 
 
 if __name__ == "__main__":

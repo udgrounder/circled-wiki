@@ -2,6 +2,7 @@
 
 이 디렉터리는 작업 단계별 실행 Profile을 제공한다. 전역 정책의 Source of Truth는
 `OPERATING_RULES.md`이며, Profile은 특정 단계에서 필요한 규칙만 구체화한다.
+Profile은 전역 필드·상태·참조 계약을 다시 서술하지 않고 적용할 Rule ID와 해당 단계의 행동·Gate만 기록한다.
 
 ## Profile Contract
 
@@ -57,9 +58,8 @@ inbox-capture
 | `pending` | `inspect_inbox` · Inbox Inspection | 메타데이터, 경로, checksum, Inbox Sensitive Data Review 상태 | 승인 가능 또는 보류 |
 | `pending` + `sensitivity_review: required` | `review_inbox_sensitivity` · Inbox Inspection | 식별된 사람의 완료·비해당 결정 | 승인 검사 가능 |
 | `pending` | `accept_inbox` · Inbox Inspection | 모든 Gate 통과, inspector actor | `accepted` |
-| `accepted` | `ingest_accepted` · Evidence Ingest | 검사 기록, Evidence Schema, 수집 주체와 독립된 민감정보 재검수·안전한 텍스트 파생본 | Evidence `new` |
-| Evidence `new` | Evidence PII Scan | 실제 검사 결과와 현재 checksum 결합 영수증 | `passed`/`masked`는 `pii_scanned: true`, `needs_review`는 `false` |
-| Evidence `new` | `propose_pending` · Knowledge Curation | 원본 접근, 관련성 검토 | 정제 제안 |
+| `accepted` | Evidence PII Scan · Evidence Ingest | RB-EVD-020·021·023, RB-SEC-005·010, Evidence Schema | 불변 Evidence + Curation Queue |
+| Curation Queue | `propose_pending` · Knowledge Curation | Evidence 원본 접근, 관련성 검토 | Bundle 또는 Review 카드 |
 | Draft | Review · Publication | Validator, Evidence, 보안, Owner 승인 | 발행 가능 |
 
 ## Exceptions
@@ -69,12 +69,11 @@ inbox-capture
 | 동일 idempotency key의 checksum 변경 | Capture 중단, 구조화된 기존 Inbox Item 참조를 확인하고 충돌 보고 |
 | checksum 불일치 | Inbox 유지, 승인 금지 |
 | `sensitivity_review: required` | 승인 금지, 검토 완료 후 재검사 |
-| Evidence 변환 중 민감정보 감지 | 실제 값은 기록하지 않고 범주만 결과에 남긴 뒤, 텍스트는 안전한 파생 입력으로 변환; 파일·판단 불가는 사람 검토 |
-| 실제 PII Scan을 완료 | `pii_scanned`와 scanner·version·시각·결과·검토자·receipt·현재 checksum을 가진 `pii_scan` 영수증을 같은 변경에 기록 |
-| PII Scan 영수증을 만들 수 없음 | `pii_scanned: false` 유지, 검토 대기로 전환; true만 기록하지 않음 |
+| Evidence 변환 중 민감정보 감지 | RB-EVD-021·RB-SEC-010에 따라 안전한 파생 입력 또는 사람 검토로 분기 |
+| Evidence PII Scan 결과 처리 | RB-EVD-020·RB-SEC-005 적용 |
 | provider와 폴더 불일치 | Inbox 유지, 자동 이동·수정 금지 |
 | accepted 항목 ingest 실패 | Inbox와 필요 시 `.raw/` 유지, 재시도 조건 기록 |
-| Evidence는 있으나 정제 누락 | `propose_pending`으로 재처리 |
+| Evidence는 있으나 큐가 누락 | `refresh-curation-queue`로 큐 복구 |
 | Profile 선택이 모호함 | 변경을 시작하지 않고 기대 출력을 확인 |
 
 ## Metrics

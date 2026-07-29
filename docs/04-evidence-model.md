@@ -1,19 +1,25 @@
 # Evidence 모델 설계
 
+> 문서 권한: 이 파일은 Evidence 설계 의도를 설명하는 제품 개발용 Reference이며 Runtime에 배포되지 않는다.
+> 정식 계약은 `OPERATING_RULES.md`의 RB-EVD-001~023, 보안 적용은 RB-SEC-001·005·010,
+> 필드 형식과 검증은 Evidence schema와 Validator를 따른다.
+
 ## 1. 목적
 
 Evidence는 Evidence Original을 보존하고, 공식 지식이 어떤 근거로 생성되었는지 추적하게 해주는 참조 앵커다.
-Evidence Record는 ID·출처·checksum·상태·역참조를 관리한다.
+Evidence Record는 ID·출처·checksum·수집 맥락·원본 위치를 생성 시 확정하는 불변 메타데이터다.
 
 ## 2. 설계 원칙
+
+아래 내용은 Runtime Rule을 다시 정의하지 않고 RB-EVD-*가 선택한 모델을 해설한다.
 
 - 원본은 정제 전에 보존한다.
 - 원본 문서는 실제 처리 작업이 시작될 때 UUID를 발급받는다.
 - Evidence는 Bundle과 분리 저장한다.
 - Evidence 무결성의 기준은 정규화문이 아니라 Evidence Original이다.
 - 정규화 텍스트, OCR 결과, 파싱 결과는 원본을 대체하지 않는 파생 산출물이다.
-- 상태 전이를 가진다.
-- Bundle과 양방향 연결된다.
+- Evidence는 Inbox 검토와 PII Scan 결과를 포함해 한 번 생성되며 이후 상태 전이를 갖지 않는다. 후속 작업 상태는 Curation Queue·Review 카드·Bundle에서 관리한다.
+- Bundle의 `evidence` 필드가 정식 단방향 참조다. Evidence를 사용하는 Bundle 목록은 이 필드를 전체 스캔해 파생하며 Evidence에는 역참조를 기록하지 않는다.
 - Bundle의 `evidence` 필드와 기계적으로 매칭 가능해야 한다.
 - 원본 시스템 참조와 내부 UUID 참조를 함께 유지한다.
 
@@ -73,7 +79,7 @@ evidence/{provider}/{yyyy}/{mm}/{dd}/{name}_{source_uuid}.md
 
 - `{name}_{source_uuid}.{ext}`는 보존 대상 원본 파일이다.
 - `{name}_{source_uuid}.md`는 원본 파일을 설명하는 External-file Evidence Manifest다.
-- External-file Evidence Manifest는 원본 파일을 대체하지 않으며, 참조·검증·상태 추적을 위한 Evidence Record다.
+- External-file Evidence Manifest는 원본 파일을 대체하지 않으며, 불변 식별자·출처·checksum·원본 위치를 제공하는 참조 및 무결성 검증용 Evidence Record다.
 - 바이너리 원본은 같은 위치에 같은 basename의 `.md` 파일을 함께 둔다.
 - 처리 완료된 원본 파일은 `evidence/`에 보존한다.
 - 크기가 10MB 이하인 원본은 `.md` manifest와 함께 Git에 추적해 저장소 복원성과 공유성을 확보한다.
@@ -98,8 +104,6 @@ source_ref:
   external_id: notion-page-12345
   captured_from: api
 captured_at: 2026-07-08T10:00:00+09:00
-status: processed
-processed_at: 2026-07-08T10:03:00+09:00
 checksum: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
 language: ko
 original_file: refund-policy_550e8400-e29b-41d4-a716-446655440000.pdf
@@ -116,7 +120,6 @@ extensions:
     key_questions: []
     expected_outputs:
       - cs policy
-  review_state: approved
   visibility: internal
   pii_scanned: true
   pii_masked: false
@@ -164,26 +167,14 @@ source_ref:
 
 ## 9. 상태 모델
 
-- `new`: 신규 입력
-- `processing`: 처리 중
-- `processed`: Bundle 반영 완료
-- `ignored`: 의미 없는 입력
-- `failed`: 처리 실패
-- `needs_review`: 사람 검토 필요
-
-상태 전이 원칙:
-
-- `new -> processing -> processed`
-- `new -> ignored`
-- `processing -> failed`
-- `processing -> needs_review`
-- `needs_review -> processing`
+Evidence는 상태 전이를 갖지 않는다. 미정제 여부는 Curation Queue 항목의 존재로, 검토 여부는 Review 카드로,
+정제 완료는 Bundle의 `evidence` 참조로 판단한다.
 
 ## 10. Bundle -> Evidence 연결
 
 `evidence` 배열을 사용한다. 사람·Obsidian 탐색 링크는 별도 `evidence_links` 배열에만 둔다.
 
-정확한 ID·링크·역참조 형식과 갱신 주체는 [26-reference-contract.md](26-reference-contract.md)를 따른다.
+정확한 ID·단방향 참조·파생 링크 형식은 [26-reference-contract.md](26-reference-contract.md)를 따른다.
 
 추가 권장:
 
@@ -192,7 +183,7 @@ source_ref:
 
 ## 11. 운영 규칙
 
-- Evidence는 삭제보다 상태 변경을 우선한다.
+- Evidence는 일반 운영에서 삭제하거나 상태를 변경하지 않는다. 오류 보정이나 재수집이 필요하면 기존 Evidence를 보존하고 새로운 Evidence를 생성한다. 법적·보안상 폐기가 필요한 경우에만 별도 통제 절차를 따른다.
 - 원본 파일은 수정하지 않고 새 스냅샷이 필요하면 같은 `source_uuid`의 revision 또는 새 Evidence 정책으로 처리한다.
 - Git으로 추적되는 Evidence 원본은 저장소 복원 시 함께 복원된다. Git에서 제외된 대용량 원본은 manifest의 `source_ref`, `checksum`, `original_file`, `extensions.storage` 정보를 통해 재확보할 수 있어야 한다.
 - 민감정보 포함 가능성이 있으면 `.circled-wiki/policies/sensitive-data-masking.md` 기준으로 Git 추적 가능 여부를 판단한다. 원본의 증거성은 유지하되, 민감 원본을 Git에 올려서는 안 된다.

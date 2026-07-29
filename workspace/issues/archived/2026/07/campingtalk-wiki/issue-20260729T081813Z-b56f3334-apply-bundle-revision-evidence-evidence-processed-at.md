@@ -1,6 +1,6 @@
 ---
 type: workspace_issue
-status: pending_review
+status: archived
 workspace_issue_id: workspace-issue-ff55527e45b24bb1a01075c53c9daF84
 source_project_ref: campingtalk-wiki
 source_issue_id: issue-20260729T081813Z-b56f3334
@@ -9,29 +9,38 @@ source_git_revision: 2c61b43e90d1c89f46bec616c1bbdc6a828b2260
 moved_at: '2026-07-29T08:24:47+00:00'
 moved_by: codex
 requested_by: kjkim
-canonical_issue_key: null
+canonical_issue_key: evidence-processed-at-noise
 occurrence: 1
 review:
-  reviewed_by: null
-  reviewed_at: null
-  decision: null
-  note: null
+  reviewed_by: kjkim
+  reviewed_at: '2026-07-29T08:28:31.560648+00:00'
+  decision: accepted
+  note: '사용자 승인: 참조 변경 없는 revision의 Evidence timestamp churn 제거.'
 processing:
-  classification: null
-  disposition: null
-  history_relation: null
+  classification: product_defect
+  disposition: resolved
+  history_relation: related
   similar_history: []
-  linked_work: []
+  linked_work:
+  - repository.apply_bundle_revision processed_at preservation regression test
   linked_release: null
   linked_deployment_receipt: null
   linked_verification_receipt: null
   current_release_verification: null
   source_commit_verification: null
+  worktree_verification:
+    revision: ef41c92ce6d536bc5c62c7a1ffd7d2dc22df9586
+    diff_checksum: sha256:a69849500656eceb6362be90e5f6e97b057c7eb5a1a37b6aa462770ffcf0703a
+    verified_by: codex
+    evidence: 226 pytest passed; repository validator validated=19 invalid=0; unchanged
+      processed Evidence timestamp preservation regression test passed.
+    verified_at: '2026-07-29T08:30:34.426388+00:00'
 archive:
-  archived_at: null
-  archived_by: null
-  reason: null
-  restore_condition: null
+  archived_at: '2026-07-29T08:30:34.778377+00:00'
+  archived_by: codex
+  reason: Unchanged processed Evidence records are no longer rewritten by Bundle revisions.
+  restore_condition: Reopen if a revision with unchanged Evidence references changes
+    processed_at on an already processed Evidence record.
 ---
 # apply_bundle_revision이 Evidence 목록 변경 여부와 무관하게 참조 Evidence 전체를 매번 processed_at 갱신함
 

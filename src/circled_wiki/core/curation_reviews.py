@@ -7,6 +7,7 @@ import re
 from typing import Dict, List, Optional
 
 from .curation_contract import CurationOutput, validate_curation_output
+from .curation_queue import complete_curation_work
 from .curation_safety import curation_body_safety_errors
 from .frontmatter import parse_markdown, render_markdown
 from .repository import find_document_by_id
@@ -99,25 +100,14 @@ def generate_curation_review(
         }},
     }
     path.parent.mkdir(parents=True, exist_ok=True)
-    original_evidence = evidence.path.read_text(encoding="utf-8")
     try:
         path.write_text(render_markdown(data, _review_body(output)), encoding="utf-8")
         validation = validate_document(path, knowledge_root)
         if not validation.is_valid:
             raise ValueError("curation review validation failed: " + "; ".join(validation.profile_errors))
-        evidence_data = dict(evidence.frontmatter)
-        extensions = dict(evidence_data.get("extensions", {}))
-        extensions["curation_review"] = {
-            "review_id": review_id, "status": "pending", "evidence_checksum": checksum,
-        }
-        extensions["curation_queue"] = {
-            "status": "review_pending", "review_id": review_id, "updated_at": now,
-        }
-        evidence_data["extensions"] = extensions
-        evidence.path.write_text(render_markdown(evidence_data, evidence.body), encoding="utf-8")
+        complete_curation_work(knowledge_root, evidence_id)
     except Exception:
         path.unlink(missing_ok=True)
-        evidence.path.write_text(original_evidence, encoding="utf-8")
         raise
     return {"action": "created_review", "review_id": review_id, "path": path.relative_to(knowledge_root.parent).as_posix(), "recommendation": recommendation}
 
@@ -191,20 +181,10 @@ def decide_curation_review(knowledge_root: Path, review_id: str, *, action: str,
     data["decided_by"] = actor.strip()
     data["decision_note"] = note
     if delete_review_after_decision and action == "approve":
-        current_evidence = find_document_by_id(knowledge_root, evidence_ref["evidence_id"])
         bundle = find_document_by_id(knowledge_root, str(result.get("bundle_id", "")))
-        if current_evidence is None or bundle is None:
-            raise ValueError("created Draft and Evidence must remain available before review cleanup")
-        original_evidence = current_evidence.path.read_text(encoding="utf-8")
+        if bundle is None:
+            raise ValueError("created Draft must remain available before review cleanup")
         original_bundle = bundle.path.read_text(encoding="utf-8")
-        evidence_data = dict(current_evidence.frontmatter)
-        evidence_extensions = dict(evidence_data.get("extensions", {}))
-        evidence_extensions.pop("curation_review", None)
-        evidence_extensions["curation_queue"] = {
-            "status": "bundled", "bundle_id": str(result["bundle_id"]),
-            "updated_at": data["decided_at"],
-        }
-        evidence_data["extensions"] = evidence_extensions
         bundle_data = dict(bundle.frontmatter)
         bundle_extensions = dict(bundle_data.get("extensions", {}))
         curation = dict(bundle_extensions.get("curation", {}))
@@ -224,13 +204,9 @@ def decide_curation_review(knowledge_root: Path, review_id: str, *, action: str,
                     "approved Draft validation failed: "
                     + "; ".join(validation.profile_errors)
                 )
-            current_evidence.path.write_text(
-                render_markdown(evidence_data, current_evidence.body), encoding="utf-8"
-            )
-            path.unlink()
+            _archive_review(path, data, document.body)
         except Exception:
             bundle.path.write_text(original_bundle, encoding="utf-8")
-            current_evidence.path.write_text(original_evidence, encoding="utf-8")
             raise
         return {
             "review_id": review_id,
@@ -239,25 +215,7 @@ def decide_curation_review(knowledge_root: Path, review_id: str, *, action: str,
             "result": result,
         }
     if delete_review_after_decision:
-        current_evidence = find_document_by_id(knowledge_root, evidence_ref["evidence_id"])
-        if current_evidence is None:
-            raise ValueError("Evidence must remain available before review cleanup")
-        evidence_data = dict(current_evidence.frontmatter)
-        evidence_extensions = dict(evidence_data.get("extensions", {}))
-        evidence_extensions.pop("curation_review", None)
-        evidence_extensions["curation_queue"] = {
-            "status": "no_bundle", "updated_at": data["decided_at"],
-        }
-        evidence_data["extensions"] = evidence_extensions
-        original_evidence = current_evidence.path.read_text(encoding="utf-8")
-        try:
-            current_evidence.path.write_text(
-                render_markdown(evidence_data, current_evidence.body), encoding="utf-8"
-            )
-            path.unlink()
-        except Exception:
-            current_evidence.path.write_text(original_evidence, encoding="utf-8")
-            raise
+        _archive_review(path, data, document.body)
         return {
             "review_id": review_id,
             "status": data["status"],
@@ -265,18 +223,6 @@ def decide_curation_review(knowledge_root: Path, review_id: str, *, action: str,
             "result": result,
         }
     path.write_text(render_markdown(data, document.body), encoding="utf-8")
-    evidence_data = dict(evidence.frontmatter)
-    extensions = dict(evidence_data.get("extensions", {}))
-    review_state = dict(extensions.get("curation_review", {}))
-    review_state["status"] = data["status"]
-    review_state["decided_at"] = data["decided_at"]
-    extensions["curation_review"] = review_state
-    queue_state = dict(extensions.get("curation_queue", {}))
-    queue_state["status"] = "no_bundle" if data["status"] == "no_bundle" else "needs_review"
-    queue_state["updated_at"] = data["decided_at"]
-    extensions["curation_queue"] = queue_state
-    evidence_data["extensions"] = extensions
-    evidence.path.write_text(render_markdown(evidence_data, evidence.body), encoding="utf-8")
     return {"review_id": review_id, "status": data["status"], "result": result}
 
 
@@ -338,3 +284,11 @@ def _find_review(knowledge_root: Path, review_id: str):
             path = knowledge_root.parent / str(review["path"])
             return path, parse_markdown(path)
     raise ValueError("curation review was not found")
+
+
+def _archive_review(path: Path, data: Dict[str, object], body: str) -> None:
+    """Hide a consumed card while keeping its decision as a Git-tracked receipt."""
+    archive_path = path.parent.parent / ".archive" / path.parent.name / path.name
+    archive_path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_markdown(data, body), encoding="utf-8")
+    path.replace(archive_path)

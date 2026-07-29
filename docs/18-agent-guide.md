@@ -1,16 +1,16 @@
 # AI Agent를 위한 Circled Wiki 및 Workflow 실행 가이드
 
+> 문서 권한: 이 파일은 Agent 경험을 설계·검토하기 위한 source-only Reference이며 Runtime release에 포함되지 않는다.
+> 설치된 Agent는 `.circled-wiki/AGENT_ROUTER.md`, `.circled-wiki/OPERATING_RULES.md`와 선택한 Runtime Profile을 읽는다.
+
 ## 1. 목적과 적용 대상
 
 이 문서는 Hermes와 Knowledge MCP를 사용하는 AI Agent가 조직 지식을 안전하게 조회하고, 공식 Runbook에
 따라 작업을 수행하고, 결과를 Evidence로 환류하기 위한 실행 계약이다.
 
-Agent는 이 문서보다 저장소의 보안 정책, Validator 결과, 활성 Runbook의 명시적 승인 지점을 우선한다.
-
-이 문서는 설치된 Wiki의 Runtime Agent에만 적용한다. Circled Wiki 제품 코드·설치·release·deployment와 운영
-Issue intake·triage는 source repository의 `AGENTS.md`, `PRODUCT_ENGINEERING_RULES.md`,
-`product-agent-rules/`를 따른다. Runtime Agent는 운영 Issue를 `workspace/issues/`에 기록할 수 있지만 제품
-수정이나 upgrade를 자동 시작하지 않는다.
+이 문서는 Runtime 동작을 설명하지만 설치된 Wiki Agent가 직접 로드하거나 권한 근거로 사용하지 않는다.
+제품 코드·설치·release·deployment와 운영 Issue intake·triage는 source repository의 `AGENTS.md`,
+`PRODUCT_ENGINEERING_RULES.md`, `product-agent-rules/`를 따른다.
 
 ## 2. 핵심 규칙
 
@@ -240,7 +240,7 @@ Validation step에서는 Runbook의 `completion_criteria`를 항목별로 확인
 | 지식 수정 후보 | `propose_update` | 없음 |
 | Evidence 수집 | `ingest_evidence` | Evidence 생성 |
 | Draft Bundle 생성 | `create_draft_bundle` | `policy`·`decision`·`spec`·`reference`만 직접 생성. Guide/Manual·Runbook은 Curation Review 필요 |
-| Bundle revision 적용 | `apply_bundle_revision` | Bundle·Evidence 역참조 |
+| Bundle revision 적용 | `apply_bundle_revision` | Bundle의 단방향 Evidence 참조 |
 | Workflow 검색 | `find_workflow` | 없음 |
 | Task 생성 | `prepare_task` | `.runtime/` |
 | Runbook 최신화 Task | `prepare_runbook_refresh` | `.runtime/` |

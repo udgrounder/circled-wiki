@@ -1,11 +1,15 @@
 # MVP 구현 설계서
 
+> 문서 권한: 이 파일은 구현 계획 Reference이며 Runtime에 배포되지 않는다. 현재 동작의 정본은
+> `OPERATING_RULES.md`, schema·template, 코드와 Validator다.
+
 ## 1. 목적과 범위
 
 이 문서는 설계 문서 세트를 실제로 동작하는 최소 제품(MVP)으로 옮기는 구현 기준이다.
-상위 기준은 [02-architecture.md](02-architecture.md), [03-okf-spec.md](03-okf-spec.md),
-[04-evidence-model.md](04-evidence-model.md), [06-knowledge-service.md](06-knowledge-service.md)를 따른다.
-충돌 시 상위 기준 문서가 우선한다.
+[02-architecture.md](02-architecture.md), [03-okf-spec.md](03-okf-spec.md),
+[04-evidence-model.md](04-evidence-model.md), [06-knowledge-service.md](06-knowledge-service.md)는 설계 배경으로
+함께 읽는다. 문서 사이 또는 구현과 충돌하면 문서 우선순위를 추정하지 않고 `OPERATING_RULES.md`와 Validator를
+기준으로 오래된 설명을 보정한다.
 
 이번 구현의 완료 범위는 아래의 단일 흐름이다.
 
@@ -70,7 +74,7 @@ Bundle은 `id`, `bundle_uuid`, `title`, `type`, `status`, `summary`, `updated_at
 포함한 `extensions.governance`를 가진다.
 
 External-file Evidence Manifest는 Evidence Original과 같은 basename으로 두며, `type: evidence`, `source_uuid`, `provider`,
-`source_ref`, `captured_at`, `status`, `checksum`, `original_file`을 관리한다. Bundle과 Evidence의
+`source_ref`, `captured_at`, `checksum`, `original_file`을 생성 시 확정한다. Bundle과 Evidence의
 Bundle `evidence` 참조는 Evidence 존재 여부로 검사한다.
 일반 Evidence는 수집 이유와 적용 대상을 `extensions.capture_context`에 기록한다.
 

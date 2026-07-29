@@ -1,5 +1,8 @@
 # Runbook 유효성 및 Refresh 절차
 
+> 문서 권한: 이 파일은 source-only Refresh 설계 Reference다. 설치본의 실행 권한·Evidence·승인 Gate는
+> `OPERATING_RULES.md`와 Runtime Profile을 따른다.
+
 ## 1. 목적
 
 Runbook의 시간 기반 유효기간과 이벤트 기반 재검토 조건을 정의하고, 만료되었거나 사용자가 최신화를

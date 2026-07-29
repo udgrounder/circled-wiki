@@ -21,6 +21,7 @@ from .repository import create_bundle, find_document_by_id, iter_documents
 from .validator import validate_document
 from .curation_safety import curation_body_safety_errors
 from .curation_reviews import generate_curation_review
+from .curation_queue import complete_curation_work, list_curation_queue
 from .bundle_types import PRE_CREATION_REVIEW_TYPES, curation_taxonomy
 
 
@@ -42,10 +43,9 @@ def materialize_curation_candidate(
         raise ValueError("single-Evidence materialization requires exactly its Evidence ID")
     _require_curation_safe_evidence(evidence, knowledge_root)
     if output.action == "no_bundle":
-        return _record_no_bundle_decision(
-            evidence, knowledge_root, output, generated_by=generated_by,
-            curation_receipt=curation_receipt,
-        )
+        # A no-bundle conclusion belongs to its review-card receipt.  Evidence
+        # remains the fixed source record and carries no workflow state.
+        return {"action": "no_bundle", "evidence_id": evidence_id, "stored": False}
     safety_errors = curation_body_safety_errors(output.body)
     if safety_errors:
         raise ValueError("curation output safety check failed: " + "; ".join(safety_errors))
@@ -66,6 +66,7 @@ def materialize_curation_candidate(
         title=output.title, bundle_type=output.bundle_type, summary=output.summary,
         evidence_id=evidence_id, body=output.body, curated_by=generated_by,
         approved_review_id=approved_review_id, tags=output.tags,
+        consume_curation_queue=False,
     )
     data = dict(bundle.frontmatter)
     extensions = dict(data["extensions"])
@@ -83,17 +84,14 @@ def materialize_curation_candidate(
     validation = validate_document(bundle.path, knowledge_root)
     if not validation.is_valid:
         bundle.path.unlink(missing_ok=True)
+        from .curation_queue import enqueue_curation_work
+
+        enqueue_curation_work(knowledge_root, evidence_id, evidence.path)
         raise ValueError("curation candidate validation failed: " + "; ".join(validation.profile_errors))
-    result = {"action": "created", "bundle_id": data["id"], "path": bundle.path.relative_to(knowledge_root.parent).as_posix()}
-    evidence_data = dict(evidence.frontmatter)
-    evidence_extensions = dict(evidence_data.get("extensions", {}))
-    evidence_extensions["curation_queue"] = {
-        "status": "bundled", "bundle_id": data["id"],
-        "updated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-    }
-    evidence_data["extensions"] = evidence_extensions
-    evidence.path.write_text(render_markdown(evidence_data, evidence.body), encoding="utf-8")
-    return result
+    # Bundle materialization must not change the source Evidence.  Queue state
+    # is derived from the Bundle's canonical ``evidence`` reference instead.
+    complete_curation_work(knowledge_root, evidence_id)
+    return {"action": "created", "bundle_id": data["id"], "path": bundle.path.relative_to(knowledge_root.parent).as_posix()}
 
 
 def run_configured_curation(knowledge_root: Path, evidence_id: str) -> Dict[str, object]:
@@ -144,7 +142,7 @@ def run_configured_curation(knowledge_root: Path, evidence_id: str) -> Dict[str,
             output = validate_curation_output(payload, [evidence_id])
             receipt = f"curation://{config.provider}/{config.model}/{config.profile_version}"
             completed_receipt = _completed_receipt(receipt_metadata, "completed")
-            if output.action == "no_bundle" or output.bundle_type not in PRE_CREATION_REVIEW_TYPES:
+            if output.action != "no_bundle" and output.bundle_type not in PRE_CREATION_REVIEW_TYPES:
                 return materialize_curation_candidate(
                     knowledge_root, evidence_id, output,
                     generated_by=settings.operator_agent, curation_receipt=receipt,
@@ -177,37 +175,19 @@ def _record_curation_failure(
     profile_version: str, failure_kind: str,
     receipt_metadata: Optional[Dict[str, object]] = None,
 ) -> Dict[str, object]:
-    """Persist a safe, checksum-bound needs-review receipt without a Bundle write."""
-    data = dict(evidence.frontmatter)
-    checksum = str(data["checksum"])
-    extensions = dict(data.get("extensions", {}))
-    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    extensions["curation_attempt"] = {
-        "evidence_checksum": checksum,
-        "provider": provider,
-        "model": model,
-        "profile_version": profile_version,
-        "status": "needs_review",
-        "failure_kind": failure_kind,
-        "recorded_at": now,
-    }
-    extensions["curation_queue"] = {"status": "needs_review", "updated_at": now}
-    if receipt_metadata is not None:
-        extensions["curation_attempt"]["receipt"] = receipt_metadata
-    data["extensions"] = extensions
-    original = evidence.path.read_text(encoding="utf-8")
-    try:
-        evidence.path.write_text(render_markdown(data, evidence.body), encoding="utf-8")
-        validation = validate_document(evidence.path, knowledge_root)
-        if not validation.is_valid:
-            raise ValueError("curation failure record validation failed: " + "; ".join(validation.profile_errors))
-    except Exception:
-        evidence.path.write_text(original, encoding="utf-8")
-        raise
-    return {
-        "action": "needs_review", "evidence_id": data["id"], "stored": True,
-        "reason": failure_kind,
-    }
+    """Keep an adapter failure in a review card, never by changing Evidence."""
+    output = CurationOutput(
+        action="no_bundle", domain="", bundle_type="", title="", summary="", body="",
+        evidence_ids=(str(evidence.frontmatter["id"]),),
+        rationale=f"Curator could not complete: {failure_kind}.",
+        recheck_condition="Retry the Curator or review the referenced Evidence manually.",
+    )
+    review = generate_curation_review(
+        knowledge_root, str(evidence.frontmatter["id"]), output,
+        generated_by="curator", curation_receipt=f"curation://{provider}/{model}/{profile_version}",
+        receipt_metadata=receipt_metadata,
+    )
+    return {**review, "action": "needs_review", "evidence_id": evidence.frontmatter["id"], "stored": True, "reason": failure_kind}
 
 
 def run_configured_curation_batch(knowledge_root: Path, *, limit: int = 100) -> Dict[str, object]:
@@ -219,29 +199,21 @@ def run_configured_curation_batch(knowledge_root: Path, *, limit: int = 100) -> 
     """
     if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 1000:
         raise ValueError("limit must be an integer between 1 and 1000")
-    from .repository import iter_documents
-
     items: List[Dict[str, object]] = []
     counts = {
         "draft_created": 0, "draft_reused": 0, "no_bundle": 0,
         "review_created": 0, "review_reused": 0, "blocked": 0,
         "failed": 0, "needs_review": 0,
     }
+    queued_ids = {str(item["evidence_id"]) for item in list_curation_queue(knowledge_root)}
     for path in iter_documents(knowledge_root):
         document = parse_markdown(path)
         data = document.frontmatter
         extensions = data.get("extensions", {})
-        queue = extensions.get("curation_queue", {}) if isinstance(extensions, dict) else {}
         if (
             data.get("type") != "evidence"
-            or data.get("status") not in {"new", "needs_review"}
+            or str(data.get("id")) not in queued_ids
             or (isinstance(extensions, dict) and extensions.get("visibility") == "restricted")
-            # Curation queue states are the work ledger. A review handoff and
-            # direct Draft/no-bundle result are already consumed work.
-            or (
-                isinstance(queue, dict)
-                and queue.get("status") in {"review_pending", "bundled", "no_bundle"}
-            )
         ):
             continue
         result = run_configured_curation(knowledge_root, str(data["id"]))
@@ -315,37 +287,3 @@ def _find_idempotent_candidate(knowledge_root: Path, evidence_id: str, checksum:
 def _safe_slug(title: str, checksum: str) -> str:
     ascii_title = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
     return f"{ascii_title[:48] or 'curated'}-{checksum.removeprefix('sha256:')[:12]}"
-
-
-def _record_no_bundle_decision(evidence, knowledge_root: Path, output: CurationOutput, *, generated_by: str, curation_receipt: str) -> Dict[str, object]:
-    """Persist a non-writing curation decision without marking Evidence processed."""
-    settings = load_settings(knowledge_root.resolve().parent)
-    checksum = str(evidence.frontmatter["checksum"])
-    data = dict(evidence.frontmatter)
-    extensions = dict(data.get("extensions", {}))
-    existing = extensions.get("curation_no_bundle")
-    if isinstance(existing, dict) and existing.get("evidence_checksum") == checksum and existing.get("profile_version") == settings.curation.profile_version:
-        return {"action": "reused_no_bundle", "evidence_id": data["id"], "stored": True}
-    extensions["curation_no_bundle"] = {
-        "generated_by": generated_by.strip(),
-        "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "evidence_checksum": checksum,
-        "curation_receipt": curation_receipt.strip(),
-        "rationale": output.rationale,
-        "recheck_condition": output.recheck_condition,
-        "profile_version": settings.curation.profile_version,
-    }
-    extensions["curation_queue"] = {
-        "status": "no_bundle", "updated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-    }
-    data["extensions"] = extensions
-    original = evidence.path.read_text(encoding="utf-8")
-    try:
-        evidence.path.write_text(render_markdown(data, evidence.body), encoding="utf-8")
-        validation = validate_document(evidence.path, knowledge_root)
-        if not validation.is_valid:
-            raise ValueError("no_bundle decision validation failed: " + "; ".join(validation.profile_errors))
-    except Exception:
-        evidence.path.write_text(original, encoding="utf-8")
-        raise
-    return {"action": "no_bundle", "evidence_id": data["id"], "stored": True, "rationale": output.rationale, "recheck_condition": output.recheck_condition}

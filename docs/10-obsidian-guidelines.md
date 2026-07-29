@@ -1,5 +1,8 @@
 # Obsidian 사용 가이드
 
+> 문서 권한: 이 파일은 제품 개발과 사람 사용성을 위한 Reference다. 설치본 Agent의 변경 권한과 Evidence 규칙은
+> `OPERATING_RULES.md`와 선택한 Runtime Profile에서만 결정한다.
+
 ## 1. 목적
 
 Obsidian은 사람이 지식을 읽고 검토하고 보완하는 UI다. Source of Truth는 Git이지만, 사람 사용성은 Obsidian이 담당한다.
@@ -11,7 +14,7 @@ Obsidian은 사람이 지식을 읽고 검토하고 보완하는 UI다. Source o
 - Markdown 친화적 구조를 유지한다.
 - 링크 기반 문서 탐색을 적극 사용한다.
 - 공식 Bundle은 템플릿 기반으로 작성한다.
-- Evidence 원문은 직접 수정하지 않는 것을 원칙으로 한다.
+- 생성된 Evidence 원문과 메타데이터는 수정하지 않는다.
 - 사람과 Agent를 위한 Vault 운영·관리 안내는 `knowledge/README.md`에서 제공한다. 최상위 폴더 구조·역할·운영 흐름 또는 운영·관리에 필요한 정보가 새로 생기거나 변경되면 같은 변경에서 이 README를 갱신한다. domain·provider는 고정 목록이 아니며, 새 이름을 처음 사용하거나 의미를 바꾸는 운영 작업은 README를 먼저 읽고 운영 목록을 함께 갱신한다.
 - `log.md`는 변경 이력 기록 문서로 사용할 수 있다.
 - Obsidian은 저장소 루트가 아니라 `knowledge/` 폴더를 기준으로 연다.

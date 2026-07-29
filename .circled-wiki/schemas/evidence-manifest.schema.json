@@ -12,7 +12,6 @@
     "provider",
     "source_ref",
     "captured_at",
-    "status",
     "checksum",
     "original_file_git_tracked"
   ],
@@ -80,6 +79,8 @@
       "format": "date-time"
     },
     "status": {
+      "deprecated": true,
+      "description": "Legacy compatibility only. New immutable Evidence omits this field.",
       "type": "string",
       "enum": [
         "new",
@@ -91,6 +92,8 @@
       ]
     },
     "processed_at": {
+      "deprecated": true,
+      "description": "Legacy compatibility only. New immutable Evidence omits this field.",
       "type": [
         "string",
         "null"
@@ -149,9 +152,6 @@
         "conversation_capture": {
           "type": "object",
           "additionalProperties": true
-        },
-        "review_state": {
-          "type": "string"
         },
         "visibility": {
           "type": "string",

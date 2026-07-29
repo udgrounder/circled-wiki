@@ -28,8 +28,6 @@ source_ref:
   captured_from: {captured_from}
   snapshot_at: {snapshot_at}
 captured_at: {captured_at}
-status: new
-processed_at:
 checksum: {checksum}
 language: ko
 original_file: {name}_{source_uuid}.{ext}
@@ -49,7 +47,6 @@ extensions:
     business_context: {업무 맥락}
     key_questions: []
     expected_outputs: []
-  review_state: pending
   visibility: internal
   pii_scanned: false
   pii_masked: false
@@ -58,8 +55,9 @@ extensions:
 ---
 ```
 
-PII 검사를 실제로 수행한 뒤에만 `pii_scanned`를 `true`로 바꾸고, 현재 Evidence `checksum`에
-결합된 다음 영수증을 함께 기록한다. Inbox 민감정보 검토 완료만으로 이 영수증을 만들지 않는다.
+PII 검사를 실제로 수행한 경우에는 Evidence 후보 원문의 `checksum`에 결합된 다음 영수증을
+Evidence 최초 생성 입력에 포함한다. 생성된 Evidence의 `pii_scanned`나 영수증은 변경하지 않는다.
+Inbox 민감정보 검토 완료만으로 이 영수증을 만들지 않는다.
 
 ```yaml
 extensions:

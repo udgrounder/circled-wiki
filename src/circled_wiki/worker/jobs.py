@@ -12,6 +12,7 @@ from circled_wiki.core.curator import propose_update
 from circled_wiki.core.frontmatter import FrontmatterError, parse_markdown
 from circled_wiki.core.ingest import ingest_evidence, read_conversation_intake
 from circled_wiki.core.repository import iter_documents
+from circled_wiki.core.curation_queue import list_curation_queue
 from circled_wiki.core.service import KnowledgeService
 from circled_wiki.core.sensitive_data import redact_sensitive_data
 from circled_wiki.core.workflow import TaskStore
@@ -60,12 +61,15 @@ def run_curation_batch(knowledge_root: Path, limit: int = 100) -> Dict[str, obje
         raise ValueError("limit must be an integer between 1 and 1000")
     pending: List[Dict[str, object]] = []
     skipped_restricted = 0
+    queued_ids = {str(item["evidence_id"]) for item in list_curation_queue(knowledge_root)}
     for path in iter_documents(knowledge_root):
         if path.name in {"index.md", "log.md"}:
             continue
         document = parse_markdown(path)
         data = document.frontmatter
-        if data.get("type") != "evidence" or data.get("status") not in {"new", "needs_review"}:
+        if data.get("type") != "evidence":
+            continue
+        if str(data.get("id")) not in queued_ids:
             continue
         extensions = data.get("extensions", {})
         if isinstance(extensions, dict) and extensions.get("visibility") == "restricted":
@@ -229,8 +233,10 @@ def ingest_accepted_inbox(knowledge_root: Path, limit: int = 100) -> Dict[str, o
                 idempotency_key=str(data["idempotency_key"]),
                 content_mode="external_file" if is_file else "embedded",
                 capture_fidelity="verbatim",
-                # Inbox review and masking checks do not prove an Evidence PII Scan.
-                pii_scanned=False,
+                pii_scan_receipt=(
+                    data.get("pii_scan_receipt")
+                    if isinstance(data.get("pii_scan_receipt"), dict) else None
+                ),
                 capture_details=(
                     capture_details if data.get("content_type") == "conversation" and isinstance(capture_details, dict) else None
                 ),

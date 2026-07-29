@@ -648,7 +648,7 @@ def _validate_evidence(
 ) -> None:
     data = document.frontmatter
     required = (
-        "id", "title", "source_uuid", "provider", "source_ref", "captured_at", "status",
+        "id", "title", "source_uuid", "provider", "source_ref", "captured_at",
         "checksum", "original_file_git_tracked",
     )
     if data.get("type") != "evidence":

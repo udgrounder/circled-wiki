@@ -2,7 +2,9 @@
 
 > 상태: 역사적 통합 초안
 >
-> 이 문서는 초기 논의를 한 파일로 정리한 초안이다. 현재 기준 문서는 `docs/README.md`에 나열된 문서 세트이며, 특히 `docs/02-architecture.md`, `docs/03-okf-spec.md`, `docs/04-evidence-model.md`, `docs/08-sync-pipeline.md`를 우선한다.
+> 이 문서는 초기 논의를 한 파일로 정리한 비배포 초안이며 Runtime 규칙이나 현재 구현의 기준으로 사용하지 않는다.
+> 정식 Runtime 계약은 `OPERATING_RULES.md`, schema·template과 Validator를 따르고, 현재 설계 Reference의
+> 역할과 읽기 순서는 `docs/README.md`를 따른다.
 >
 > 현재 확정된 주요 기준은 `inbox -> .raw -> evidence -> bundles`, `inbox/.raw는 비Markdown 원본 허용`, `bundles는 정제된 OKF 문서`, `source_uuid는 inbox에서 .raw로 이동할 때 발급`이다.
 
@@ -48,7 +50,7 @@
 
 - 모든 공식 지식 Bundle은 최소 1개 이상의 Evidence를 가져야 한다.
 - 원본 데이터는 Evidence Object로 별도 저장한다.
-- Evidence와 Curated Knowledge 간 양방향 추적이 가능해야 한다.
+- Bundle의 정식 Evidence 참조와 Bundle 전체 스캔을 통해 Evidence 사용처를 추적할 수 있어야 한다.
 
 ### 3.4 AI 공통 인터페이스
 
@@ -144,19 +146,12 @@ id: evidence://example-org/notion/2026/07/08/000001
 provider: notion
 provider_url: https://example.com/source
 captured_at: 2026-07-08T10:00:00+09:00
-status: processed
-processed_at: 2026-07-08T10:03:00+09:00
+checksum: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
 ---
 ```
 
-권장 상태값:
-
-- `new`
-- `processing`
-- `processed`
-- `ignored`
-- `failed`
-- `needs_review`
+Evidence는 생성 시 확정한 불변 기록이며 상태 전이를 갖지 않는다. 후속 처리 대기는
+`workspace/task/curation-queue/<source_uuid>.md`, 검토 상태는 Review 카드, 정제 결과는 Bundle에서 관리한다.
 
 ### 6.3 Curation
 

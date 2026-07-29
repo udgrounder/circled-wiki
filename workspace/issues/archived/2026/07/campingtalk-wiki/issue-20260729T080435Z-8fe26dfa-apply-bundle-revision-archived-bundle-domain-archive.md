@@ -1,6 +1,6 @@
 ---
 type: workspace_issue
-status: pending_review
+status: archived
 workspace_issue_id: workspace-issue-1d560abd16dd4214a57aafd0bf60d961
 source_project_ref: campingtalk-wiki
 source_issue_id: issue-20260729T080435Z-8fe26dfa
@@ -9,29 +9,37 @@ source_git_revision: 2c61b43e90d1c89f46bec616c1bbdc6a828b2260
 moved_at: '2026-07-29T08:24:47+00:00'
 moved_by: codex
 requested_by: kjkim
-canonical_issue_key: null
+canonical_issue_key: archived-bundle-domain-tags
 occurrence: 1
 review:
-  reviewed_by: null
-  reviewed_at: null
-  decision: null
-  note: null
+  reviewed_by: kjkim
+  reviewed_at: '2026-07-29T08:28:31.444938+00:00'
+  decision: accepted
+  note: '사용자 승인: archived Bundle revision의 실제 domain 태그 보정.'
 processing:
-  classification: null
-  disposition: null
-  history_relation: null
+  classification: product_defect
+  disposition: resolved
+  history_relation: new
   similar_history: []
-  linked_work: []
+  linked_work:
+  - repository.apply_bundle_revision archived domain regression test
   linked_release: null
   linked_deployment_receipt: null
   linked_verification_receipt: null
   current_release_verification: null
   source_commit_verification: null
+  worktree_verification:
+    revision: ef41c92ce6d536bc5c62c7a1ffd7d2dc22df9586
+    diff_checksum: sha256:a69849500656eceb6362be90e5f6e97b057c7eb5a1a37b6aa462770ffcf0703a
+    verified_by: codex
+    evidence: 226 pytest passed; repository validator validated=19 invalid=0; archived
+      Bundle revision regression test passed.
+    verified_at: '2026-07-29T08:30:34.358949+00:00'
 archive:
-  archived_at: null
-  archived_by: null
-  reason: null
-  restore_condition: null
+  archived_at: '2026-07-29T08:30:34.491991+00:00'
+  archived_by: codex
+  reason: Archived Bundle revisions now derive the original domain instead of .archive.
+  restore_condition: Reopen if an archived Bundle revision adds .archive to its tags.
 ---
 # apply_bundle_revision이 archived Bundle의 domain을 '.archive'로 잘못 계산함
 

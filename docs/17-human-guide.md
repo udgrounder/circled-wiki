@@ -1,5 +1,8 @@
 # 사람 사용자를 위한 Circled Wiki 및 Workflow 가이드
 
+> 문서 권한: 이 파일은 제품 개발용 사용자 경험 Reference이며 Runtime 규칙이 아니다. 설치본의 실제 절차와 권한은
+> `.circled-wiki/OPERATING_RULES.md`와 Runtime Profile을 따른다.
+
 ## 1. 이 문서의 대상
 
 이 문서는 조직 구성원이 Hermes와 Circled Wiki를 사용해 기존 회사 지식으로 업무를 수행하고,
@@ -159,7 +162,7 @@ PYTHONPATH=src python3 -m circled_wiki.cli submit-runbook-reference \
 검토 결과는 전체 채택, 부분 채택, 비채택, 추가 근거 필요로 구분한다. 중요한 결정은 결정자와 근거를,
 후속 작업은 담당자와 완료 기준을, 미해결 질문은 확인 Owner를 명시한다.
 
-운영자는 `audit-knowledge`로 만료·근거·역참조·열린 Task 문제를 확인하고
+운영자는 `audit-knowledge`로 만료·Bundle Evidence 참조·열린 Task 문제를 확인하고
 `list-knowledge-inventory`로 Domain·상태·Owner·검토 기한을 조회할 수 있다. Inventory는 Frontmatter에서
 계산되므로 별도 수동 목록을 편집하지 않는다.
 

@@ -1,5 +1,8 @@
 # Knowledge MCP 설계
 
+> 문서 권한: 이 파일은 제품 개발용 인터페이스 Reference이며 Runtime release에 포함되지 않는다.
+> 실제 Tool 계약은 구현과 MCP schema, 접근·Evidence 규칙은 `OPERATING_RULES.md`를 따른다.
+
 ## 1. 목적
 
 Knowledge MCP는 여러 AI Agent가 공통으로 사용하는 외부 인터페이스다. Hermes는 지식 라이브러리 운영 중과 사용자 요청 처리 중 Knowledge Service를 직접 이용할 수 있으며, 하위·외부 AI Agent에는 MCP 또는 CLI를 통해 라이브러리를 이용하게 하는 대표 오케스트레이터다.
@@ -107,14 +110,14 @@ Knowledge MCP는 여러 AI Agent가 공통으로 사용하는 외부 인터페�
 - 목적: 기존 Evidence 한 건을 근거로 `policy`, `guide`, `decision`, `spec`, `reference`, `report` 신규 Draft Bundle 생성
 - `manual`과 `runbook`은 이 API로 생성하지 않고 checksum 결합 Curation Review·독립 Owner 승인 경로를 사용한다.
 - 이 API와 일반 revision API는 `active` 상태 전환 권한을 갖지 않는다.
-- 경로 segment를 제한하고 Evidence 역참조를 함께 기록한다.
+- 경로 segment를 제한하고 Bundle의 `evidence` 단방향 참조를 기록한다.
 
 ### apply_bundle_revision
 
 - 목적: 기존 Bundle의 검증된 revision 적용
 - 입력: bundle_id, expected_revision, 전체 frontmatter, body, actor
 - id, bundle_uuid, type은 변경할 수 없다.
-- revision 불일치, Restricted 참조, Validator 실패를 거부하며 Bundle과 Evidence 역참조를 원복한다.
+- revision 불일치, Restricted 참조, Validator 실패를 거부하며 Bundle 변경만 원복한다. Evidence는 읽기 전용이다.
 
 ### validate_result
 
@@ -174,7 +177,7 @@ Knowledge MCP는 여러 AI Agent가 공통으로 사용하는 외부 인터페�
 
 ### audit_knowledge
 
-- 목적: Bundle·Evidence·역참조·최신성·Inquiry·열린 Task의 읽기 전용 품질 감사
+- 목적: Bundle·Evidence 참조·최신성·Inquiry·열린 Task의 읽기 전용 품질 감사
 - 출력: severity와 code를 가진 이슈, 요약, Archive 후보
 - Audit 결과는 파생 데이터이며 공식 지식을 직접 변경하지 않는다.
 

@@ -289,8 +289,8 @@ def _replace_identifier_text(body: str, id_map: Dict[str, str]) -> str:
     return body
 
 
-def remove_evidence_backlinks(knowledge_root: Path, *, apply: bool = False) -> Dict[str, object]:
-    """Remove legacy Evidence ``curated_into`` backlinks after a dry-run review."""
+def inspect_legacy_evidence_backlinks(knowledge_root: Path) -> Dict[str, object]:
+    """Report legacy ``curated_into`` fields without changing immutable Evidence."""
     changes = []
     for path in iter_documents(knowledge_root):
         if path.name in {"index.md", "log.md"}:
@@ -298,35 +298,19 @@ def remove_evidence_backlinks(knowledge_root: Path, *, apply: bool = False) -> D
         document = parse_markdown(path)
         if document.frontmatter.get("type") == "evidence" and "curated_into" in document.frontmatter:
             changes.append(document)
-    report: Dict[str, object] = {
-        "mode": "apply" if apply else "dry_run",
+    return {
+        "mode": "read_only",
         "change_count": len(changes),
         "paths": [document.path.relative_to(knowledge_root).as_posix() for document in changes],
+        "recovery": "Keep Evidence unchanged; derive Bundle usage from Bundle.evidence.",
     }
-    if not apply or not changes:
-        return report
-    backups = {document.path: document.path.read_text(encoding="utf-8") for document in changes}
-    try:
-        for document in changes:
-            data = dict(document.frontmatter)
-            data.pop("curated_into", None)
-            document.path.write_text(render_markdown(data, document.body), encoding="utf-8")
-        invalid = [item for item in validate_repository(knowledge_root) if not item.is_valid]
-        if invalid:
-            messages = [error for item in invalid for error in item.profile_errors]
-            raise ValueError("Evidence backlink migration validation failed: " + "; ".join(messages))
-    except Exception:
-        for path, content in backups.items():
-            path.write_text(content, encoding="utf-8")
-        raise
-    report["applied_count"] = len(changes)
-    return report
 
 
 def create_bundle(
     knowledge_root: Path, *, domain: str, slug: str, title: str, bundle_type: str,
     summary: str, evidence_id: str, body: str = "", curated_by: str = "manual",
     approved_review_id: Optional[str] = None, tags: Optional[Iterable[str]] = None,
+    consume_curation_queue: bool = True,
 ) -> MarkdownDocument:
     """Create a draft Bundle only when its Evidence Record already exists."""
     if not SAFE_PATH_SEGMENT.fullmatch(domain) or not SAFE_PATH_SEGMENT.fullmatch(slug):
@@ -389,7 +373,6 @@ def create_bundle(
             },
         },
     }
-    evidence_backup = evidence.path.read_text(encoding="utf-8")
     try:
         path.write_text(
             render_markdown(data, body or "# Summary\n\n" + summary + "\n"),
@@ -398,12 +381,6 @@ def create_bundle(
         result = validate_document(path, knowledge_root)
         if not result.is_valid:
             raise ValueError("Bundle validation failed: " + "; ".join(result.profile_errors))
-        evidence_data = dict(evidence.frontmatter)
-        evidence_data["status"] = "processed"
-        evidence_data["processed_at"] = now
-        evidence.path.write_text(
-            render_markdown(evidence_data, evidence.body), encoding="utf-8"
-        )
         invalid = [result for result in validate_repository(knowledge_root) if not result.is_valid]
         if invalid:
             messages = [
@@ -414,8 +391,11 @@ def create_bundle(
             raise ValueError("Bundle creation validation failed: " + "; ".join(messages))
     except Exception:
         path.unlink(missing_ok=True)
-        evidence.path.write_text(evidence_backup, encoding="utf-8")
         raise
+    if consume_curation_queue:
+        from .curation_queue import complete_curation_work
+
+        complete_curation_work(knowledge_root, evidence_id)
     return parse_markdown(path)
 
 
@@ -464,7 +444,7 @@ def apply_bundle_revision(
     relative = existing.path.relative_to(knowledge_root / "bundles")
     proposed["tags"] = _normalized_bundle_tags(
         proposed.get("tags"), bundle_type=str(existing.frontmatter["type"]),
-        domain=relative.parts[0], topic_fallback=existing.path.stem,
+        domain=_bundle_domain(relative), topic_fallback=existing.path.stem,
     )
 
     existing_extensions = existing.frontmatter.get("extensions")
@@ -498,21 +478,8 @@ def apply_bundle_revision(
     proposed["updated_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
     backups = {existing.path: existing.path.read_text(encoding="utf-8")}
-    backups.update({
-        evidence.path: evidence.path.read_text(encoding="utf-8")
-        for evidence in evidence_documents.values()
-    })
     try:
         existing.path.write_text(render_markdown(proposed, body), encoding="utf-8")
-        selected_ids = set(map(str, evidence_ids))
-        for evidence_id in selected_ids:
-            evidence = evidence_documents[evidence_id]
-            evidence_data = deepcopy(evidence.frontmatter)
-            evidence_data["status"] = "processed"
-            evidence_data["processed_at"] = proposed["updated_at"]
-            evidence.path.write_text(
-                render_markdown(evidence_data, evidence.body), encoding="utf-8"
-            )
         results = validate_repository(knowledge_root)
         invalid = [result for result in results if not result.is_valid]
         if invalid:
@@ -559,3 +526,15 @@ def _normalized_bundle_tags(
             fallback = f"topic-{fallback}"
         result.append(fallback)
     return result
+
+
+def _bundle_domain(relative: Path) -> str:
+    """Return a Bundle's domain from an active or hidden archive-relative path."""
+    parts = relative.parts
+    if not parts:
+        raise ValueError("Bundle path must include a domain")
+    if parts[0] == ".archive":
+        if len(parts) < 2:
+            raise ValueError("archived Bundle path must include its domain")
+        return parts[1]
+    return parts[0]

@@ -112,19 +112,19 @@ class AgentRuleProfileTests(unittest.TestCase):
         self.assertIn("2차 확인", inspection)
         self.assertIn("불변 파일 원본", capture)
         self.assertIn("pii_scanned: true", inspection)
-        self.assertIn("자동으로 만들지 않는다", policy)
+        self.assertIn("PII Scan Receipt를 대신하지 않는다", policy)
 
-    def test_pii_true_requires_a_checksum_bound_receipt_in_the_same_change(self):
+    def test_pii_receipt_contract_is_canonical_and_ingest_references_it(self):
         operating = (ROOT / "OPERATING_RULES.md").read_text(encoding="utf-8")
         ingest = (ROOT / "agent-rules" / "evidence-ingest.md").read_text(
             encoding="utf-8"
         )
 
-        for text in (operating, ingest):
-            self.assertIn("같은 변경", text)
-            self.assertIn("checksum", text)
-            self.assertIn("needs_review", text)
-        self.assertIn("record-evidence-pii-scan", ingest)
+        self.assertIn("후보 checksum", operating)
+        self.assertIn("Evidence 최초 생성 입력", operating)
+        self.assertIn("needs_review", operating)
+        self.assertIn("RB-EVD-020·RB-SEC-005", ingest)
+        self.assertNotIn("scanner·version·시각·결과·검토자", ingest)
 
     def test_content_processing_profiles_require_direct_masking_rechecks(self):
         profiles = {
@@ -144,14 +144,64 @@ class AgentRuleProfileTests(unittest.TestCase):
         for name, content in profiles.items():
             self.assertIn("PII", content, name)
 
-    def test_curation_allows_draft_without_pii_receipt_but_preserves_sensitive_data_gate(self):
+    def test_curation_references_canonical_pii_and_publication_gates(self):
         curation = (ROOT / "agent-rules" / "knowledge-curation.md").read_text(
             encoding="utf-8"
         )
 
-        self.assertIn("증빙 부재만으로는 Draft 생성·revision을 차단하지 않지만", curation)
-        self.assertIn("실제 PII·자격증명 의심 값", curation)
-        self.assertIn("active 승격·발행 전", curation)
+        self.assertIn("RB-SEC-001·005", curation)
+        self.assertIn("RB-PUB-002", curation)
+        self.assertIn("Draft와 active 전환의 차이는 RB-CUR-006", curation)
+
+    def test_evidence_contract_is_owned_by_operating_rules(self):
+        operating = (ROOT / "OPERATING_RULES.md").read_text(encoding="utf-8")
+        profiles = {
+            name: (ROOT / "agent-rules" / name).read_text(encoding="utf-8")
+            for name in ("README.md", "evidence-ingest.md", "knowledge-curation.md")
+        }
+        policies = {
+            name: (ROOT / ".circled-wiki" / "policies" / name).read_text(
+                encoding="utf-8"
+            )
+            for name in ("agent-security.md", "sensitive-data-masking.md")
+        }
+
+        evidence_section = operating.index("## 4. Evidence Invariants")
+        workflow_section = operating.index("## 5. Workflow State Machine")
+        queue_contract = operating.index("**RB-EVD-023**")
+        self.assertLess(evidence_section, queue_contract)
+        self.assertLess(queue_contract, workflow_section)
+        self.assertIn("다시 서술하지 않고", profiles["README.md"])
+        for name in ("evidence-ingest.md", "knowledge-curation.md"):
+            self.assertIn("## Applicable Global Rules", profiles[name])
+            self.assertIn("RB-EVD-023", profiles[name])
+            self.assertNotIn("workspace/task/curation-queue", profiles[name])
+        for content in policies.values():
+            self.assertIn("OPERATING_RULES.md", content)
+            self.assertNotIn("04-evidence-model.md", content)
+
+    def test_source_docs_cannot_be_mistaken_for_runtime_rules(self):
+        docs_readme = (ROOT / "docs" / "README.md").read_text(encoding="utf-8")
+        evidence_model = (ROOT / "docs" / "04-evidence-model.md").read_text(
+            encoding="utf-8"
+        )
+        agent_guide = (ROOT / "docs" / "18-agent-guide.md").read_text(
+            encoding="utf-8"
+        )
+        reference_contract = (ROOT / "docs" / "26-reference-contract.md").read_text(
+            encoding="utf-8"
+        )
+        historical_source = (
+            ROOT / "docs" / "source" / "chatgpt-llm-wiki-conversation-2026-07-08.md"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("Runtime release에 포함되지 않으며", docs_readme)
+        self.assertIn("Runtime 전역 규칙의 유일한 정본", docs_readme)
+        self.assertIn("RB-EVD-002~023", docs_readme)
+        self.assertIn("Runtime에 배포되지 않는다", evidence_model)
+        self.assertIn("직접 로드하거나 권한 근거로 사용하지 않는다", agent_guide)
+        self.assertIn("source-only design reference", reference_contract)
+        self.assertIn("과거 문구는 폐기되었다", historical_source[:500])
 
     def test_runtime_discovery_uses_official_tools_before_raw_filesystem_search(self):
         query = (ROOT / "agent-rules" / "knowledge-query.md").read_text(encoding="utf-8")

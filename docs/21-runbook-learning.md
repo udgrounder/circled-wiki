@@ -1,5 +1,8 @@
 # Runbook Evidence-driven Learning Loop
 
+> 문서 권한: 이 파일은 source-only Learning 설계 Reference다. Outcome Evidence와 Bundle 변경의 정식 계약은
+> `OPERATING_RULES.md`와 Runtime Profile을 따른다.
+
 ## 1. 목적
 
 Runbook이 실제 사용자 업무에서 얻은 성공, 실패, 피드백과 예외를 Evidence로 축적하고 검증된 revision으로

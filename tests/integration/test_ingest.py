@@ -5,6 +5,7 @@ import tempfile
 import threading
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from circled_wiki.core.frontmatter import parse_markdown, render_markdown
 from circled_wiki.core.ingest import (
@@ -15,6 +16,7 @@ from circled_wiki.core.ingest import (
     capture_document,
     capture_file,
     ingest_evidence,
+    record_inbox_pii_scan_receipt,
 )
 from circled_wiki.core.repository import apply_bundle_revision, create_bundle
 from circled_wiki.core.curator import propose_update
@@ -26,6 +28,54 @@ from circled_wiki.worker.jobs import ingest_accepted_inbox, inspect_inbox
 
 
 class IngestEvidenceTests(unittest.TestCase):
+    def test_inbox_pii_receipt_is_fixed_at_evidence_creation(self):
+        with tempfile.TemporaryDirectory() as temp_directory:
+            knowledge_root = Path(temp_directory) / "knowledge"
+            captured = capture_document(
+                knowledge_root, "masked content", "manual",
+                title="Scanned source", why_collected="security",
+                intended_use=["test"], idempotency_key="scan-before-evidence",
+                sensitivity_review="not_applicable",
+            )
+            record_inbox_pii_scan_receipt(
+                knowledge_root, captured.intake_id, scanner="test",
+                scanner_version="1", result="passed", reviewed_by="security",
+                receipt="test://scan",
+            )
+            accept_conversation_intake(knowledge_root, captured.intake_id, "reviewer")
+            result = ingest_accepted_inbox(knowledge_root)
+            evidence_path = knowledge_root.parent / result["items"][0]["evidence_path"]
+            evidence = parse_markdown(evidence_path)
+
+            self.assertTrue(evidence.frontmatter["extensions"]["pii_scanned"])
+            self.assertEqual(
+                evidence.frontmatter["extensions"]["pii_scan"]["source_checksum"],
+                evidence.frontmatter["checksum"],
+            )
+
+    def test_evidence_and_curation_queue_registration_are_atomic(self):
+        with tempfile.TemporaryDirectory() as temp_directory:
+            knowledge_root = Path(temp_directory) / "knowledge"
+            source = knowledge_root / "inbox" / "manual" / "atomic.txt"
+            source.parent.mkdir(parents=True)
+            source.write_text("atomic evidence", encoding="utf-8")
+
+            with patch(
+                "circled_wiki.core.curation_queue.enqueue_curation_work",
+                side_effect=OSError("queue unavailable"),
+            ):
+                with self.assertRaisesRegex(OSError, "queue unavailable"):
+                    ingest_evidence(
+                        knowledge_root, source, "manual",
+                        why_collected="atomicity test", intended_use=["test"],
+                    )
+
+            self.assertEqual(list((knowledge_root / "evidence").rglob("*.md")), [])
+            self.assertEqual(
+                list((knowledge_root.parent / "workspace" / "task" / "curation-queue").glob("*.md")),
+                [],
+            )
+
     def test_input_format_simulation_preserves_sources_and_gates(self):
         """Exercise planned conversation, URL, HTML, PDF, and Word input flows."""
         with tempfile.TemporaryDirectory() as temp_directory:
@@ -550,7 +600,8 @@ class IngestEvidenceTests(unittest.TestCase):
             self.assertTrue(result.original_path.exists())
             self.assertEqual(manifest.frontmatter["id"], result.evidence_id)
             self.assertEqual(manifest.frontmatter["original_file"], result.original_path.name)
-            self.assertEqual(manifest.frontmatter["status"], "new")
+            self.assertNotIn("status", manifest.frontmatter)
+            self.assertNotIn("processed_at", manifest.frontmatter)
             self.assertEqual(manifest.frontmatter["extensions"]["availability"], "available")
             self.assertEqual(
                 manifest.frontmatter["extensions"]["capture_context"]["intended_use"],
@@ -648,6 +699,8 @@ class IngestEvidenceTests(unittest.TestCase):
                 "policy.txt", "manual",
                 why_collected="운영 정책 초안 근거", intended_use=["operations-policy"],
             )
+            evidence_path = knowledge_root.parent / str(evidence["manifest_path"])
+            evidence_before_bundle = evidence_path.read_bytes()
             draft = service.create_draft_bundle(
                 domain="operations", slug="operations-policy", title="Operations Policy",
                 bundle_type="policy", summary="Initial summary.",
@@ -655,6 +708,7 @@ class IngestEvidenceTests(unittest.TestCase):
                 actor="hermes-curator", tags=["operations", "policy"],
             )
             self.assertIn("operations-policy", draft["frontmatter"]["tags"])
+            self.assertEqual(evidence_path.read_bytes(), evidence_before_bundle)
             proposal = dict(draft["frontmatter"])
             proposal["summary"] = "Reviewed summary."
             proposal["tags"] = ["operations", "policy", "reviewed"]
@@ -674,6 +728,7 @@ class IngestEvidenceTests(unittest.TestCase):
                 knowledge_root.parent / str(evidence["manifest_path"])
             )
             self.assertNotIn("curated_into", evidence_manifest.frontmatter)
+            self.assertEqual(evidence_path.read_bytes(), evidence_before_bundle)
 
             with self.assertRaisesRegex(ValueError, "revision conflict"):
                 service.apply_bundle_revision(

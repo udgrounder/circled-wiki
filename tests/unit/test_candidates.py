@@ -6,7 +6,7 @@ from pathlib import Path
 from circled_wiki.core.candidates import curation_backlog_metrics, curation_candidate_digest, curation_daily_transitions, list_curation_candidates, promote_curation_candidate, review_curation_candidate
 from circled_wiki.core.frontmatter import parse_markdown, render_markdown
 from circled_wiki.core.ingest import ingest_evidence
-from circled_wiki.core.repository import create_bundle, find_document_by_id
+from circled_wiki.core.repository import apply_bundle_revision, create_bundle, find_document_by_id
 from circled_wiki.core.service import KnowledgeService
 from circled_wiki.core.validator import validate_document, validate_repository
 
@@ -100,6 +100,25 @@ class CurationCandidateTests(unittest.TestCase):
             self.assertEqual(result["review_state"], "rejected")
             self.assertTrue(result["path"].startswith("bundles/.archive/"))
             self.assertTrue(all(item.is_valid for item in validate_repository(knowledge_root)))
+
+    def test_archived_bundle_revision_uses_the_original_domain_for_tags(self):
+        with tempfile.TemporaryDirectory() as directory:
+            knowledge_root, bundle = self._candidate(directory, slug="archive-domain")
+            review_curation_candidate(
+                knowledge_root, bundle.frontmatter["id"], action="reject", actor="reviewer",
+                note="archive domain regression test",
+            )
+            archived = find_document_by_id(knowledge_root, bundle.frontmatter["id"])
+            proposal = dict(archived.frontmatter)
+            proposal["tags"] = ["reviewed"]
+
+            revised = apply_bundle_revision(
+                knowledge_root, bundle_id=str(bundle.frontmatter["id"]), expected_revision=1,
+                proposed_frontmatter=proposal, body=archived.body, actor="reviewer",
+            )
+
+            self.assertIn("operations", revised.frontmatter["tags"])
+            self.assertNotIn(".archive", revised.frontmatter["tags"])
 
     def test_rejects_invalid_curation_review_history(self):
         with tempfile.TemporaryDirectory() as directory:

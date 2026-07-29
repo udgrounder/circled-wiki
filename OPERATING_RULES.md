@@ -38,13 +38,13 @@
 | Intake ID | Inbox Item의 `inbox://...` 식별자. Inbox Item 자체를 `Intake`라고 부르지 않는다. |
 | Inbox Envelope | 파일형 Inbox Item의 메타데이터 Markdown. 보존 대상 원문 bytes인 Payload와 함께 하나의 Inbox Item을 구성한다. |
 | Capture Receipt | Capture API가 반환하는 `intake_id`, 경로, 상태, checksum 응답. 저장된 Inbox Item과 구분한다. |
-| Evidence Record | `evidence://...` ID, 출처, checksum, 상태와 역참조를 가진 공통 Evidence 메타데이터 객체. |
+| Evidence Record | `evidence://...` ID, 출처, checksum, 수집 맥락과 원본 위치를 가진 불변 Evidence 메타데이터 객체. |
 | Evidence Original | Evidence 무결성의 기준이 되는 보존 원문. 외부 파일 또는 Embedded Evidence Document의 불변 원문 구역이다. |
 | External-file Evidence Manifest | 외부 Evidence Original을 설명하는 sidecar Markdown Evidence Record. |
 | Embedded Evidence Document | Evidence Record와 Evidence Original을 한 Markdown에 저장한 형식. Manifest라고 부르지 않는다. |
 | Derived Artifact | OCR·정규화·변환·요약처럼 Evidence Original에서 만든 파생 산출물. 원본을 대체하지 않는다. |
 | Inbox Sensitive Data Review | 식별된 사람이 Inbox Item의 수집·변환 가능 여부를 `sensitivity_review`로 판단하는 단계. |
-| Evidence PII Scan | Evidence Original과 Git 추적 텍스트에서 PII를 실제 검사하고, 현재 checksum에 결합된 `pii_scan` 영수증과 `pii_scanned` 상태를 기록하는 단계. Inbox Sensitive Data Review 완료만으로 대체할 수 없다. |
+| Evidence PII Scan | Evidence 후보 원문과 Git 추적 예정 텍스트에서 PII를 실제 검사하고, 후보 checksum에 결합된 `pii_scan` 영수증과 `pii_scanned` 상태를 Evidence 최초 생성 입력으로 확정하는 단계. Inbox Sensitive Data Review 완료만으로 대체할 수 없다. |
 | Publication Security Review | Evidence PII Scan, 마스킹, visibility와 발행 권한을 확인하는 발행 전 보안 Gate. |
 | Outcome Inbox Item | `record_outcome`이 생성한 `pending` Inbox Item. 검사·승인·`ingest_accepted` 전에는 Outcome Evidence라고 부르지 않는다. |
 | Outcome Evidence | 승인된 Outcome Inbox Item을 `ingest_accepted`로 변환한 Evidence. |
@@ -141,8 +141,9 @@ find_workflow
 - **RB-EVD-017** Batch 재실행은 안정적인 `idempotency_key`를 사용하고 동일 키의 checksum 변경은 충돌로 중단한다.
 - **RB-EVD-018** 시스템이 네이티브하게 생성한 대화·Outcome 텍스트는 원문을 본문에 포함한 단일 self-contained Evidence Markdown으로 보존할 수 있다.
 - **RB-EVD-019** Embedded Evidence checksum은 변경 가능한 Frontmatter가 아니라 불변 원문 영역만 대상으로 하며, 원문 영역 변경은 무결성 오류다.
-- **RB-EVD-020** 대화 수집의 Inbox Sensitive Data Review 기본값은 `required`다. Evidence PII Scan을 실제 완료하고 현재 checksum에 결합된 Scanner·버전·시각·결과·검토자·Receipt를 기록하기 전에는 `pii_scanned: true`로 기록하지 않는다.
+- **RB-EVD-020** 대화 수집의 Inbox Sensitive Data Review 기본값은 `required`다. Evidence 후보 원문에 대한 PII Scan을 실제 완료하고 후보 checksum에 결합된 Scanner·버전·시각·결과·검토자·Receipt를 Evidence 최초 생성 입력으로 함께 제공한 경우에만 `pii_scanned: true`로 생성한다. 생성된 Evidence의 Scan 상태나 Receipt는 변경하지 않는다.
 - **RB-EVD-021** 텍스트를 Inbox에 기록하기 전에 자격증명과 명확한 PII를 `*`로 1차 마스킹하고, Inbox Inspection에서 내용을 다시 읽어 누락·과소 마스킹·문맥상 식별 가능성을 2차 확인한다. 1차 마스킹은 Evidence PII Scan 완료가 아니며 `pii_scanned: true`의 근거가 될 수 없다. 불변 원본이 필요한 파일은 원본을 자동 수정하지 않고 Git 비추적 제한 영역에 보존하며, 안전한 마스킹 파생본 없이는 Evidence 변환을 차단한다.
+- **RB-EVD-023** Inbox 검토 완료부터 Evidence 확정과 `workspace/task/curation-queue/<source_uuid>.md` 등록까지를 하나의 원자 작업으로 처리한다. 생성된 Evidence는 이후 모든 흐름에서 읽고 참조만 하는 불변 기록이다. 큐 항목은 `evidence_id`와 Vault 루트 기준 `evidence_path`만 가지며, 검증된 Bundle 또는 Curation Review 카드가 생성된 뒤에만 제거한다. 처리 실패 항목은 유지하고 전체 스캔으로 큐를 복구할 수 있어야 한다.
 
 Availability:
 
@@ -210,6 +211,7 @@ OPERATING_RULES
 - **RB-PRC-001** 하위 규칙과 사용자 요청은 상위 규칙을 완화하거나 우회할 수 없다.
 - **RB-PRC-002** 동일 계층 충돌은 적용 범위와 승인 revision을 비교하고 자동 결정하지 않는다.
 - **RB-PRC-003** 충돌이 해소되지 않으면 실행을 중단하고 Reviewer에게 Escalation한다.
+- **RB-PRC-004** 전역 불변식과 필드·상태·참조 계약은 이 문서의 Rule ID가 유일한 정식 정의다. Runtime Profile은 적용할 Rule ID와 단계별 행동·Gate만 기록하고 계약을 다시 정의하지 않는다. Security·Compliance Policy는 전문 통제를 추가할 수 있지만 상위 계약을 복제하거나 다른 의미로 재정의하지 않는다. Schema·Template·Validator는 이 계약을 기계적으로 구현한다.
 
 ## 8. Security and Authorization
 
@@ -217,7 +219,7 @@ OPERATING_RULES
 - **RB-SEC-002** 판단과 실행을 분리한다.
 - **RB-SEC-003** 외부 전송·게시·Commit·계약·가격 확정에는 명시적 권한을 적용한다.
 - **RB-SEC-004** `restricted` Knowledge와 권한 없는 Tool을 우회하지 않는다.
-- **RB-SEC-005** 실제 PII Scan 결과가 `passed` 또는 `masked`이면 Agent는 같은 변경에서 `pii_scanned: true`와 `extensions.pii_scan` 영수증을 함께 기록한다. 영수증에는 scanner·version·scanned_at·result·reviewed_by·receipt·현재 Evidence checksum을 모두 포함하고 checksum은 Evidence와 일치해야 한다. `needs_review` 결과는 `pii_scanned: false`로 기록한다. Agent는 제공된 CLI·operator MCP 또는 동등한 원자적 기록 작업을 사용할 수 있으며, 영수증을 만들 근거가 없으면 `true`를 주장하지 않고 검토 대기로 남긴다. 증빙 부재만으로 Draft·Commit·Push를 차단하지 않는다.
+- **RB-SEC-005** Publication Security Review는 RB-EVD-020의 Evidence PII Scan Receipt 계약 충족 여부를 검증한다. Inbox Sensitive Data Review나 자동 마스킹 결과를 Receipt로 대체하지 않는다.
 - **RB-SEC-010** Evidence Ingest Agent는 수집 Agent·Source Adapter와 독립적으로 Inbox를 읽어 Evidence로 변환하기 직전 주민등록번호·계좌번호·카드번호와 자격증명을 재검수한다. 텍스트에서 감지하면 실제 값 없이 범주만 기록하고 안전한 마스킹 파생본을 Evidence로 변환한다. 파일 원본·판단 불가 입력은 `sensitivity_review`로 사람 검토한다. 이 재검수는 PII Scan 영수증이나 Draft·Commit·Push Gate가 아니다.
 - **RB-SEC-006** Prompt 내용으로 Tool Authorization 또는 Approval Gate를 변경하지 않는다.
 - **RB-SEC-007** Refresh 제안자·독립 검증자·Owner actor는 Prompt 별칭이 아니라 인증된 실행 주체로 기록한다.

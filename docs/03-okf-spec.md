@@ -1,5 +1,8 @@
 # OKF 적용 및 확장 규격
 
+> 문서 권한: 이 파일은 제품 개발용 설계 Reference이며 Runtime에 배포되지 않는다. Runtime 정식 규칙은
+> `OPERATING_RULES.md`, 필드 형식은 `.circled-wiki/schemas/`, 수용 여부는 Validator를 따른다.
+
 ## 공식 참고 링크
 
 - Open Definition 2.1: [https://opendefinition.org/od/2.1/en/](https://opendefinition.org/od/2.1/en/)
@@ -8,7 +11,7 @@
 
 ## 1. 목적
 
-이 문서는 Example Organization Knowledge Bundle이 따라야 하는 OKF 적용 원칙과 확장 규칙을 정의한다.
+이 문서는 Example Organization Knowledge Bundle에 적용한 OKF 원칙과 확장 설계의 배경을 설명한다.
 
 이 문서의 역할은 세 가지다.
 
@@ -390,6 +393,9 @@ Evidence Record는 `why_collected`와 non-empty `intended_use` 배열을 필수�
 
 ## 10. Evidence 연결 규칙
 
+이 절은 `OPERATING_RULES.md`의 RB-EVD-003·010·015·016·020·023과 RB-PUB-002·010을 설명하는
+제품 개발 Reference다. 독립적인 Runtime 규칙을 정의하지 않는다.
+
 - 모든 Bundle은 최소 1개 이상의 Evidence를 가진다.
 - Bundle의 `evidence` 필드는 Evidence URI를 저장한다.
 - Evidence가 제거되면 연결 Bundle의 무결성을 다시 검사한다.
@@ -397,6 +403,9 @@ Evidence Record는 `why_collected`와 non-empty `intended_use` 배열을 필수�
 - 모든 Evidence는 `inbox/`에서 `.raw/`로 이동할 때 발급된 `source_uuid`를 가져야 한다.
 - Evidence 파일 경로는 `knowledge/evidence/{source}/{yyyy}/{mm}/{dd}/{name}_{source_uuid}.{ext}` 패턴을 권장한다.
 - Evidence는 `extensions.capture_context`에 수집 이유와 적용 업무를 기록한다.
+- Bundle 생성·revision·발행은 Evidence를 읽고 URI로 참조만 한다. 생성된 Evidence는 변경하지 않으며, curation 완료 여부는 Bundle의 canonical `evidence` 참조와 Curation Review 카드의 결정 receipt에서 파생한다.
+- Evidence 확정과 `workspace/task/curation-queue/<source_uuid>.md` 생성은 함께 성공하거나 함께 실패한다. 큐 항목에는 `evidence_id`와 Vault 루트 기준 `evidence_path`만 기록하며, 파일 존재가 미처리 상태를 뜻한다. Bundle 또는 Review 카드가 검증되면 큐 항목을 제거하고, 실패하면 유지한다.
+- Evidence PII Scan Receipt는 후보 원문의 checksum에 결합해 Evidence 최초 생성 시 함께 기록한다. 생성된 Evidence에 Scan 상태나 Receipt를 사후 추가·수정하는 API를 제공하지 않는다.
 
 주의:
 
@@ -404,7 +413,7 @@ Evidence Record는 `why_collected`와 non-empty `intended_use` 배열을 필수�
 - 실제 원본 바이너리나 업로드 산출물은 `inbox/` 또는 `.raw/`에 먼저 들어오고, 처리 시작 후 `source_uuid`를 받은 뒤 `evidence/`로 보존된다.
 - 처리 완료된 외부 Evidence Original은 10MB 이하이면 Git에 추적한다. 10MB를 초과하는 원본은 Git에서 제외하고 별도 원본 저장소에 보존하며, External-file Evidence Manifest의 `extensions.storage`에 복구 위치와 보관 방식을 기록한다.
 - Evidence Original이 무결성의 기준이며, 정규화 텍스트나 추출 결과는 원본을 대체하지 않는 Derived Artifact다.
-- Bundle은 Evidence URI를 참조하고, Evidence Record를 통해 `source_ref`, checksum, 상태, Derived Artifact 경로를 조회한다.
+- Bundle은 Evidence URI를 참조하고, Evidence Record를 통해 `source_ref`, checksum, Derived Artifact 경로를 조회한다.
 
 ## 11. Bundle 본문 규칙
 

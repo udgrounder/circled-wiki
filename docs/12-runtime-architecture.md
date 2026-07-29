@@ -1,5 +1,8 @@
 # 런타임 아키텍처 설계
 
+> 문서 권한: 이 파일은 source-only 아키텍처 Reference이며 Runtime release에 포함되지 않는다. 설치본 구성과
+> Runtime 규칙의 정본은 release manifest, `.circled-wiki/AGENT_ROUTER.md`, `OPERATING_RULES.md`와 구현이다.
+
 ## 공식 참고 링크
 
 - Google Cloud OKF 공식 저장소: [https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf)

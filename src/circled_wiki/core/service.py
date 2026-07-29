@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from .repository import (
     apply_bundle_revision, backfill_evidence_links, create_bundle,
-    find_document_by_id, knowledge_root_path, migrate_document_ids, remove_evidence_backlinks,
+    find_document_by_id, inspect_legacy_evidence_backlinks, knowledge_root_path, migrate_document_ids,
 )
 from .curator import propose_update
 from .ingest import (
@@ -16,9 +16,9 @@ from .ingest import (
     capture_file,
     complete_inbox_sensitivity_review,
     ingest_evidence,
+    record_inbox_pii_scan_receipt,
 )
 from .publisher import publish_changes, push_committed_changes
-from .pii import record_pii_scan_receipt
 from .candidates import curation_backlog_metrics, list_curation_candidates, promote_curation_candidate, review_curation_candidate
 from .curation import (
     materialize_curation_candidate, run_configured_curation,
@@ -123,8 +123,8 @@ class KnowledgeService:
     def migrate_document_ids(self, *, apply: bool = False) -> Dict[str, object]:
         return migrate_document_ids(self.knowledge_root, apply=apply)
 
-    def remove_evidence_backlinks(self, *, apply: bool = False) -> Dict[str, object]:
-        return remove_evidence_backlinks(self.knowledge_root, apply=apply)
+    def inspect_legacy_evidence_backlinks(self) -> Dict[str, object]:
+        return inspect_legacy_evidence_backlinks(self.knowledge_root)
 
     def list_curation_candidates(self) -> List[Dict[str, object]]:
         """Return Draft Bundles that need curation review; active knowledge is excluded."""
@@ -177,14 +177,13 @@ class KnowledgeService:
     def run_configured_curation_batch(self, limit: int = 100) -> Dict[str, object]:
         return run_configured_curation_batch(self.knowledge_root, limit=limit)
 
-    def record_evidence_pii_scan(
-        self, evidence_id: str, *, scanner: str, scanner_version: str,
+    def record_inbox_pii_scan(
+        self, intake_id: str, *, scanner: str, scanner_version: str,
         result: str, reviewed_by: str, receipt: str,
         scanned_at: Optional[str] = None,
     ) -> Dict[str, object]:
-        """Record a supplied scan receipt without claiming to execute the scanner."""
-        return record_pii_scan_receipt(
-            self.knowledge_root, evidence_id, scanner=scanner,
+        return record_inbox_pii_scan_receipt(
+            self.knowledge_root, intake_id, scanner=scanner,
             scanner_version=scanner_version, result=result,
             reviewed_by=reviewed_by, receipt=receipt, scanned_at=scanned_at,
         )
@@ -263,6 +262,7 @@ class KnowledgeService:
         sensitivity_review: str = "required",
         idempotency_key: Optional[str] = None,
         content_mode: str = "external_file",
+        pii_scan_receipt: Optional[Dict[str, object]] = None,
     ) -> Dict[str, object]:
         """Ingest only an inbox-relative file for user, Batch, or Hermes collection."""
         if not isinstance(inbox_path, str) or not inbox_path.strip():
@@ -286,8 +286,7 @@ class KnowledgeService:
             sensitivity_review=sensitivity_review,
             idempotency_key=idempotency_key,
             content_mode=content_mode,
-            # A completed Inbox review is not an Evidence PII Scan receipt.
-            pii_scanned=False,
+            pii_scan_receipt=pii_scan_receipt,
         )
         response = {
             "evidence_id": result.evidence_id,

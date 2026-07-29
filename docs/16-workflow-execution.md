@@ -1,5 +1,8 @@
 # Workflow 실행 및 지식 환류 설계
 
+> 문서 권한: 이 파일은 source-only Workflow 설계 Reference다. Outcome Evidence와 상태 전이의 정식 계약은
+> `OPERATING_RULES.md`, Runtime Profile과 Validator를 따른다.
+
 ## 1. 목적
 
 이 문서는 조직의 공식 지식을 사람과 Agent가 실제 업무에 재사용하기 위한 실행 모델을 정의한다.

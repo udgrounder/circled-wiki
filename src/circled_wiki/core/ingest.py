@@ -340,6 +340,33 @@ def complete_inbox_sensitivity_review(
     raise ValueError("intake_id must refer to an existing Inbox item")
 
 
+def record_inbox_pii_scan_receipt(
+    knowledge_root: Path, intake_id: str, *, scanner: str, scanner_version: str,
+    result: str, reviewed_by: str, receipt: str, scanned_at: Optional[str] = None,
+) -> Dict[str, object]:
+    """Attach a checksum-bound PII receipt before the Inbox item becomes Evidence."""
+    from .pii import build_pii_scan_receipt
+
+    for path in sorted((knowledge_root / "inbox").glob("*/*.md")):
+        try:
+            data, _ = read_conversation_intake(path)
+        except (FrontmatterError, OSError, ValueError):
+            continue
+        if data.get("id") != intake_id:
+            continue
+        updated = dict(data)
+        scan = build_pii_scan_receipt(
+            str(data.get("checksum", "")), scanner=scanner,
+            scanner_version=scanner_version, result=result,
+            reviewed_by=reviewed_by, receipt=receipt, scanned_at=scanned_at,
+        )
+        updated["pii_scan_receipt"] = scan
+        document = parse_markdown(path)
+        path.write_text(render_markdown(updated, document.body), encoding="utf-8")
+        return {"intake_id": intake_id, "pii_scan_receipt": scan}
+    raise ValueError("intake_id must refer to an existing Inbox item")
+
+
 def ingest_evidence(
     knowledge_root: Path,
     source_path: Path,
@@ -359,6 +386,7 @@ def ingest_evidence(
     content_mode: str = "external_file",
     capture_fidelity: Optional[str] = None,
     pii_scanned: bool = False,
+    pii_scan_receipt: Optional[Dict[str, object]] = None,
     capture_details: Optional[Dict[str, object]] = None,
     original_stem: Optional[str] = None,
 ) -> IngestResult:
@@ -412,6 +440,8 @@ def ingest_evidence(
             raise ValueError("embedded Evidence source contains a reserved integrity marker")
     if not isinstance(pii_scanned, bool):
         raise ValueError("pii_scanned must be boolean")
+    if pii_scanned:
+        raise ValueError("pii_scanned cannot be set directly; supply pii_scan_receipt")
     if capture_details is not None and not isinstance(capture_details, dict):
         raise ValueError("capture_details must be an object")
 
@@ -484,8 +514,6 @@ def ingest_evidence(
         "provider": provider,
         "source_ref": source_ref,
         "captured_at": timestamp,
-        "status": "new",
-        "processed_at": None,
         "checksum": source_checksum,
         "language": "ko",
         "original_file_git_tracked": True,
@@ -499,8 +527,6 @@ def ingest_evidence(
                 "retention_class": retention_class,
                 "sensitivity_review": sensitivity_review,
             },
-            "review_state": "pending",
-            "curation_queue": {"status": "pending", "updated_at": timestamp},
             "visibility": "internal",
             "pii_scanned": pii_scanned,
             "pii_masked": False,
@@ -508,6 +534,16 @@ def ingest_evidence(
             "ingest": {"idempotency_key": idempotency_key} if idempotency_key else {},
         },
     }
+    if pii_scan_receipt is not None:
+        receipt = dict(pii_scan_receipt)
+        frontmatter["extensions"]["pii_scan"] = receipt
+        frontmatter["extensions"]["pii_scanned"] = receipt.get("result") in {"passed", "masked"}
+        frontmatter["extensions"]["pii_masked"] = receipt.get("result") == "masked"
+        from .pii import pii_scan_receipt_errors
+
+        errors = pii_scan_receipt_errors(frontmatter)
+        if errors:
+            raise ValueError("invalid pre-creation PII scan receipt: " + "; ".join(errors))
     if content_mode == "embedded":
         frontmatter["extensions"]["content_mode"] = "embedded"
         frontmatter["extensions"]["checksum_scope"] = "original_content"
@@ -538,6 +574,15 @@ def ingest_evidence(
             "manifest validation failed: "
             + "; ".join(errors or ["validator returned no diagnostic details"])
         )
+    try:
+        from .curation_queue import enqueue_curation_work
+
+        enqueue_curation_work(knowledge_root, evidence_id, manifest_path)
+    except Exception:
+        manifest_path.unlink(missing_ok=True)
+        if content_mode == "external_file" and original_path.is_file():
+            shutil.move(str(original_path), str(raw_path))
+        raise
     if content_mode == "embedded":
         raw_path.unlink(missing_ok=True)
     return IngestResult(source_uuid, original_path, manifest_path, evidence_id)

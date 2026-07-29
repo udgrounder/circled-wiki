@@ -1,6 +1,18 @@
 # AI Circled Wiki 문서 인덱스
 
-이 디렉터리는 Example Organization의 `AI Knowledge Operating System` 구축을 위한 기획 및 설계 문서 세트다.
+이 디렉터리는 Example Organization의 `AI Knowledge Operating System` 구축을 위한 제품 개발용 기획·설계
+Reference다. `docs/`는 Runtime release에 포함되지 않으며 설치된 Wiki Agent의 규칙·권한 근거가 아니다.
+
+## 문서 권한과 정본
+
+- Runtime 전역 규칙의 유일한 정본은 루트 `OPERATING_RULES.md`다.
+- Runtime 단계별 행동과 Gate는 `agent-rules/`, 보안 전문 통제는 `.circled-wiki/policies/`를 따른다.
+- 필드 형식은 `.circled-wiki/schemas/`, 생성 예시는 `.circled-wiki/templates/`, 실제 수용 여부는 Validator가 구현한다.
+- `docs/`는 배경·설계 의도·예시·구현 설명을 제공하며 전역 계약을 새로 만들거나 변경하지 않는다.
+- 문서 설명이 배포 규칙이나 Validator와 다르면 문서가 오래된 것이므로 Runtime에 적용하지 않고
+  Repository Engineering에서 문서를 보정한다.
+- Evidence 수명주기·불변성·PII Receipt·Curation Queue 계약은 `OPERATING_RULES.md`의
+  RB-EVD-002~023, 보안 적용은 RB-SEC-001·005·010을 정본으로 사용한다.
 
 ## 공식 참고 링크
 
@@ -47,7 +59,8 @@
 
 - 전역 운영 단일 규약은 루트 `OPERATING_RULES.md`다.
 - `docs/`는 기획·상세 설계 Reference이며 Runtime Context가 아니다.
-- Bundle·Evidence의 ID, 링크, 양방향 참조 규약은 `docs/26-reference-contract.md`를 단일 기준으로 한다.
+- Bundle·Evidence의 ID, 단방향 참조와 파생 링크에 대한 제품 설계 설명은 `docs/26-reference-contract.md`에서
+  모아 보되, Runtime 정식 계약은 `OPERATING_RULES.md`의 관련 Rule ID와 Validator를 따른다.
 - Runtime Agent는 `docs/`를 읽지 않고 전역 운영 규약과 공식 Knowledge Bundle로 동작한다.
 - Repository Engineering에서만 `OPERATING_RULES.md`의 Reference Traceability를 통해 필요한 설계 문서를 확인한다.
 - `docs/source/`와 역사적 초안은 과거 의사결정 근거가 필요할 때만 읽는다.

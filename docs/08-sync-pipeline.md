@@ -1,5 +1,8 @@
 # 수집 및 동기화 파이프라인
 
+> 문서 권한: 이 파일은 제품 개발용 데이터 흐름 Reference이며 Runtime에 배포되지 않는다. Evidence 생성·불변성·
+> Curation Queue의 정식 계약은 `OPERATING_RULES.md`의 RB-EVD-017·020·021·023과 Runtime Profile을 따른다.
+
 ## 1. 목적
 
 사용자·지정 Batch·Hermes가 제공한 원본을 Evidence로 안정적으로 수집·축적해 회사 전용 지식 라이브러리를 갱신하는 파이프라인을 정의한다.
@@ -56,7 +59,6 @@
 
 - 저장 경로 결정
 - checksum 생성
-- 상태 `new` 기록
 - Evidence 파일명과 `source_uuid` 일치
 - Evidence 파일 경로는 `{name}_{source_uuid}.{ext}` 패턴을 사용
 - 외부 파일은 Evidence Original을 `evidence/`에 보존하고 동일 basename의 External-file Evidence Manifest를 생성
@@ -65,6 +67,7 @@
 - 외부 Evidence Original이 10MB를 초과하면 Git에서 제외하고 별도 원본 저장소에 보존하며 External-file Evidence Manifest에는 checksum과 보관 위치를 기록
 - `source_ref` 초기화
 - `extensions.capture_context`에 수집 이유와 적용 업무 기록
+- Evidence 생성과 Curation Queue 항목 등록을 하나의 원자 작업으로 완료
 
 ### 단계 5: 큐레이션 요청
 
@@ -75,22 +78,21 @@
 - Bundle 생성/갱신
 - 실행 절차는 해당 도메인의 `runbooks/`에 Runbook으로 생성·갱신
 - 장기 미해결 사항은 Inquiry 후보로 분리
-- Evidence 상태 변경
-- 인덱스 갱신 트리거
+- 검증된 Bundle 또는 Review 카드 생성 후 Curation Queue 항목 제거
 - 처리 성공 시 `.raw/` 항목 즉시 삭제
 - 처리 실패 또는 검토 필요 시 `.raw/` 항목 보존
 - Bundle과 운영 로그에 동일 `source_uuid` 연결
 - OKF/Profile Validator 통과 시 자동 Commit
 - Validator 실패 시 Commit 금지
 
-## 4. 상태 전이
+## 4. 처리 경계
 
 ```text
 inbox
   -> inspect / accept
   -> .raw
-  -> Evidence Record + Evidence Original
-  -> bundles
+  -> immutable Evidence + Curation Queue
+  -> Bundle or Curation Review
 ```
 
 상태 의미:

@@ -1,4 +1,5 @@
 import tempfile
+import hashlib
 import unittest
 from pathlib import Path
 
@@ -7,7 +8,7 @@ from circled_wiki.core.curation import materialize_curation_candidate
 from circled_wiki.core.curation_contract import validate_curation_output
 from circled_wiki.core.curation_reviews import decide_curation_review, generate_curation_review
 from circled_wiki.core.ingest import ingest_evidence
-from circled_wiki.core.pii import record_pii_scan_receipt
+from circled_wiki.core.pii import build_pii_scan_receipt
 from circled_wiki.core.service import KnowledgeService
 
 
@@ -19,8 +20,15 @@ class KoreanQueryQualityTests(unittest.TestCase):
             config.parent.mkdir(); config.write_text("schema_version: 1\napproval:\n  knowledge_owner: owner\n", encoding="utf-8")
             source = root / "inbox" / "manual" / "sns.txt"; source.parent.mkdir(parents=True)
             source.write_text("SNS 마케팅 캠페인 목표와 채널을 정한다.", encoding="utf-8")
-            evidence = ingest_evidence(root, source, "manual", why_collected="quality test", intended_use=["sns-marketing"])
-            record_pii_scan_receipt(root, evidence.evidence_id, scanner="test", scanner_version="1", result="passed", reviewed_by="security", receipt="test://pii")
+            checksum = "sha256:" + hashlib.sha256(source.read_bytes()).hexdigest()
+            scan = build_pii_scan_receipt(
+                checksum, scanner="test", scanner_version="1", result="passed",
+                reviewed_by="security", receipt="test://pii",
+            )
+            evidence = ingest_evidence(
+                root, source, "manual", why_collected="quality test",
+                intended_use=["sns-marketing"], pii_scan_receipt=scan,
+            )
             output = validate_curation_output({
                 "action": "guide", "domain": "marketing", "bundle_type": "guide", "title": "SNS 마케팅 시작 가이드",
                 "summary": "캠페인 목표와 채널을 정하는 방법", "body": "# SNS 마케팅\n\n목표와 고객을 먼저 정한다.",

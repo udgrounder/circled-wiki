@@ -1,5 +1,8 @@
 # Knowledge 품질, 근거 지원 및 산출물 설계
 
+> 문서 권한: 이 파일은 제품 개발용 품질 설계 Reference이며 Runtime에 배포되지 않는다. Evidence와 Bundle의
+> 정식 참조·상태·발행 계약은 `OPERATING_RULES.md`와 Validator를 따른다.
+
 ## 1. 목적
 
 사용자 제공 레퍼런스, Agent 답변, Workflow 산출물과 오래된 지식을 검증 가능한 상태로 관리한다. 공식 지식은
@@ -99,7 +102,7 @@ extensions:
 - Owner 없는 Active Bundle
 - 검토 기한이 지난 Bundle
 - 접근 불가능하거나 누락된 Evidence
-- Bundle-Evidence 역참조 누락
+- Bundle의 Evidence ID·파생 파일 링크 불일치
 - 열린 Inquiry
 - 관련 링크가 없는 Active Bundle
 - 30일 이상 열린 Runtime Task

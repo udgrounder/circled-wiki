@@ -1,38 +1,40 @@
+import hashlib
 import tempfile
 import unittest
 from pathlib import Path
 
 from circled_wiki.core.frontmatter import parse_markdown, render_markdown
 from circled_wiki.core.ingest import ingest_evidence
-from circled_wiki.core.pii import PiiScanResult, record_pii_scan_receipt, scan_and_record_pii_receipt
+from circled_wiki.core.pii import build_pii_scan_receipt
 from circled_wiki.core.publisher import PublishError, _require_sensitive_data_review
 from circled_wiki.core.validator import validate_document
 
 
 class PiiScanReceiptTests(unittest.TestCase):
-    def _ingest(self, directory: str):
+    def _ingest(self, directory: str, *, with_receipt: bool = False):
         knowledge_root = Path(directory) / "knowledge"
         source = knowledge_root / "inbox" / "manual" / "sample.txt"
         source.parent.mkdir(parents=True)
         source.write_text("masked sample", encoding="utf-8")
+        checksum = "sha256:" + hashlib.sha256(source.read_bytes()).hexdigest()
+        scan = build_pii_scan_receipt(
+            checksum, scanner="manual-review", scanner_version="policy-1",
+            result="passed", reviewed_by="security-agent",
+            receipt="review://local/pii-001",
+            scanned_at="2026-07-22T10:00:00+09:00",
+        ) if with_receipt else None
         result = ingest_evidence(
             knowledge_root, source, "manual",
             why_collected="PII gate test", intended_use=["security-test"],
+            pii_scan_receipt=scan,
         )
         return knowledge_root, result
 
     def test_receipt_is_bound_to_current_evidence_checksum(self):
         with tempfile.TemporaryDirectory() as directory:
-            knowledge_root, ingested = self._ingest(directory)
-            recorded = record_pii_scan_receipt(
-                knowledge_root, ingested.evidence_id,
-                scanner="manual-review", scanner_version="policy-1",
-                result="passed", reviewed_by="security-agent",
-                receipt="review://local/pii-001",
-                scanned_at="2026-07-22T10:00:00+09:00",
-            )
+            knowledge_root, ingested = self._ingest(directory, with_receipt=True)
             document = parse_markdown(ingested.manifest_path)
-            self.assertTrue(recorded["pii_scanned"])
+            self.assertTrue(document.frontmatter["extensions"]["pii_scanned"])
             self.assertEqual(
                 document.frontmatter["extensions"]["pii_scan"]["source_checksum"],
                 document.frontmatter["checksum"],
@@ -58,38 +60,35 @@ class PiiScanReceiptTests(unittest.TestCase):
 
     def test_stale_checksum_receipt_is_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
-            knowledge_root, ingested = self._ingest(directory)
-            record_pii_scan_receipt(
-                knowledge_root, ingested.evidence_id,
+            knowledge_root = Path(directory) / "knowledge"
+            source = knowledge_root / "inbox" / "manual" / "sample.txt"
+            source.parent.mkdir(parents=True)
+            source.write_text("masked sample", encoding="utf-8")
+            stale = build_pii_scan_receipt(
+                "sha256:" + "0" * 64,
                 scanner="manual-review", scanner_version="policy-1",
                 result="masked", reviewed_by="security-agent",
                 receipt="review://local/pii-002",
             )
-            document = parse_markdown(ingested.manifest_path)
-            document.frontmatter["extensions"]["pii_scan"]["source_checksum"] = "sha256:" + "0" * 64
-            ingested.manifest_path.write_text(
-                render_markdown(document.frontmatter, document.body), encoding="utf-8"
-            )
-            validation = validate_document(ingested.manifest_path, knowledge_root)
-            self.assertIn(
-                "extensions.pii_scan.source_checksum must equal Evidence checksum",
-                validation.profile_errors,
-            )
+            with self.assertRaisesRegex(ValueError, "source_checksum must equal"):
+                ingest_evidence(
+                    knowledge_root, source, "manual",
+                    why_collected="PII gate test", intended_use=["security-test"],
+                    pii_scan_receipt=stale,
+                )
 
-    def test_adapter_result_is_bound_to_preserved_evidence_content(self):
-        class Scanner:
-            def scan(self, *, evidence_id, checksum, content):
-                self.content = content
-                return PiiScanResult("passed", "fake-scanner", "1", "scan://receipt")
-
+    def test_direct_pii_scanned_flag_cannot_bypass_pre_creation_receipt(self):
         with tempfile.TemporaryDirectory() as directory:
-            knowledge_root, ingested = self._ingest(directory)
-            scanner = Scanner()
-            recorded = scan_and_record_pii_receipt(
-                knowledge_root, ingested.evidence_id, adapter=scanner, reviewed_by="security-agent"
-            )
-            self.assertEqual(scanner.content, b"masked sample")
-            self.assertEqual(recorded["pii_scan"]["scanner"], "fake-scanner")
+            knowledge_root = Path(directory) / "knowledge"
+            source = knowledge_root / "inbox" / "manual" / "sample.txt"
+            source.parent.mkdir(parents=True)
+            source.write_text("masked sample", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "cannot be set directly"):
+                ingest_evidence(
+                    knowledge_root, source, "manual",
+                    why_collected="PII gate test", intended_use=["security-test"],
+                    pii_scanned=True,
+                )
 
 
 if __name__ == "__main__":

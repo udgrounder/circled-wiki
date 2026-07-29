@@ -1,5 +1,9 @@
 # ChatGPT 대화 원문 저장본
 
+> 보존 상태: 초기 설계 대화의 역사적 원문이며 현재 규칙·권한·구현 기준이 아니다.
+> 아래의 “docs를 Source of Truth로 사용”하라는 과거 문구는 폐기되었다. 현재 Runtime 정본은
+> `OPERATING_RULES.md`, Runtime Profile, schema와 Validator이며 `docs/`는 release에 포함되지 않는다.
+
 - 저장 일시: 2026-07-08
 - 원본 페이지: https://chatgpt.com/c/6a4dbf19-8e6c-83ee-964d-99e97f983bbd
 - 페이지 제목: `LLM 위키 구축 방법`

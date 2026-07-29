@@ -35,7 +35,8 @@ class McpServerTests(unittest.TestCase):
         self.assertNotIn("record_evidence_pii_scan", names)
         self.assertNotIn("review_curation_candidate", names)
         operator_names = {tool["name"] for tool in available_tools("operator")}
-        self.assertIn("record_evidence_pii_scan", operator_names)
+        self.assertNotIn("record_evidence_pii_scan", operator_names)
+        self.assertIn("record_inbox_pii_scan", operator_names)
         self.assertIn("review_curation_candidate", operator_names)
 
     def test_initialize_uses_configured_organization_name(self):

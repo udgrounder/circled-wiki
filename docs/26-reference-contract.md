@@ -1,5 +1,9 @@
 # Bundle–Evidence Reference Contract
 
+> Document authority: this is a source-only design reference, not a Runtime contract shipped to installed Wikis.
+> Canonical Runtime rules are `OPERATING_RULES.md` RB-EVD-003·015·016·023 and RB-PUB-002·010; schema and
+> Validator determine accepted structure.
+
 ## Canonical fields
 
 | Field | Owner | Canonical value | Purpose |

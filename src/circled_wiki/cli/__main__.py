@@ -1,6 +1,7 @@
 """Human-friendly CLI without domain logic."""
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import shutil
@@ -9,6 +10,7 @@ import unicodedata
 
 from circled_wiki.config.paths import project_root
 from circled_wiki.core.ingest import CaptureIdempotencyConflict, ingest_evidence
+from circled_wiki.core.pii import build_pii_scan_receipt
 from circled_wiki.core.repository import apply_bundle_revision, create_bundle, find_document_by_id
 from circled_wiki.core.evidence import evidence_original_path
 from circled_wiki.core.search import search_knowledge
@@ -87,8 +89,7 @@ def main() -> int:
     evidence_links.add_argument("--apply", action="store_true", help="write only validated Evidence file-link repairs")
     migrate_ids = subparsers.add_parser("migrate-document-ids")
     migrate_ids.add_argument("--apply", action="store_true", help="write the validated legacy-ID migration")
-    remove_backlinks = subparsers.add_parser("remove-evidence-backlinks")
-    remove_backlinks.add_argument("--apply", action="store_true", help="remove legacy Evidence curated_into fields after validation")
+    subparsers.add_parser("inspect-legacy-evidence-backlinks")
     subparsers.add_parser("operational-preflight")
     system_issue = subparsers.add_parser("record-system-issue")
     system_issue.add_argument("--title", required=True)
@@ -167,14 +168,20 @@ def main() -> int:
     ingest.add_argument("--sensitivity-review", choices=("completed", "required", "not_applicable"), default="required")
     ingest.add_argument("--idempotency-key")
     ingest.add_argument("--content-mode", choices=("external_file", "embedded"), default="external_file")
-    pii_scan = subparsers.add_parser("record-evidence-pii-scan")
-    pii_scan.add_argument("--evidence", required=True)
-    pii_scan.add_argument("--scanner", required=True)
-    pii_scan.add_argument("--scanner-version", required=True)
-    pii_scan.add_argument("--result", choices=("passed", "masked", "needs_review"), required=True)
-    pii_scan.add_argument("--reviewed-by", required=True)
-    pii_scan.add_argument("--receipt", required=True)
-    pii_scan.add_argument("--scanned-at")
+    ingest.add_argument("--pii-scanner")
+    ingest.add_argument("--pii-scanner-version")
+    ingest.add_argument("--pii-result", choices=("passed", "masked", "needs_review"))
+    ingest.add_argument("--pii-reviewed-by")
+    ingest.add_argument("--pii-receipt")
+    ingest.add_argument("--pii-scanned-at")
+    inbox_pii = subparsers.add_parser("record-inbox-pii-scan")
+    inbox_pii.add_argument("--intake", required=True)
+    inbox_pii.add_argument("--scanner", required=True)
+    inbox_pii.add_argument("--scanner-version", required=True)
+    inbox_pii.add_argument("--result", choices=("passed", "masked", "needs_review"), required=True)
+    inbox_pii.add_argument("--reviewed-by", required=True)
+    inbox_pii.add_argument("--receipt", required=True)
+    inbox_pii.add_argument("--scanned-at")
     capture = subparsers.add_parser("capture-conversation")
     capture.add_argument("--provider", required=True)
     capture.add_argument("--file", required=True, help="UTF-8 Markdown transcript to capture")
@@ -474,8 +481,8 @@ def main() -> int:
     if args.command == "migrate-document-ids":
         print(json.dumps(service.migrate_document_ids(apply=args.apply), ensure_ascii=False, indent=2))
         return 0
-    if args.command == "remove-evidence-backlinks":
-        print(json.dumps(service.remove_evidence_backlinks(apply=args.apply), ensure_ascii=False, indent=2))
+    if args.command == "inspect-legacy-evidence-backlinks":
+        print(json.dumps(service.inspect_legacy_evidence_backlinks(), ensure_ascii=False, indent=2))
         return 0
     if args.command == "operational-preflight":
         project = project_root()
@@ -555,6 +562,21 @@ def main() -> int:
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0 if result["ready"] else 1
     if args.command == "ingest-evidence":
+        pii_values = (
+            args.pii_scanner, args.pii_scanner_version, args.pii_result,
+            args.pii_reviewed_by, args.pii_receipt,
+        )
+        if any(pii_values) and not all(pii_values):
+            raise ValueError("all PII scan arguments are required together")
+        pii_receipt = None
+        if all(pii_values):
+            source_checksum = "sha256:" + hashlib.sha256(Path(args.file).read_bytes()).hexdigest()
+            pii_receipt = build_pii_scan_receipt(
+                source_checksum, scanner=args.pii_scanner,
+                scanner_version=args.pii_scanner_version, result=args.pii_result,
+                reviewed_by=args.pii_reviewed_by, receipt=args.pii_receipt,
+                scanned_at=args.pii_scanned_at,
+            )
         result = ingest_evidence(
             root,
             Path(args.file),
@@ -569,15 +591,13 @@ def main() -> int:
             sensitivity_review=args.sensitivity_review,
             idempotency_key=args.idempotency_key,
             content_mode=args.content_mode,
-            # Sensitivity review cannot automatically attest an Evidence PII Scan.
-            pii_scanned=False,
+            pii_scan_receipt=pii_receipt,
         )
         print(result.evidence_id); return 0
-    if args.command == "record-evidence-pii-scan":
-        print(json.dumps(service.record_evidence_pii_scan(
-            args.evidence, scanner=args.scanner,
-            scanner_version=args.scanner_version, result=args.result,
-            reviewed_by=args.reviewed_by, receipt=args.receipt,
+    if args.command == "record-inbox-pii-scan":
+        print(json.dumps(service.record_inbox_pii_scan(
+            args.intake, scanner=args.scanner, scanner_version=args.scanner_version,
+            result=args.result, reviewed_by=args.reviewed_by, receipt=args.receipt,
             scanned_at=args.scanned_at,
         ), ensure_ascii=False, indent=2)); return 0
     if args.command == "capture-conversation":
