@@ -168,7 +168,8 @@ source_ref:
 ## 9. 상태 모델
 
 Evidence는 상태 전이를 갖지 않는다. 미정제 여부는 Curation Queue 항목의 존재로, 검토 여부는 Review 카드로,
-정제 완료는 Bundle의 `evidence` 참조로 판단한다.
+정제 완료는 Bundle의 `evidence` 참조 또는 유효한 Review 결정으로 판단한다. stale Review는 완료로 계산하지 않고
+해당 Evidence를 다시 큐에 등록한다.
 
 ## 10. Bundle -> Evidence 연결
 

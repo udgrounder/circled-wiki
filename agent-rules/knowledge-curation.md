@@ -59,11 +59,13 @@ Evidence 정제 결과와 Curation Queue 소비는 RB-EVD-003·023을 적용한�
 검토 handoff를 표현한다. Review 카드는 Evidence ID·상대
 경로·checksum·제목·수집 목적·intended use의 안전한 snapshot을 보존하며, 실제 Evidence 링크를 기준으로 검토한다. 승인 또는
 `no_bundle` 결정으로 작업을 소비하면 카드를 숨김 archive로 이동해 기본 목록에서는 제거하되 결정 receipt는 보존한다.
-Evidence 원문은 카드에 복사하지 않는다. 큐 이상은 `refresh-curation-queue`로 복구한다.
+Evidence 원문은 카드에 복사하지 않는다. stale 카드는 RB-CUR-004에 따라 archive하고 다시 큐잉한다. Adapter 실패는
+RB-CUR-010에 따라 Review 또는 `no_bundle` 결론으로 만들지 않는다. 큐 이상은 `refresh-curation-queue`로 복구한다.
 
 ## Failure State
 
-Curation Queue 항목을 유지하거나 Review 카드를 생성해 상충·근거 부족·Owner 부재를 기록한다.
+Curation 실행 실패는 Curation Queue 항목과 시도 Receipt를 유지한다. 성공한 분석에서 상충·근거 부족·Owner 부재를
+판단한 경우에만 Review 카드를 생성한다.
 민감정보 문제는 실제 값을 복사하지 않고 범주·영향 경로·필요한 보안 검토만 기록한다.
 
 ## Prohibited

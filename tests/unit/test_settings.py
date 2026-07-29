@@ -333,6 +333,7 @@ class SettingsTests(unittest.TestCase):
             evidence_data = dict(evidence_document.frontmatter)
             evidence_data["id"] = legacy_evidence_id
             evidence_document.path.write_text(render_markdown(evidence_data, evidence_document.body), encoding="utf-8")
+            immutable_evidence = evidence_document.path.read_bytes()
             bundle_document = parse_markdown(legacy_bundle_path)
             bundle_data = dict(bundle_document.frontmatter)
             bundle_data["id"] = legacy_bundle_id
@@ -342,7 +343,7 @@ class SettingsTests(unittest.TestCase):
             legacy_bundle_path.write_text(render_markdown(bundle_data, bundle_document_body), encoding="utf-8")
 
             dry_run = migrate_document_ids(root)
-            self.assertEqual(dry_run["change_count"], 2)
+            self.assertEqual(dry_run["change_count"], 1)
             self.assertEqual(dry_run["rename_count"], 1)
             self.assertEqual(dry_run["renames"], [{
                 "from": f"bundles/test/{legacy_bundle_path.name}",
@@ -354,16 +355,20 @@ class SettingsTests(unittest.TestCase):
             migrated_bundle_path = legacy_bundle_path.with_name("legacy.md")
             migrated_bundle = parse_markdown(migrated_bundle_path)
             migrated_evidence = parse_markdown(evidence_document.path)
-            self.assertEqual(applied["applied_count"], 2)
+            self.assertEqual(applied["applied_count"], 1)
             self.assertEqual(
                 migrated_bundle.frontmatter["id"],
                 f"bundle/example-org/legacy--{bundle.frontmatter['bundle_uuid']}",
             )
-            self.assertEqual(migrated_evidence.frontmatter["id"], f"evidence/example-org/{evidence_document.path.name}")
-            self.assertEqual(migrated_bundle.frontmatter["evidence"], [migrated_evidence.frontmatter["id"]])
+            self.assertEqual(migrated_evidence.frontmatter["id"], legacy_evidence_id)
+            self.assertEqual(migrated_bundle.frontmatter["evidence"], [legacy_evidence_id])
             self.assertEqual(migrated_bundle.frontmatter["extensions"]["legacy_path"], "bundles/test/legacy.md")
             self.assertIn("See bundles/test/legacy.md.", migrated_bundle.body)
             self.assertNotIn("curated_into", migrated_evidence.frontmatter)
+            self.assertEqual(evidence_document.path.read_bytes(), immutable_evidence)
+            validation = validate_document(evidence_document.path, root)
+            self.assertTrue(validation.is_valid)
+            self.assertTrue(any("legacy Evidence ID" in warning for warning in validation.warnings))
 
     def test_backlink_migration_removes_only_legacy_evidence_fields(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -447,6 +447,28 @@ def ingest_evidence(
 
     organization_id = require_stable_organization_id(knowledge_root)
     source_checksum = _sha256(source_path)
+    if pii_scan_receipt is not None:
+        receipt = dict(pii_scan_receipt)
+        receipt_result = receipt.get("result")
+        receipt_probe = {
+            "checksum": source_checksum,
+            "extensions": {
+                "pii_scan": receipt,
+                "pii_scanned": receipt_result in {"passed", "masked"},
+                "pii_masked": receipt_result == "masked",
+            },
+        }
+        from .pii import pii_scan_receipt_errors
+
+        errors = pii_scan_receipt_errors(receipt_probe)
+        if errors:
+            raise ValueError(
+                "invalid pre-creation PII scan receipt: " + "; ".join(errors)
+            )
+        if receipt_result == "needs_review":
+            raise ValueError(
+                "PII scan requires review; keep the source in Inbox until a passed or masked receipt is available"
+            )
     if idempotency_key is not None:
         for manifest_path in sorted((knowledge_root / "evidence").rglob("*.md")):
             if manifest_path.name in {"index.md", "log.md"}:
@@ -539,11 +561,6 @@ def ingest_evidence(
         frontmatter["extensions"]["pii_scan"] = receipt
         frontmatter["extensions"]["pii_scanned"] = receipt.get("result") in {"passed", "masked"}
         frontmatter["extensions"]["pii_masked"] = receipt.get("result") == "masked"
-        from .pii import pii_scan_receipt_errors
-
-        errors = pii_scan_receipt_errors(frontmatter)
-        if errors:
-            raise ValueError("invalid pre-creation PII scan receipt: " + "; ".join(errors))
     if content_mode == "embedded":
         frontmatter["extensions"]["content_mode"] = "embedded"
         frontmatter["extensions"]["checksum_scope"] = "original_content"

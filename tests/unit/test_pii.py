@@ -90,6 +90,34 @@ class PiiScanReceiptTests(unittest.TestCase):
                     pii_scanned=True,
                 )
 
+    def test_needs_review_receipt_keeps_source_in_inbox(self):
+        with tempfile.TemporaryDirectory() as directory:
+            knowledge_root = Path(directory) / "knowledge"
+            source = knowledge_root / "inbox" / "manual" / "sample.txt"
+            source.parent.mkdir(parents=True)
+            source.write_text("requires a human decision", encoding="utf-8")
+            checksum = "sha256:" + hashlib.sha256(source.read_bytes()).hexdigest()
+            receipt = build_pii_scan_receipt(
+                checksum,
+                scanner="manual-review",
+                scanner_version="policy-1",
+                result="needs_review",
+                reviewed_by="security-agent",
+                receipt="review://local/pii-pending",
+            )
+
+            with self.assertRaisesRegex(ValueError, "keep the source in Inbox"):
+                ingest_evidence(
+                    knowledge_root, source, "manual",
+                    why_collected="PII gate test",
+                    intended_use=["security-test"],
+                    pii_scan_receipt=receipt,
+                )
+
+            self.assertTrue(source.is_file())
+            self.assertFalse((knowledge_root / ".raw").exists())
+            self.assertFalse((knowledge_root / "evidence").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

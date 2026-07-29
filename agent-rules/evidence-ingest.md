@@ -35,7 +35,7 @@
 - 승인된 검사 기록
 - Evidence Schema와 원본 checksum 일치
 - RB-EVD-021·RB-SEC-010의 재검수 Gate 통과
-- PII Scan 입력이 있으면 RB-EVD-020·RB-SEC-005의 Receipt Gate 통과
+- PII Scan 입력이 있으면 RB-EVD-020·RB-SEC-005의 Receipt Gate 통과. `needs_review` 결과는 Inbox에 유지하고 Evidence로 변환하지 않음
 - Evidence와 Curation Queue가 RB-EVD-023의 동일 처리 단위로 확정될 것
 
 ## Output

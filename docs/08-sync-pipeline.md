@@ -79,8 +79,9 @@
 - 실행 절차는 해당 도메인의 `runbooks/`에 Runbook으로 생성·갱신
 - 장기 미해결 사항은 Inquiry 후보로 분리
 - 검증된 Bundle 또는 Review 카드 생성 후 Curation Queue 항목 제거
-- 처리 성공 시 `.raw/` 항목 즉시 삭제
-- 처리 실패 또는 검토 필요 시 `.raw/` 항목 보존
+- 기존 Bundle 또는 Review를 재사용하면 다시 검증한 뒤 Curation Queue 항목 제거
+- Adapter·계약·Gate 실패는 `no_bundle` 또는 Review로 바꾸지 않고 Curation Queue 항목과 시도 Receipt 유지
+- stale Review는 숨김 archive로 이동하고 Evidence를 다시 큐에 등록
 - Bundle과 운영 로그에 동일 `source_uuid` 연결
 - OKF/Profile Validator 통과 시 자동 Commit
 - Validator 실패 시 Commit 금지

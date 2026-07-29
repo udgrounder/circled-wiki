@@ -148,10 +148,9 @@ def backfill_evidence_links(knowledge_root: Path, *, apply: bool = False) -> Dic
 def migrate_document_ids(knowledge_root: Path, *, apply: bool = False) -> Dict[str, object]:
     """Migrate legacy IDs and Bundle filenames to the canonical identity contract.
 
-    The operation is deliberately explicit because it changes reference values and
-    Bundle paths.  It updates Frontmatter references, literal body references, and
-    knowledge-root-relative Bundle paths together.  Unsafe or ambiguous filename
-    conversions are reported and prevent an apply, rather than guessed.
+    The operation is deliberately explicit because it changes Bundle reference
+    values and paths. Evidence IDs and Evidence bytes are legacy-compatible,
+    immutable input and are never rewritten by this migration.
     """
     settings = load_settings(knowledge_root.resolve().parent)
     documents = [
@@ -166,10 +165,7 @@ def migrate_document_ids(knowledge_root: Path, *, apply: bool = False) -> Dict[s
         document_id = document.frontmatter.get("id")
         if not isinstance(document_id, str):
             continue
-        kind = document.frontmatter.get("type")
-        if kind == "evidence":
-            new_id = f"evidence/{settings.organization_id}/{document.path.name}"
-        elif "bundles" in document.path.parts:
+        if "bundles" in document.path.parts:
             bundle_uuid = document.frontmatter.get("bundle_uuid")
             if not isinstance(bundle_uuid, str) or not bundle_uuid.strip():
                 blocked.append({
@@ -206,6 +202,8 @@ def migrate_document_ids(knowledge_root: Path, *, apply: bool = False) -> Dict[s
     backups = {document.path: document.path.read_text(encoding="utf-8") for document in documents}
     try:
         for document in documents:
+            if document.frontmatter.get("type") == "evidence":
+                continue
             data = _replace_identifier_references(deepcopy(document.frontmatter), id_map)
             data = _replace_identifier_references(data, path_map)
             body = _replace_identifier_text(document.body, {**id_map, **path_map})

@@ -7,7 +7,7 @@ import re
 from typing import Dict, List, Optional
 
 from .curation_contract import CurationOutput, validate_curation_output
-from .curation_queue import complete_curation_work
+from .curation_queue import complete_curation_work, enqueue_curation_work
 from .curation_safety import curation_body_safety_errors
 from .frontmatter import parse_markdown, render_markdown
 from .repository import find_document_by_id
@@ -59,7 +59,7 @@ def generate_curation_review(
         raise ValueError("curation output safety check failed")
 
     checksum = str(evidence.frontmatter.get("checksum", ""))
-    evidence_path = evidence.path.relative_to(knowledge_root.parent).as_posix()
+    evidence_path = evidence.path.relative_to(knowledge_root).as_posix()
     target_bundle_id, expected_revision = _target_bundle(knowledge_root, output)
     recommendation = "no_bundle" if output.action == "no_bundle" else (
         "update_existing" if target_bundle_id else "create_draft_bundle"
@@ -71,6 +71,13 @@ def generate_curation_review(
         document = parse_markdown(review_path)
         metadata = document.frontmatter.get("extensions", {}).get("curation_review", {})
         if isinstance(metadata, dict) and metadata.get("idempotency_key") == idempotency_key and document.frontmatter.get("status") != "stale":
+            validation = validate_document(review_path, knowledge_root)
+            if not validation.is_valid:
+                raise ValueError(
+                    "existing curation review validation failed: "
+                    + "; ".join(validation.profile_errors)
+                )
+            complete_curation_work(knowledge_root, evidence_id)
             return {"action": "reused_review", "review_id": document.frontmatter["review_id"], "path": str(review["path"])}
 
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -130,8 +137,7 @@ def decide_curation_review(knowledge_root: Path, review_id: str, *, action: str,
     evidence_ref = _single_evidence_ref(data)
     evidence = find_document_by_id(knowledge_root, evidence_ref["evidence_id"])
     if evidence is None or evidence.frontmatter.get("checksum") != evidence_ref["checksum"]:
-        data["status"] = "stale"
-        path.write_text(render_markdown(data, document.body), encoding="utf-8")
+        _stale_review(path, data, document.body, knowledge_root, evidence)
         raise ValueError("Evidence changed; review is stale")
     payload = metadata.get("output")
     if not isinstance(payload, dict):
@@ -144,8 +150,7 @@ def decide_curation_review(knowledge_root: Path, review_id: str, *, action: str,
         expected = data.get("expected_knowledge_revision")
         current_revision = current.frontmatter.get("extensions", {}).get("knowledge_revision") if current else None
         if current is None or current_revision != expected:
-            data["status"] = "stale"
-            path.write_text(render_markdown(data, document.body), encoding="utf-8")
+            _stale_review(path, data, document.body, knowledge_root, evidence)
             raise ValueError("target Bundle changed; review is stale")
         # A revision body/frontmatter is intentionally not applied implicitly.
         data["status"] = "approved"
@@ -292,3 +297,15 @@ def _archive_review(path: Path, data: Dict[str, object], body: str) -> None:
     archive_path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(render_markdown(data, body), encoding="utf-8")
     path.replace(archive_path)
+
+
+def _stale_review(
+    path: Path, data: Dict[str, object], body: str, knowledge_root: Path, evidence
+) -> None:
+    """Archive an obsolete decision and make its Evidence eligible for a fresh proposal."""
+    data["status"] = "stale"
+    _archive_review(path, data, body)
+    if evidence is not None:
+        enqueue_curation_work(
+            knowledge_root, str(evidence.frontmatter["id"]), evidence.path
+        )

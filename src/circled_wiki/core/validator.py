@@ -48,6 +48,20 @@ def _evidence_uri(organization_id: str) -> re.Pattern[str]:
     )
 
 
+def _legacy_evidence_uri(organization_id: str) -> re.Pattern[str]:
+    return re.compile(
+        rf"^evidence://{re.escape(organization_id)}/[^/]+(?:/[^/]+)*/[0-9a-fA-F-]{{36}}$"
+    )
+
+
+def _is_evidence_uri(value: object, organization_id: str) -> bool:
+    identifier = str(value)
+    return bool(
+        _evidence_uri(organization_id).match(identifier)
+        or _legacy_evidence_uri(organization_id).match(identifier)
+    )
+
+
 def _bundle_uri(organization_id: str) -> re.Pattern[str]:
     return re.compile(
         rf"^bundle/{re.escape(organization_id)}/[^/]+(?:--[0-9a-fA-F-]{{36}}|_[0-9a-fA-F-]{{36}}\.md)$"
@@ -204,8 +218,8 @@ def _validate_curation_review(document: MarkdownDocument, result: ValidationResu
         if not _is_nonempty_string(ref.get("evidence_id")):
             result.profile_errors.append("curation review evidence_id must be non-empty")
         path = ref.get("path")
-        if not _is_nonempty_string(path) or Path(str(path)).is_absolute() or ".." in Path(str(path)).parts or not str(path).startswith("knowledge/evidence/"):
-            result.profile_errors.append("curation review Evidence path must be a safe knowledge/evidence relative path")
+        if not _is_nonempty_string(path) or Path(str(path)).is_absolute() or ".." in Path(str(path)).parts or not str(path).startswith("evidence/"):
+            result.profile_errors.append("curation review Evidence path must be a safe Vault-root-relative evidence path")
         if not isinstance(ref.get("checksum"), str) or not re.fullmatch(r"sha256:[0-9a-f]{64}", ref["checksum"]):
             result.profile_errors.append("curation review Evidence checksum must be sha256")
     metadata = data.get("extensions", {}).get("curation_review") if isinstance(data.get("extensions"), dict) else None
@@ -254,7 +268,7 @@ def _validate_bundle(
     evidence = data.get("evidence")
     if not isinstance(evidence, list) or not evidence:
         result.profile_errors.append("evidence must be a non-empty array")
-    elif any(not _evidence_uri(organization_id).match(str(item)) for item in evidence):
+    elif any(not _is_evidence_uri(item, organization_id) for item in evidence):
         result.profile_errors.append(
             f"every evidence item must use organization '{organization_id}'"
         )
@@ -617,7 +631,7 @@ def _validate_workflow(
         for field in ("successful", "failed"):
             value = examples.get(field, [])
             if not isinstance(value, list) or any(
-                not _evidence_uri(organization_id).match(str(item)) for item in value
+                not _is_evidence_uri(item, organization_id) for item in value
             ):
                 result.profile_errors.append(
                     f"extensions.workflow.examples.{field} must be an Evidence URI array"
@@ -656,9 +670,13 @@ def _validate_evidence(
     for field in required:
         if field not in data:
             result.profile_errors.append(f"missing required Evidence field: {field}")
-    if "id" in data and not _evidence_uri(organization_id).match(str(data["id"])):
+    if "id" in data and not _is_evidence_uri(data["id"], organization_id):
         result.profile_errors.append(
-            f"id must be a canonical Evidence ID for organization '{organization_id}'"
+            f"id must be an Evidence ID for organization '{organization_id}'"
+        )
+    elif "id" in data and _legacy_evidence_uri(organization_id).match(str(data["id"])):
+        result.warnings.append(
+            "legacy Evidence ID is preserved read-only; create new Evidence for canonical replacement"
         )
     if "source_uuid" in data and not _is_uuid(data["source_uuid"]):
         result.profile_errors.append("source_uuid must be a UUID")
@@ -812,7 +830,7 @@ def validate_repository(knowledge_root: Path) -> List[ValidationResult]:
             if evidence is None:
                 result.profile_errors.append(f"curation review Evidence Record not found: {evidence_id}")
                 continue
-            if ref.get("path") != evidence.path.relative_to(knowledge_root.parent).as_posix():
+            if ref.get("path") != evidence.path.relative_to(knowledge_root).as_posix():
                 result.profile_errors.append("curation review Evidence path does not match the current Evidence record")
             if ref.get("checksum") != evidence.frontmatter.get("checksum"):
                 result.profile_errors.append("curation review Evidence checksum does not match the current Evidence record")

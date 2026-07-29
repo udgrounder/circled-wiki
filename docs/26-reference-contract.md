@@ -35,9 +35,10 @@
 ## Legacy migration boundary
 
 Direct Markdown links in `Bundle.evidence`, URI identifiers (`evidence://` and `knowledge://`), and extensionless
-Bundle paths are legacy input formats only. They are accepted solely by the explicit upgrade migration, which must
-produce a dry-run plan and pass the reference-integrity check before apply. They are not valid for new documents,
-new revisions, or normal runtime automation.
+Bundle paths are legacy input formats only. Explicit migration may normalize Bundle IDs, Bundle filenames, and
+Bundle references after a dry-run and reference-integrity check. It never rewrites an existing Evidence ID or
+Evidence bytes: legacy Evidence IDs remain read-only compatibility identifiers, and canonical replacement requires
+creating a new Evidence record. Legacy forms are not valid for newly created documents or normal Runtime automation.
 
 ## Archive location
 

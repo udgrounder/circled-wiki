@@ -2,7 +2,7 @@
 
 from pathlib import Path
 from typing import Dict, List
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from .frontmatter import parse_markdown, render_markdown
 
@@ -12,7 +12,7 @@ def enqueue_curation_work(knowledge_root: Path, evidence_id: str, evidence_path:
     knowledge_root = knowledge_root.resolve()
     evidence_path = evidence_path.resolve()
     try:
-        relative = evidence_path.relative_to(knowledge_root.parent)
+        relative = evidence_path.relative_to(knowledge_root)
         evidence_path.relative_to(knowledge_root / "evidence")
     except ValueError as error:
         raise ValueError("curation queue path must refer to knowledge/evidence") from error
@@ -21,7 +21,7 @@ def enqueue_curation_work(knowledge_root: Path, evidence_id: str, evidence_path:
     target = _item_path(knowledge_root, evidence_id)
     target.parent.mkdir(parents=True, exist_ok=True)
     payload = {"evidence_id": evidence_id, "evidence_path": relative.as_posix()}
-    temporary = target.with_suffix(".tmp")
+    temporary = target.with_name(f".{target.name}.{uuid4()}.tmp")
     temporary.write_text(render_markdown(payload), encoding="utf-8")
     temporary.replace(target)
     return target
@@ -30,10 +30,9 @@ def enqueue_curation_work(knowledge_root: Path, evidence_id: str, evidence_path:
 def complete_curation_work(knowledge_root: Path, evidence_id: str) -> bool:
     """Remove a work item only after a Bundle or Review card was created."""
     target = _item_path(knowledge_root.resolve(), evidence_id)
-    if not target.exists():
-        return False
-    target.unlink()
-    return True
+    existed = target.exists()
+    target.unlink(missing_ok=True)
+    return existed
 
 
 def list_curation_queue(knowledge_root: Path, *, include_resolved: bool = False) -> List[Dict[str, object]]:
@@ -84,7 +83,7 @@ def refresh_curation_queue(knowledge_root: Path) -> Dict[str, object]:
     removed = 0
     for evidence_id, path in expected.items():
         target = _item_path(knowledge_root, evidence_id)
-        relative = path.relative_to(knowledge_root.parent).as_posix()
+        relative = path.relative_to(knowledge_root).as_posix()
         if not target.exists():
             enqueue_curation_work(knowledge_root, evidence_id, path)
             created += 1
@@ -111,7 +110,9 @@ def refresh_curation_queue(knowledge_root: Path) -> Dict[str, object]:
 def _completed_evidence_ids(knowledge_root: Path) -> set[str]:
     from .validator import validate_document
 
-    completed: set[str] = set()
+    bundle_completed: set[str] = set()
+    review_completed: set[str] = set()
+    stale: set[str] = set()
     for path in sorted((knowledge_root / "bundles").rglob("*.md")):
         if path.name in {"index.md", "log.md"}:
             continue
@@ -119,7 +120,7 @@ def _completed_evidence_ids(knowledge_root: Path) -> set[str]:
             continue
         refs = parse_markdown(path).frontmatter.get("evidence")
         if isinstance(refs, list):
-            completed.update(item for item in refs if isinstance(item, str))
+            bundle_completed.update(item for item in refs if isinstance(item, str))
     reviews = knowledge_root / "curation-reviews"
     if reviews.is_dir():
         for path in sorted(reviews.rglob("*.md")):
@@ -127,12 +128,16 @@ def _completed_evidence_ids(knowledge_root: Path) -> set[str]:
                 continue
             if not validate_document(path, knowledge_root).is_valid:
                 continue
-            refs = parse_markdown(path).frontmatter.get("evidence_refs")
+            review = parse_markdown(path).frontmatter
+            refs = review.get("evidence_refs")
             if isinstance(refs, list):
                 for ref in refs:
                     if isinstance(ref, dict) and isinstance(ref.get("evidence_id"), str):
-                        completed.add(ref["evidence_id"])
-    return completed
+                        if review.get("status") == "stale":
+                            stale.add(ref["evidence_id"])
+                        else:
+                            review_completed.add(ref["evidence_id"])
+    return (bundle_completed - stale) | review_completed
 
 
 def _queue_root(knowledge_root: Path) -> Path:

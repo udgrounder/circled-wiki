@@ -141,9 +141,9 @@ find_workflow
 - **RB-EVD-017** Batch 재실행은 안정적인 `idempotency_key`를 사용하고 동일 키의 checksum 변경은 충돌로 중단한다.
 - **RB-EVD-018** 시스템이 네이티브하게 생성한 대화·Outcome 텍스트는 원문을 본문에 포함한 단일 self-contained Evidence Markdown으로 보존할 수 있다.
 - **RB-EVD-019** Embedded Evidence checksum은 변경 가능한 Frontmatter가 아니라 불변 원문 영역만 대상으로 하며, 원문 영역 변경은 무결성 오류다.
-- **RB-EVD-020** 대화 수집의 Inbox Sensitive Data Review 기본값은 `required`다. Evidence 후보 원문에 대한 PII Scan을 실제 완료하고 후보 checksum에 결합된 Scanner·버전·시각·결과·검토자·Receipt를 Evidence 최초 생성 입력으로 함께 제공한 경우에만 `pii_scanned: true`로 생성한다. 생성된 Evidence의 Scan 상태나 Receipt는 변경하지 않는다.
+- **RB-EVD-020** 대화 수집의 Inbox Sensitive Data Review 기본값은 `required`다. Evidence 후보 원문에 대한 PII Scan을 실제 완료하고 후보 checksum에 결합된 Scanner·버전·시각·결과·검토자·Receipt를 Evidence 최초 생성 입력으로 함께 제공한 경우에만 `pii_scanned: true`로 생성한다. Scan 결과가 `needs_review`이면 Evidence를 생성하지 않고 Inbox 원본과 Receipt를 유지하며, `passed` 또는 안전한 파생본에 대한 `masked` 결과가 확인된 뒤 다시 변환한다. 생성된 Evidence의 Scan 상태나 Receipt는 변경하지 않는다.
 - **RB-EVD-021** 텍스트를 Inbox에 기록하기 전에 자격증명과 명확한 PII를 `*`로 1차 마스킹하고, Inbox Inspection에서 내용을 다시 읽어 누락·과소 마스킹·문맥상 식별 가능성을 2차 확인한다. 1차 마스킹은 Evidence PII Scan 완료가 아니며 `pii_scanned: true`의 근거가 될 수 없다. 불변 원본이 필요한 파일은 원본을 자동 수정하지 않고 Git 비추적 제한 영역에 보존하며, 안전한 마스킹 파생본 없이는 Evidence 변환을 차단한다.
-- **RB-EVD-023** Inbox 검토 완료부터 Evidence 확정과 `workspace/task/curation-queue/<source_uuid>.md` 등록까지를 하나의 원자 작업으로 처리한다. 생성된 Evidence는 이후 모든 흐름에서 읽고 참조만 하는 불변 기록이다. 큐 항목은 `evidence_id`와 Vault 루트 기준 `evidence_path`만 가지며, 검증된 Bundle 또는 Curation Review 카드가 생성된 뒤에만 제거한다. 처리 실패 항목은 유지하고 전체 스캔으로 큐를 복구할 수 있어야 한다.
+- **RB-EVD-023** Inbox 검토 완료부터 Evidence 확정과 `workspace/task/curation-queue/<source_uuid>.md` 등록까지를 하나의 원자 작업으로 처리한다. 생성된 Evidence는 이후 모든 흐름에서 읽고 참조만 하는 불변 기록이다. 큐 항목은 `evidence_id`와 Vault 루트 기준 `evidence/...` 경로인 `evidence_path`만 가지며, 검증된 Bundle 또는 Curation Review 카드가 생성된 뒤에만 제거한다. Adapter 호출·계약 검증·Bundle 또는 Review 생성이 실패하면 큐 항목을 유지한다. 기존 결과를 재사용한 경우에는 그 결과를 다시 검증한 뒤 큐 항목을 제거한다. stale Review는 완료 결과로 보지 않고 숨김 archive로 이동한 뒤 해당 Evidence를 다시 큐에 등록하며, 전체 스캔으로 큐를 복구할 수 있어야 한다.
 
 Availability:
 
@@ -263,12 +263,13 @@ accepted Evidence
 - **RB-CUR-001** `runbook`과 `manual` 신규 Bundle 정제 제안은 Evidence checksum, 생성 actor와 제안 내용을 가진 `curation_review` 카드로 먼저 기록한다. `policy`, `guide`, `decision`, `spec`, `reference`, `report` Draft는 Evidence·PII Gate를 통과하면 직접 생성할 수 있다.
 - **RB-CUR-002** `runbook`과 `manual` Draft는 Review 카드와 연결된 Owner가 있을 때만 생성할 수 있다. 기본 Owner 설정은 후보를 배정할 수 있을 뿐, 검토·승인을 자동으로 기록하지 않는다.
 - **RB-CUR-003** Review 승인 actor는 Review 생성 actor와 달라야 하며, Bundle Owner 또는 명시적으로 위임된 승인자여야 한다.
-- **RB-CUR-004** Review가 필요한 유형에서 카드가 없거나 Evidence checksum이 달라 stale 상태이면 Draft 생성·revision·Promotion을 중단한다.
+- **RB-CUR-004** Review가 필요한 유형에서 카드가 없거나 Evidence checksum·대상 Bundle revision이 달라 stale 상태이면 Draft 생성·revision·Promotion을 중단한다. stale 카드는 숨김 archive에 보존하고 해당 Evidence를 Curation Queue에 다시 등록해 현재 상태 기준 제안을 새로 만든다.
 - **RB-CUR-005** `draft -> active` 상태 전환은 전용 Promotion Gate만 수행한다. 일반 Bundle 생성·revision API와 직접 Frontmatter 변경은 active 전환 수단이 아니다.
 - **RB-CUR-006** 모든 active Bundle에는 승격 actor·시각, Security Receipt, 현재 Evidence checksum과 PII Scan Receipt를 검증 가능한 provenance로 남긴다. `runbook`과 `manual`에는 생성 전 Review ID와 독립 Owner 승인이 필수다. `policy`, `guide`, `decision`, `spec`, `reference`, `report`는 Evidence·PII·참조 무결성·전체 Validator Gate를 통과하면 자동으로 `active`로 승격할 수 있으며, provenance에 자동 승격임을 기록한다.
 - **RB-CUR-007** 가상·테스트 Evidence도 같은 Gate를 적용한다. 테스트 목적이라는 이유로 Review, 독립 승인, 보안 검증 또는 Validator를 생략할 수 없다.
 - **RB-CUR-008** Gate 중 하나라도 누락되면 Bundle은 `draft` 또는 `needs_review`로 유지한다. Agent는 도구가 허용하더라도 상태를 직접 보정하거나 self-approval하지 않는다.
 - **RB-CUR-009** Curation 또는 Promotion CLI가 Contract와 다르게 동작하거나 우회 경로를 허용하면 Runtime Agent는 active 전환을 중단하고 `workspace/issues/`에 관찰 사실을 기록한다.
+- **RB-CUR-010** `no_bundle`은 Curator가 계약에 맞는 분석을 성공적으로 끝내고 Bundle이 불필요하다고 판단한 결과에만 사용한다. Adapter timeout·실행 실패·응답 파싱 실패·계약 또는 Gate 거부는 Review 결론으로 변환하지 않고 시도 Receipt를 반환하며 Curation Queue 항목을 유지한다.
 
 ## 10. Failure Policy
 

@@ -3,6 +3,7 @@ import unittest
 import sys
 import json
 import hashlib
+from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import patch
 from pathlib import Path
 
@@ -22,7 +23,11 @@ from circled_wiki.core.curation_reviews import (
     generate_curation_review,
     list_curation_reviews,
 )
-from circled_wiki.core.curation_queue import list_curation_queue, refresh_curation_queue
+from circled_wiki.core.curation_queue import (
+    enqueue_curation_work,
+    list_curation_queue,
+    refresh_curation_queue,
+)
 
 
 class CurationMaterializationTests(unittest.TestCase):
@@ -56,6 +61,25 @@ class CurationMaterializationTests(unittest.TestCase):
             bundle = find_document_by_id(root, first["bundle_id"])
             self.assertEqual(bundle.frontmatter["tags"], ["bundles", "guide", "marketing", "sns", "campaign"])
             self.assertEqual(evidence_path.read_bytes(), evidence_before)
+
+    def test_reused_candidate_consumes_a_repaired_queue_item(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, evidence_id = self._evidence(directory)
+            evidence = find_document_by_id(root, evidence_id)
+            first = materialize_curation_candidate(
+                root, evidence_id, self._output(evidence_id),
+                generated_by="curator", curation_receipt="test://curation",
+            )
+            enqueue_curation_work(root, evidence_id, evidence.path)
+
+            reused = materialize_curation_candidate(
+                root, evidence_id, self._output(evidence_id),
+                generated_by="curator", curation_receipt="test://curation",
+            )
+
+            self.assertEqual(first["bundle_id"], reused["bundle_id"])
+            self.assertEqual(reused["action"], "reused")
+            self.assertEqual(list_curation_queue(root), [])
 
     def test_uses_the_installation_operator_when_no_default_owner_is_configured(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -238,7 +262,7 @@ class CurationMaterializationTests(unittest.TestCase):
             self.assertEqual(report["items"][0]["evidence_id"], evidence_id)
             self.assertEqual(report["usage"]["tokens"], "unknown")
 
-    def test_invalid_adapter_output_records_safe_needs_review_receipt_without_bundle(self):
+    def test_invalid_adapter_output_keeps_queue_retryable_without_review_card(self):
         with tempfile.TemporaryDirectory() as directory:
             root, evidence_id = self._evidence(directory)
             config = root.parent / ".circled-wiki" / "config.yaml"
@@ -254,14 +278,14 @@ class CurationMaterializationTests(unittest.TestCase):
 
             self.assertEqual(result["action"], "needs_review")
             self.assertEqual(result["evidence_id"], evidence_id)
-            self.assertTrue(result["stored"])
+            self.assertFalse(result["stored"])
             self.assertEqual(result["reason"], "invalid_json")
+            self.assertEqual(result["receipt"]["status"], "invalid_json")
             self.assertEqual(list_curation_candidates(root), [])
             evidence = find_document_by_id(root, evidence_id)
             self.assertNotIn("curation_attempt", evidence.frontmatter["extensions"])
-            cards = list_curation_reviews(root)
-            self.assertEqual(len(cards), 1)
-            self.assertEqual(cards[0]["review_id"], result["review_id"])
+            self.assertEqual(list_curation_reviews(root), [])
+            self.assertEqual(list_curation_queue(root)[0]["evidence_id"], evidence_id)
 
     def test_configured_adapter_directly_creates_report_draft(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -328,6 +352,26 @@ class CurationMaterializationTests(unittest.TestCase):
             self.assertEqual(result["action"], "created_review")
             self.assertEqual(len(list_curation_reviews(root)), 1)
             self.assertEqual(list_curation_candidates(root), [])
+
+    def test_reused_review_consumes_a_repaired_queue_item(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, evidence_id = self._evidence(directory)
+            evidence = find_document_by_id(root, evidence_id)
+            output = self._output(evidence_id, "manual")
+            first = generate_curation_review(
+                root, evidence_id, output,
+                generated_by="curator", curation_receipt="test://curation",
+            )
+            enqueue_curation_work(root, evidence_id, evidence.path)
+
+            reused = generate_curation_review(
+                root, evidence_id, output,
+                generated_by="curator", curation_receipt="test://curation",
+            )
+
+            self.assertEqual(first["review_id"], reused["review_id"])
+            self.assertEqual(reused["action"], "reused_review")
+            self.assertEqual(list_curation_queue(root), [])
 
     def test_failed_review_approval_preserves_review_card(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -401,6 +445,8 @@ class CurationMaterializationTests(unittest.TestCase):
             queue = list_curation_queue(root)
             self.assertEqual(queue[0]["evidence_id"], evidence_id)
             self.assertEqual(queue[0]["status"], "pending")
+            self.assertTrue(queue[0]["path"].startswith("evidence/"))
+            self.assertFalse(queue[0]["path"].startswith("knowledge/"))
 
             refreshed = refresh_curation_queue(root)
             queue_path = root.parent / refreshed["path"]
@@ -446,6 +492,22 @@ class CurationMaterializationTests(unittest.TestCase):
             refresh_curation_queue(root)
 
             self.assertEqual(list_curation_queue(root)[0]["evidence_id"], evidence_id)
+
+    def test_concurrent_queue_registration_uses_independent_atomic_temporary_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, evidence_id = self._evidence(directory)
+            evidence = find_document_by_id(root, evidence_id)
+
+            with ThreadPoolExecutor(max_workers=8) as executor:
+                paths = list(executor.map(
+                    lambda _: enqueue_curation_work(root, evidence_id, evidence.path),
+                    range(32),
+                ))
+
+            self.assertEqual(len(set(paths)), 1)
+            self.assertEqual(list_curation_queue(root)[0]["evidence_id"], evidence_id)
+            temporary_files = list(paths[0].parent.glob("*.tmp"))
+            self.assertEqual(temporary_files, [])
 
     def test_queue_scan_excludes_legacy_evidence_already_linked_by_a_bundle(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -515,5 +577,61 @@ class CurationMaterializationTests(unittest.TestCase):
                 result = run_configured_curation(root, evidence_id)
 
             self.assertEqual(result["reason"], "proposal_blocked")
-            self.assertTrue(result["stored"])
+            self.assertFalse(result["stored"])
             self.assertEqual(list_curation_candidates(root), [])
+            self.assertEqual(list_curation_reviews(root), [])
+            self.assertEqual(list_curation_queue(root)[0]["evidence_id"], evidence_id)
+
+    def test_stale_update_review_is_archived_and_evidence_is_requeued(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, evidence_id = self._evidence(directory)
+            target = create_bundle(
+                root, domain="marketing", slug="existing",
+                title="Existing", bundle_type="guide", summary="Existing.",
+                evidence_id=evidence_id,
+            )
+            output = validate_curation_output({
+                "action": "guide",
+                "domain": "marketing",
+                "bundle_type": "guide",
+                "title": "Update existing",
+                "summary": "Update.",
+                "body": "# Update",
+                "evidence_ids": [evidence_id],
+                "existing_bundle_candidates": [target.frontmatter["id"]],
+                "tags": ["marketing", "update"],
+            }, [evidence_id])
+            review = generate_curation_review(
+                root, evidence_id, output,
+                generated_by="curator", curation_receipt="test://curation",
+            )
+            proposed = dict(target.frontmatter)
+            apply_bundle_revision(
+                root,
+                bundle_id=str(target.frontmatter["id"]),
+                expected_revision=1,
+                proposed_frontmatter=proposed,
+                body=target.body + "\nChanged.\n",
+                actor="editor",
+            )
+
+            with self.assertRaisesRegex(ValueError, "review is stale"):
+                decide_curation_review(
+                    root, review["review_id"], action="approve", actor="reviewer",
+                )
+
+            self.assertEqual(list_curation_reviews(root), [])
+            archived = list((root / "curation-reviews" / ".archive").rglob("*.md"))
+            self.assertEqual(len(archived), 1)
+            self.assertEqual(parse_markdown(archived[0]).frontmatter["status"], "stale")
+            self.assertEqual(list_curation_queue(root)[0]["evidence_id"], evidence_id)
+            refreshed = refresh_curation_queue(root)
+            self.assertEqual(refreshed["pending_count"], 1)
+
+            replacement = generate_curation_review(
+                root, evidence_id, output,
+                generated_by="curator", curation_receipt="test://curation",
+            )
+            self.assertNotEqual(replacement["review_id"], review["review_id"])
+            self.assertEqual(list_curation_queue(root), [])
+            self.assertEqual(refresh_curation_queue(root)["pending_count"], 0)

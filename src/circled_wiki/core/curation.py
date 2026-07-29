@@ -53,6 +53,14 @@ def materialize_curation_candidate(
     checksum = str(evidence.frontmatter["checksum"])
     existing = _find_idempotent_candidate(knowledge_root, evidence_id, checksum, settings.curation.profile_version)
     if existing is not None:
+        existing_path = knowledge_root.parent / str(existing["path"])
+        validation = validate_document(existing_path, knowledge_root)
+        if not validation.is_valid:
+            raise ValueError(
+                "existing curation candidate validation failed: "
+                + "; ".join(validation.profile_errors)
+            )
+        complete_curation_work(knowledge_root, evidence_id)
         return {"action": "reused", "bundle_id": existing["id"], "path": existing["path"]}
     if (
         output.bundle_type in PRE_CREATION_REVIEW_TYPES
@@ -175,19 +183,18 @@ def _record_curation_failure(
     profile_version: str, failure_kind: str,
     receipt_metadata: Optional[Dict[str, object]] = None,
 ) -> Dict[str, object]:
-    """Keep an adapter failure in a review card, never by changing Evidence."""
-    output = CurationOutput(
-        action="no_bundle", domain="", bundle_type="", title="", summary="", body="",
-        evidence_ids=(str(evidence.frontmatter["id"]),),
-        rationale=f"Curator could not complete: {failure_kind}.",
-        recheck_condition="Retry the Curator or review the referenced Evidence manually.",
-    )
-    review = generate_curation_review(
-        knowledge_root, str(evidence.frontmatter["id"]), output,
-        generated_by="curator", curation_receipt=f"curation://{provider}/{model}/{profile_version}",
-        receipt_metadata=receipt_metadata,
-    )
-    return {**review, "action": "needs_review", "evidence_id": evidence.frontmatter["id"], "stored": True, "reason": failure_kind}
+    """Report an incomplete attempt while leaving its Evidence queue item retryable."""
+    del knowledge_root
+    result: Dict[str, object] = {
+        "action": "needs_review",
+        "evidence_id": evidence.frontmatter["id"],
+        "stored": False,
+        "reason": failure_kind,
+        "curation_receipt": f"curation://{provider}/{model}/{profile_version}",
+    }
+    if receipt_metadata is not None:
+        result["receipt"] = receipt_metadata
+    return result
 
 
 def run_configured_curation_batch(knowledge_root: Path, *, limit: int = 100) -> Dict[str, object]:
