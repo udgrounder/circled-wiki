@@ -422,7 +422,7 @@ Slack·Notion·Hermes cron처럼 저장소 밖에서 실행되는 자동화도 �
   - [x] Bundle의 영구 Evidence ID와 Obsidian용 `knowledge/` root 기준 Evidence 파일 링크 분리
   - [x] Evidence ID를 `evidence/{organization_id}/{filename}.md`로 단순화하고, Bundle ID는 파일명과 분리된 `bundle/{organization_id}/{slug}--{bundle_uuid}`로 정착; 기존 URI ID의 dry-run/apply 참조 일괄 마이그레이션 추가
   - [x] `evidence_links`를 실제 Markdown 링크(`[표시명](evidence/...md)`)로 생성·검증하도록 변경
-  - [x] `knowledge/` 루트 구조 안내는 `README.md` 하나로 관리하고, Bootstrap은 빈 Vault 최초 설치 때만 이를 생성하며 이후 자동화는 어느 깊이에서도 index·README를 생성·갱신·삭제하지 않음
+  - [x] `knowledge/` 루트 운영·관리 안내는 `README.md` 하나로 관리하고, Bootstrap은 빈 Vault 최초 설치 때만 이를 생성하며 구조·역할·운영 흐름 또는 운영·관리 정보 변경은 같은 변경에서 README를 갱신; 자동화는 하위 index·README를 생성·갱신·삭제하지 않음
   - [x] 운영본에서 이미 추적된 생성물의 읽기 전용 목록 산출
     - [x] `.raw`, `.runtime`, cache, backup 등 Git tracked 생성물 후보 감사기 구현
   - [~] 검토된 untrack migration과 rollback 검증

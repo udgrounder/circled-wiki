@@ -9,6 +9,8 @@ tags: [knowledge, vault]
 
 이 폴더는 Obsidian Vault이자 조직 지식 관리 영역입니다.
 
+사람과 Agent는 이 README를 기준으로 Vault의 운영·관리 정보를 확인합니다.
+
 ## 폴더 구조
 
 - `bundles/`: Evidence를 바탕으로 정제·발행한 공식 지식 문서
@@ -22,3 +24,6 @@ tags: [knowledge, vault]
 
 - 이 폴더는 조직의 자산을 관리·운영하는 영역입니다.
 - 공식 지식은 `bundles/` 아래에서, 근거 원문은 `evidence/` 아래에서 관리합니다.
+- 폴더 구조·역할·운영 흐름 또는 이 폴더의 운영·관리에 필요한 정보가 새로 생기거나 변경되면 이 README의 관련 설명을 함께 갱신합니다.
+- 안내·탐색 문서를 이동하거나 삭제하기 전에는 계속 필요한 운영·관리 정보를 이 README에 먼저 통합합니다.
+- 개별 Evidence·Bundle·Inbox 문서의 목록·요약·세부 내용은 이 README에 기록하지 않습니다.
