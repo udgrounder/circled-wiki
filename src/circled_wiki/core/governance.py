@@ -32,6 +32,11 @@ def _as_datetime(value: Any) -> Optional[datetime]:
     return result if result.tzinfo is not None else result.replace(tzinfo=timezone.utc)
 
 
+def _json_scalar(value: Any) -> Any:
+    """Normalize YAML timestamp values before exposing an inventory row to JSON."""
+    return value.isoformat() if isinstance(value, datetime) else value
+
+
 def _open_tasks(runtime_root: Path) -> List[Dict[str, Any]]:
     tasks_root = runtime_root / "tasks"
     if not tasks_root.is_dir():
@@ -117,9 +122,9 @@ def list_knowledge_inventory(
             "status": data.get("status"),
             "owners": owners,
             "knowledge_revision": extensions.get("knowledge_revision") if isinstance(extensions, dict) else None,
-            "updated_at": data.get("updated_at"),
-            "reviewed_at": governance.get("reviewed_at") if isinstance(governance, dict) else None,
-            "review_due_at": governance.get("review_due_at") if isinstance(governance, dict) else None,
+            "updated_at": _json_scalar(data.get("updated_at")),
+            "reviewed_at": _json_scalar(governance.get("reviewed_at")) if isinstance(governance, dict) else None,
+            "review_due_at": _json_scalar(governance.get("review_due_at")) if isinstance(governance, dict) else None,
             "freshness_state": item_freshness,
             "evidence_availability": sorted(set(evidence_states)),
             "open_task_ids": [task.get("task_id") for task in related_tasks],

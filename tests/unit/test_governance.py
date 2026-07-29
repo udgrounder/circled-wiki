@@ -1,6 +1,8 @@
 import tempfile
 import unittest
 import hashlib
+import json
+from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -63,6 +65,26 @@ class GovernanceTests(unittest.TestCase):
             self.assertIn("review_overdue", [issue["code"] for issue in audit["issues"]])
             self.assertTrue(claims["valid"])
             self.assertFalse(claims["semantic_entailment_validated"])
+
+    def test_inventory_normalizes_yaml_timestamps_for_json_output(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, _, _ = self._repository(directory)
+            bundle_path = next((root / "bundles").rglob("*.md"))
+            document = parse_markdown(bundle_path)
+            data = dict(document.frontmatter)
+            data["updated_at"] = datetime(2026, 7, 14, 0, 0, 0)
+            governance = dict(data["extensions"]["governance"])
+            governance["reviewed_at"] = datetime(2025, 1, 1, 0, 0, 0)
+            governance["review_due_at"] = datetime(2025, 12, 31, 0, 0, 0)
+            data["extensions"] = dict(data["extensions"], governance=governance)
+            bundle_path.write_text(render_markdown(data, document.body), encoding="utf-8")
+
+            inventory = list_knowledge_inventory(root, Path(directory) / ".runtime")
+
+            self.assertEqual(inventory[0]["updated_at"], "2026-07-14T00:00:00")
+            self.assertEqual(inventory[0]["reviewed_at"], "2025-01-01T00:00:00")
+            self.assertEqual(inventory[0]["review_due_at"], "2025-12-31T00:00:00")
+            json.dumps(inventory)
 
     def test_default_search_excludes_non_active_bundles(self):
         with tempfile.TemporaryDirectory() as directory:
