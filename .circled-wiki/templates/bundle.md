@@ -79,4 +79,4 @@ Source of Truth는 `extensions.workflow`다.
 관련 Bundle 링크를 작성한다.
 
 `active`로 전환하기 전에 `owners`, `governance.reviewed_at`, `governance.review_due_at`을 채운다.
-`status: archived`로 전환할 때 `extensions.archive`를 채운 뒤 `knowledge/bundles/archive/<domain>/`으로 이동한다. ID는 유지한다.
+`status: archived`로 전환할 때 `extensions.archive`를 채운 뒤 숨김 폴더인 `knowledge/bundles/.archive/<domain>/`으로 이동한다. ID는 유지한다.

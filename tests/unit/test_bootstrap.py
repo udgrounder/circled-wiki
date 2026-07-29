@@ -33,6 +33,10 @@ class BootstrapKnowledgeRootTests(unittest.TestCase):
         (root / ".circled-wiki" / "templates" / "runbook.md").write_text(
             template_content, encoding="utf-8"
         )
+        (root / ".circled-wiki" / "templates" / "knowledge").mkdir()
+        (root / ".circled-wiki" / "templates" / "knowledge" / "README.md").write_text(
+            "# Knowledge\n", encoding="utf-8"
+        )
         (root / ".circled-wiki" / "templates" / ".gitignore").write_text(
             "# BEGIN circled-wiki:generated-artifacts\n"
             "__pycache__/\n"
@@ -55,9 +59,11 @@ class BootstrapKnowledgeRootTests(unittest.TestCase):
             plan = bootstrap_circled_wiki(target, ROOT)
             self.assertFalse(plan["applied"])
             self.assertGreater(plan["summary"]["create"], 0)
-            self.assertTrue(
-                all(item["path"].startswith(".circled-wiki/") for item in plan["actions"])
-            )
+            self.assertTrue(all(
+                item["path"].startswith(".circled-wiki/")
+                or item == {"path": "knowledge/README.md", "action": "create"}
+                for item in plan["actions"]
+            ))
             self.assertFalse((target / MANIFEST_PATH).exists())
             self.assertEqual(user_note.read_text(encoding="utf-8"), "사용자 원문")
 
@@ -79,6 +85,16 @@ class BootstrapKnowledgeRootTests(unittest.TestCase):
             self.assertNotIn("bootstrap-circled-wiki.md", installed_profiles)
             self.assertIn("system-observation.md", installed_profiles)
             self.assertTrue((target / "knowledge" / "inbox").is_dir())
+            knowledge_readme = target / "knowledge" / "README.md"
+            self.assertTrue(knowledge_readme.is_file())
+            self.assertEqual(
+                knowledge_readme.read_text(encoding="utf-8"),
+                (ROOT / ".circled-wiki" / "templates" / "knowledge" / "README.md").read_text(
+                    encoding="utf-8"
+                ),
+            )
+            self.assertFalse((target / "knowledge" / "index.md").exists())
+            self.assertFalse((target / "knowledge" / "bundles" / "index.md").exists())
             self.assertTrue((target / "workspace").is_dir())
             self.assertTrue((target / ".circled-wiki" / "templates" / "runbook.md").is_file())
             self.assertTrue((target / ".circled-wiki" / "templates" / ".gitignore").is_file())
@@ -615,8 +631,11 @@ class BootstrapKnowledgeRootTests(unittest.TestCase):
             bootstrap_circled_wiki(target, ROOT, apply=True)
 
             self.assertEqual(source.read_bytes(), before)
+            self.assertFalse((target / "knowledge" / "README.md").exists())
             manifest = (target / MANIFEST_PATH).read_text(encoding="utf-8")
-            self.assertNotIn("knowledge/", manifest)
+            self.assertFalse(
+                any(path.startswith("knowledge/") for path in json.loads(manifest)["assets"])
+            )
 
     def test_upgrade_never_changes_or_backs_up_existing_workspace_content(self):
         with tempfile.TemporaryDirectory() as directory:

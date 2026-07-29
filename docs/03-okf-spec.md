@@ -377,8 +377,8 @@ Evidence Record는 `why_collected`와 non-empty `intended_use` 배열을 필수�
 ### 9.6 extensions.archive
 
 `status: archived` Bundle은 `archived_at`, `archived_by`, `reason`, `restore_condition`을 가진
-`extensions.archive`를 필수로 정의한다. Archive는 ID를 바꾸지 않고 `knowledge/bundles/archive/<domain>/`으로
-이동해 기본 검색·Context에서 제외하는 lifecycle 상태다.
+`extensions.archive`를 필수로 정의한다. Archive는 ID를 바꾸지 않고 숨김 폴더인
+`knowledge/bundles/.archive/<domain>/`으로 이동해 기본 검색·Context에서 제외하는 lifecycle 상태다.
 
 세부 품질 계약은 [22-knowledge-quality-and-artifacts.md](22-knowledge-quality-and-artifacts.md)를 따른다.
 
@@ -487,7 +487,6 @@ OKF v0.1은 Bundle 내부 하위 디렉터리를 허용하며 도메인별 저�
 - 도메인 기준으로 `bundles/<domain>/` 아래에 저장한다.
 - 파일명은 `{slug}.md` 형식으로 관리한다.
 - 파일 경로와 `id`는 직접 동일할 필요는 없지만, `id`의 slug는 파일명 stem과 일치해야 하며 `id`의 UUID 세그먼트는 `bundle_uuid`와 항상 일치해야 한다.
-- `index.md`는 디렉터리 안내용 문서로 사용할 수 있다.
 - `log.md`는 변경 이력 또는 운영 로그용 보조 문서로 사용할 수 있다.
 - `bundles/` 아래 일반 문서는 정제된 공식 지식 문서여야 하며 임시 작업 문서를 두지 않는다.
 - `type: runbook` 문서는 내용이 속한 도메인의 `bundles/<domain>/runbooks/` 아래에 저장한다.
@@ -498,7 +497,7 @@ OKF v0.1은 Bundle 내부 하위 디렉터리를 허용하며 도메인별 저�
 추가 규칙:
 
 - 일반 concept 문서에는 `index.md`, `log.md` 파일명을 사용하지 않는다.
-- 루트 진입 문서는 `README.md`로 관리하며, 필요 시 OKF 버전 선언을 포함할 수 있다.
+- 루트 진입 문서는 `README.md` 하나로 관리한다. Bootstrap은 빈 Knowledge Vault의 최초 설치 때만 이 README를 만들며, 이후 자동화는 이를 갱신하지 않는다.
 
 ### 14.1 예약 파일 구조
 
@@ -520,11 +519,10 @@ OKF v0.1은 Bundle 내부 하위 디렉터리를 허용하며 도메인별 저�
 
 `bundles/<domain>/`의 도메인 목록은 고정 값이 아니라 아래 절차로 확장 가능하다.
 
-1. `knowledge/bundles/<domain>/index.md`를 `type: domain` Frontmatter로 생성한다.
-2. `knowledge/bundles/README.md`에 신규 도메인 설명을 추가한다.
-3. 도메인 오너(팀 또는 담당자)를 정한다.
-4. Bundle `type` enum은 `policy`, `guide`, `runbook`, `manual`, `decision`, `spec`, `reference`, `report`다. `manual`은 제품·시스템 사용 절차, `runbook`은 반복 운영·장애 대응 실행 절차, `report`는 기준 시점이 있는 현황·평가·주기 보고에 사용한다. 세부 산출물 형식은 `extensions`로 확장한다.
-5. 신규 도메인에서 유입되는 원본이 기존 Evidence `provider`로 표현되지 않으면 `knowledge/evidence/<provider>/`도 함께 추가한다.
+1. `knowledge/bundles/<domain>/` 디렉터리를 만들고 도메인 오너(팀 또는 담당자)를 정한다.
+2. 사람을 위한 구조 안내는 최초 설치 때 생성된 `knowledge/README.md`를 사람이 갱신한다. 자동화는 `index.md` 또는 하위 README를 만들지 않는다.
+3. Bundle `type` enum은 `policy`, `guide`, `runbook`, `manual`, `decision`, `spec`, `reference`, `report`다. `manual`은 제품·시스템 사용 절차, `runbook`은 반복 운영·장애 대응 실행 절차, `report`는 기준 시점이 있는 현황·평가·주기 보고에 사용한다. 세부 산출물 형식은 `extensions`로 확장한다.
+4. 신규 도메인에서 유입되는 원본이 기존 Evidence `provider`로 표현되지 않으면 `knowledge/evidence/<provider>/`도 함께 추가한다.
 
 ## 15. 향후 보완 필요 사항
 

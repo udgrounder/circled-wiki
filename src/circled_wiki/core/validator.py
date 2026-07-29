@@ -386,14 +386,14 @@ def _validate_bundle_placement(document: MarkdownDocument, result: ValidationRes
         return
     relative_parts = parts[bundles_index + 1:]
     archived = document.frontmatter.get("status") == "archived"
-    if archived and (len(relative_parts) < 3 or relative_parts[0] != "archive"):
-        result.profile_errors.append("archived Bundle must be stored in bundles/archive/<domain>/")
-    if not archived and relative_parts and relative_parts[0] == "archive":
-        result.profile_errors.append("only archived Bundles may be stored in bundles/archive/")
+    if archived and (len(relative_parts) < 3 or relative_parts[0] != ".archive"):
+        result.profile_errors.append("archived Bundle must be stored in bundles/.archive/<domain>/")
+    if not archived and relative_parts and relative_parts[0] == ".archive":
+        result.profile_errors.append("only archived Bundles may be stored in bundles/.archive/")
     offset = 1 if archived else 0
     in_runbooks = len(relative_parts) >= offset + 3 and relative_parts[offset + 1] == "runbooks"
     if document.frontmatter.get("type") == "runbook" and not in_runbooks:
-        result.profile_errors.append("Runbook must be stored in bundles/<domain>/runbooks/ or bundles/archive/<domain>/runbooks/")
+        result.profile_errors.append("Runbook must be stored in bundles/<domain>/runbooks/ or bundles/.archive/<domain>/runbooks/")
     if in_runbooks and document.frontmatter.get("type") != "runbook":
         result.profile_errors.append("only type runbook is allowed in bundles/<domain>/runbooks/")
 

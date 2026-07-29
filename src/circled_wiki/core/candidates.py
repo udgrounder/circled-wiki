@@ -337,7 +337,7 @@ def review_curation_candidate(
     destination = document.path
     if data["status"] == "archived":
         bundle_root = knowledge_root / "bundles"
-        destination = bundle_root / "archive" / document.path.relative_to(bundle_root)
+        destination = bundle_root / ".archive" / document.path.relative_to(bundle_root)
     try:
         if destination != document.path:
             destination.parent.mkdir(parents=True, exist_ok=True)

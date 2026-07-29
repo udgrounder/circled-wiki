@@ -37,6 +37,6 @@ new revisions, or normal runtime automation.
 
 ## Archive location
 
-An archived Bundle is moved to `knowledge/bundles/archive/<domain>/` after its Archive metadata is complete. The
+An archived Bundle is moved to `knowledge/bundles/.archive/<domain>/` after its Archive metadata is complete. The
 Bundle ID and Evidence IDs do not change when it moves. Archive is therefore an
 explicit lifecycle operation, not deletion; restoration moves the same Bundle back to its domain only after review.

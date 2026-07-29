@@ -34,6 +34,10 @@ class IssueImprovementEndToEndTests(unittest.TestCase):
         (source / "OPERATING_RULES.md").write_text("# Runtime rules\n", encoding="utf-8")
         (control / "AGENT_ROUTER.md").write_text("# Runtime router\n", encoding="utf-8")
         (control / "templates" / "runbook.md").write_text("version 1\n", encoding="utf-8")
+        (control / "templates" / "knowledge").mkdir()
+        (control / "templates" / "knowledge" / "README.md").write_text(
+            "# Knowledge\n", encoding="utf-8"
+        )
         (control / "templates" / ".gitignore").write_text(
             "# BEGIN circled-wiki:generated-artifacts\n"
             ".circled-wiki-backups/\n"

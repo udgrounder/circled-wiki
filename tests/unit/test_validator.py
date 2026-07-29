@@ -180,7 +180,7 @@ class ValidatorTests(unittest.TestCase):
         result = validate_document(path, self.root)
 
         self.assertIn(
-            "Runbook must be stored in bundles/<domain>/runbooks/ or bundles/archive/<domain>/runbooks/",
+            "Runbook must be stored in bundles/<domain>/runbooks/ or bundles/.archive/<domain>/runbooks/",
             result.profile_errors,
         )
 

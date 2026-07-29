@@ -108,12 +108,12 @@ find_workflow
 - **RB-KNW-013** 장기 미해결 질문은 `extensions.inquiry`로 명시하고 확인되지 않은 답을 공식 지식으로 승격하지 않는다.
 - **RB-KNW-014** 기본 검색과 Operational Context에는 `active` Bundle만 포함한다.
 - **RB-KNW-015** Inventory와 Audit은 Frontmatter에서 재생성하는 파생 데이터이며 별도 Source of Truth가 아니다.
-- **RB-KNW-016** Archive는 `status: archived`와 사유·복구 조건으로 표현하고, Bundle을 `knowledge/bundles/archive/<domain>/`으로 이동한다. Bundle ID는 유지한다.
+- **RB-KNW-016** Archive는 `status: archived`와 사유·복구 조건으로 표현하고, Bundle을 숨김 폴더인 `knowledge/bundles/.archive/<domain>/`으로 이동한다. Bundle ID는 유지한다.
 - **RB-KNW-017** 운영 템플릿·스키마·시스템 기본 정책은 `.circled-wiki/` Control Plane에 두며 upgrade는 `knowledge/` Data Plane을 수정하지 않는다.
 - **RB-KNW-018** 기존 Control Plane을 변경하는 upgrade는 먼저 `.circled-wiki-backups/<기존-version>-<UTC timestamp>/`에 `.circled-wiki/` 전체를 백업하며, 백업 실패 시 시작하지 않는다. 기존 `.circled-wiki/` 설치는 같은 Gate를 통과한 뒤 `.circled-wiki/`로 이전한다.
 - **RB-KNW-019** Portable CLI Runtime, Agent Router와 Bootstrap은 `.circled-wiki/` Control Plane의 관리 자산이며, 대상 프로젝트의 `knowledge/`와 `workspace/`만 운영하고 외부 개발 저장소 경로를 요구하지 않는다.
 - **RB-KNW-020** 대상 root의 `AGENTS.md`, `CLAUDE.md`, `HERMES.md`는 Agent가 Control Plane을 발견하는 비관리 진입점이다. Bootstrap은 파일이 없으면 `.circled-wiki/AGENT_ROUTER.md`와 시작 문서를 가리키는 참조 전용 파일을 생성하고, 기존 파일에 Circled Wiki 참조가 없을 때만 표시된 참조 전용 블록을 append한다. 실제 운영 규칙은 `.circled-wiki/`에만 두며 기존 내용은 수정·등록·덮어쓰지 않는다.
-- **RB-KNW-024** `knowledge/` 루트의 진입 문서는 `README.md`로 관리한다. 1-depth 폴더는 목적·하위 폴더 설명용 `README.md`와 탐색용 `index.md`를 사용자 관리 문서로 둘 수 있다. 자동화는 그보다 깊은 폴더의 index·README를 생성·갱신·삭제하지 않고 기존 문서는 사용자 관리 문서로 보존한다. `knowledge/inbox/`와 그 provider 하위 폴더는 처리 대기 입력 영역이므로 깊이와 무관하게 Bootstrap·수집·검사·변환·정제 작업의 index·README 생성·갱신·삭제 대상에서 제외한다.
+- **RB-KNW-024** `knowledge/` 루트의 구조 안내는 `README.md` 하나로 관리한다. Bootstrap은 빈 Knowledge Vault의 최초 설치 때에만 이 README를 생성하며, 이후 자동화는 어느 깊이에서도 `index.md` 또는 `README.md`를 생성·갱신·삭제하지 않는다. `knowledge/inbox/`와 그 provider 하위 폴더는 처리 대기 입력 영역이므로 Bootstrap·수집·검사·변환·정제 작업이 문서를 생성하거나 변경하지 않는다.
 - **RB-KNW-026** Bundle을 생성·갱신·파일명 변경·일괄 정규화하기 전에는 이 규칙을 먼저 적용한다. canonical Bundle 파일명은 ASCII 영어 slug의 `{slug}.md`이고, Frontmatter `id`는 `bundle/{organization_id}/{slug}--{bundle_uuid}`이며, `bundle_uuid`는 최초 생성 때 발급한 전체 UUID를 유지한다. `slug`는 파일명 stem과 같아야 하고, `id` 접미사의 UUID는 `bundle_uuid`와 같아야 한다. `organization_id`는 추정하지 않고 `.circled-wiki/config.yaml`의 검증된 값을 사용한다. `title`, `description`, 본문처럼 사용자가 읽는 값은 현재 사용자와 소통하는 언어를 기본으로 하며, 기본 언어를 판단할 수 없으면 한국어를 사용한다. 이전 `{slug}_{bundle_uuid}.md` 파일명·ID는 호환 읽기만 허용하는 legacy 형식이며, 새 문서를 만들거나 명시적으로 정규화할 때 사용하지 않는다. `id`와 `bundle_uuid`는 일반 revision에서 변경하지 않는다.
 - **RB-KNW-021** `workspace/issues/`는 사용자·Agent·운영자·자동화가 제기한 운영 문제와 개선 제안을 기록하는 사용자 소유 피드백 영역이다. 기록은 출처·사실·영향·재현 문맥·가설을 구분하고 민감정보를 포함하지 않으며, 이슈 기록만으로 OS·정책·Runbook을 자동 변경하거나 발행하지 않는다. 지정된 System Maintainer는 `open -> triaged -> mitigated -> verified -> resolved` 또는 `wont_fix` 상태 전환과 검증 근거를 기록할 수 있으며, `resolved`는 독립 검증 뒤에만 사용한다. Runtime Agent는 운영 중 legacy `.circled-wiki/issues/`를 읽기와 기존 상태 갱신 전용으로 취급하며 일반 upgrade가 이동하지 않는다. 다만 Product Agent는 사용자가 특정 Issue의 수집 또는 migration을 명시적으로 요청하고 Git Gate를 통과한 경우에만 Product Workspace 또는 canonical `workspace/issues/`로 이동할 수 있다.
 - **RB-KNW-025** `workspace/`는 Issue, 사용자 작업, 자율형 Agent 기록과 설치별 백업을 위한 Working Plane이다. 공식 Knowledge가 아니며 manifest 관리 자산, release package 또는 Control Plane backup에 포함하지 않는다. 최초 설치는 빈 root만 생성하고 이후 upgrade·rollback은 내부 파일·폴더를 생성·수정·이동·삭제하지 않는다.
@@ -240,7 +240,7 @@ Evidence -> Curator -> Validator -> Reviewer -> Security Gate -> Commit
 - **RB-PUB-008** 기존 Git staged 변경이 있으면 자동 발행을 중단한다.
 - **RB-PUB-009** Bundle 변경은 현재 `knowledge_revision`을 사전 조건으로 사용하며 stale revision 변경을 거부한다.
 - **RB-PUB-010** Bundle Evidence 참조는 하나의 변경 단위로 검증하고 실패 시 Bundle 변경 전 상태로 원복한다.
-- **RB-PUB-011** Bundle Archive 절차는 (1) 중복·병합·폐기 근거를 검토하고, (2) `extensions.archive`에 시각·담당자·사유·복구 조건을 기록하고, (3) `knowledge/bundles/archive/<domain>/`으로 이동하며, (4) 전체 Validator와 검색 제외를 확인하는 순서로 수행한다. 복구는 Reviewer 승인 후 Archive 메타데이터를 보존한 채 원래 도메인 경로로 이동하고 상태를 재검토한다.
+- **RB-PUB-011** Bundle Archive 절차는 (1) 중복·병합·폐기 근거를 검토하고, (2) `extensions.archive`에 시각·담당자·사유·복구 조건을 기록하고, (3) `knowledge/bundles/.archive/<domain>/`으로 이동하며, (4) 전체 Validator와 검색 제외를 확인하는 순서로 수행한다. 복구는 Reviewer 승인 후 Archive 메타데이터를 보존한 채 원래 도메인 경로로 이동하고 상태를 재검토한다.
 
 ### 9.1 Bundle Curation and Activation Contract
 

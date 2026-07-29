@@ -16,9 +16,9 @@
 | Outcome 원본 | Evidence 원본 JSON | 실행 증적 |
 | Outcome manifest | Markdown + YAML Frontmatter | Evidence 색인 |
 
-수동 `inventory.md`를 별도 기준으로 관리하지 않는다. Archive는 경로 이동 없이 Bundle `status`와
-`extensions.archive`로 표현한다. 이 선택은 파일 경로를 Concept Identity 일부로 취급하는 현재 Profile을
-보존한다.
+수동 `inventory.md`를 별도 기준으로 관리하지 않는다. Archive는 Bundle `status`와 `extensions.archive`를 기록한 뒤
+숨김 폴더인 `knowledge/bundles/.archive/<domain>/`으로 이동한다. 이 선택은 파일 경로를
+Concept Identity 일부로 취급하는 현재 Profile을 보존한다.
 
 ## 3. 사용자 레퍼런스 평가
 

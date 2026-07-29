@@ -24,6 +24,7 @@ CLAUDE_ENTRYPOINT_PATH = "CLAUDE.md"
 HERMES_ENTRYPOINT_PATH = "HERMES.md"
 GITIGNORE_PATH = ".gitignore"
 GITIGNORE_TEMPLATE_PATH = f"{CONTROL_PLANE}/templates/.gitignore"
+KNOWLEDGE_README_TEMPLATE_PATH = f"{CONTROL_PLANE}/templates/knowledge/README.md"
 RUNTIME_ASSET_PREFIX = f"{CONTROL_PLANE}/runtime/circled_wiki/"
 OPERATING_RULES_REFERENCE = f"{CONTROL_PLANE}/OPERATING_RULES.md"
 AGENT_ROUTER_REFERENCE = f"{CONTROL_PLANE}/AGENT_ROUTER.md"
@@ -58,6 +59,16 @@ MANAGED_DIRECTORIES = (
 GITIGNORE_BEGIN = "# BEGIN circled-wiki:generated-artifacts"
 GITIGNORE_END = "# END circled-wiki:generated-artifacts"
 LEGACY_GITIGNORE_MARKER = "# circled-wiki:generated-artifacts"
+
+
+def _load_knowledge_readme_template(source_root: Path) -> str:
+    """Load the first-install Knowledge README from a managed template."""
+    path = source_root / KNOWLEDGE_README_TEMPLATE_PATH
+    if not path.is_file():
+        raise ValueError(
+            f"Circled Wiki Knowledge README template is missing: {KNOWLEDGE_README_TEMPLATE_PATH}"
+        )
+    return path.read_text(encoding="utf-8")
 
 
 def _checksum(content: bytes) -> str:
@@ -415,6 +426,10 @@ def bootstrap_circled_wiki(
     knowledge_action = (
         "preserve" if manifest_exists or knowledge_exists else "create_empty_scaffold"
     )
+    create_knowledge_readme = knowledge_action == "create_empty_scaffold"
+    knowledge_readme = (
+        _load_knowledge_readme_template(source_root) if create_knowledge_readme else None
+    )
     workspace_exists = (target / "workspace").exists()
     workspace_action = (
         "preserve"
@@ -426,6 +441,8 @@ def bootstrap_circled_wiki(
     if not isinstance(previous, dict):
         raise ValueError("Circled Wiki manifest assets are invalid")
     actions: List[Dict[str, str]] = []
+    if create_knowledge_readme:
+        actions.append({"path": "knowledge/README.md", "action": "create"})
     pending_proposals: List[Dict[str, str]] = []
     next_assets: Dict[str, str] = dict(previous)
     assets = _source_assets(source_root)
@@ -588,6 +605,9 @@ def bootstrap_circled_wiki(
         if not manifest_exists and not knowledge_exists:
             for directory in ("inbox", "evidence", "bundles"):
                 (knowledge_root / directory).mkdir(parents=True, exist_ok=True)
+            (knowledge_root / "README.md").write_text(
+                knowledge_readme or "", encoding="utf-8"
+            )
         # The working plane is user-owned. Initial installation creates only its
         # root; every later bootstrap or upgrade leaves its entire tree untouched.
         if not manifest_exists and not workspace_exists:
