@@ -4,6 +4,10 @@
 이 Router는 Wiki 콘텐츠와 Runtime 관찰·검증을 위한 것이며 제품 source repository를 변경하거나 release를
 배포할 권한을 부여하지 않는다.
 
+Vault 구조·domain·provider·운영 흐름을 관리하거나 변경하는 작업은 선택한 Profile에 앞서
+`knowledge/README.md`를 읽는다. 단일 Inbox 입력의 검사·변환처럼 경로나 운영 방식을 바꾸지 않는 작업에는
+이 추가 읽기를 요구하지 않는다.
+
 ## Routing Table
 
 | 요청 또는 현재 상태 | 필수 Runtime Profile |

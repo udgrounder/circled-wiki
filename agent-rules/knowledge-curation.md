@@ -8,6 +8,7 @@ Evidence를 기존 Bundle과 비교하거나 신규 Draft를 작성한다.
 
 - 검증 가능한 Evidence
 - 관련 active·draft Bundle 후보
+- 새 Bundle domain 또는 Evidence provider를 처음 사용하는 경우 `knowledge/README.md`
 
 ## Allowed Actions
 
@@ -21,6 +22,7 @@ Evidence를 기존 Bundle과 비교하거나 신규 Draft를 작성한다.
 - 의미 중복과 상충
 - Outcome 일반화 가능성
 - 후보 Bundle의 `status`, Owner, review 요청 상태
+- 새 domain·provider를 사용하거나 그 의미를 판단할 때 `knowledge/README.md`의 운영 목록
 - Bundle을 만들거나 기존 Bundle의 `id`·파일명 관계를 판단할 때 `OPERATING_RULES.md`의 RB-KNW-026 Bundle Identity Contract
 - 여러 단계 정제 작업에서 독립·제한된 조사 또는 검증 작업을 위임할 수 있는지와, 위임해도 Owner 승인·Security Gate·최종 책임이 유지되는지
 - 후보의 제목·요약과 Evidence 제목·intended use 간 의미 관련성, 그리고 적합한 Bundle type

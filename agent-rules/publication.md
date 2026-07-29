@@ -19,6 +19,7 @@
 
 - 품질 경고와 신선도
 - 변경 영향과 롤백 조건
+- 새 domain·provider를 도입하거나 Vault 운영 흐름을 바꾸면 `knowledge/README.md`의 운영 목록과 설명을 함께 갱신했는지
 - Bundle 파일명·Frontmatter ID 변경이면 `OPERATING_RULES.md`의 RB-KNW-026 Bundle Identity Contract, 대상 파일 목록, 참조·링크 영향과 rollback 경로
 
 ## Gates
