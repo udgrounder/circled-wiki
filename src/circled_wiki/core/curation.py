@@ -143,10 +143,17 @@ def run_configured_curation(knowledge_root: Path, evidence_id: str) -> Dict[str,
             payload = json.loads(completed.stdout)
             output = validate_curation_output(payload, [evidence_id])
             receipt = f"curation://{config.provider}/{config.model}/{config.profile_version}"
+            completed_receipt = _completed_receipt(receipt_metadata, "completed")
+            if output.action == "no_bundle" or output.bundle_type not in PRE_CREATION_REVIEW_TYPES:
+                return materialize_curation_candidate(
+                    knowledge_root, evidence_id, output,
+                    generated_by=settings.operator_agent, curation_receipt=receipt,
+                    receipt_metadata=completed_receipt,
+                )
             return generate_curation_review(
                 knowledge_root, evidence_id, output, generated_by=settings.operator_agent,
                 curation_receipt=receipt,
-                receipt_metadata=_completed_receipt(receipt_metadata, "completed"),
+                receipt_metadata=completed_receipt,
             )
         except subprocess.TimeoutExpired:
             failure_kind = "timeout"
@@ -215,7 +222,11 @@ def run_configured_curation_batch(knowledge_root: Path, *, limit: int = 100) -> 
     from .repository import iter_documents
 
     items: List[Dict[str, object]] = []
-    counts = {"review_created": 0, "review_reused": 0, "blocked": 0, "failed": 0, "needs_review": 0}
+    counts = {
+        "draft_created": 0, "draft_reused": 0, "no_bundle": 0,
+        "review_created": 0, "review_reused": 0, "blocked": 0,
+        "failed": 0, "needs_review": 0,
+    }
     for path in iter_documents(knowledge_root):
         document = parse_markdown(path)
         data = document.frontmatter
@@ -225,15 +236,24 @@ def run_configured_curation_batch(knowledge_root: Path, *, limit: int = 100) -> 
             data.get("type") != "evidence"
             or data.get("status") not in {"new", "needs_review"}
             or (isinstance(extensions, dict) and extensions.get("visibility") == "restricted")
-            # A review card is the completed handoff from Curator to Reviewer.
-            # Do not repeatedly run the Curator until the review is resolved.
-            or (isinstance(queue, dict) and queue.get("status") == "review_pending")
+            # Curation queue states are the work ledger. A review handoff and
+            # direct Draft/no-bundle result are already consumed work.
+            or (
+                isinstance(queue, dict)
+                and queue.get("status") in {"review_pending", "bundled", "no_bundle"}
+            )
         ):
             continue
         result = run_configured_curation(knowledge_root, str(data["id"]))
         action = str(result.get("action", "needs_review"))
         reason = str(result.get("reason", ""))
-        if action == "created_review":
+        if action == "created":
+            counts["draft_created"] += 1
+        elif action == "reused":
+            counts["draft_reused"] += 1
+        elif action == "no_bundle":
+            counts["no_bundle"] += 1
+        elif action == "created_review":
             counts["review_created"] += 1
         elif action == "reused_review":
             counts["review_reused"] += 1

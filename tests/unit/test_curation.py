@@ -253,7 +253,7 @@ class CurationMaterializationTests(unittest.TestCase):
             self.assertEqual(attempt["receipt"]["status"], "invalid_json")
             self.assertNotIn("not-json", str(attempt))
 
-    def test_configured_adapter_creates_review_then_approval_creates_candidate(self):
+    def test_configured_adapter_directly_creates_report_draft(self):
         with tempfile.TemporaryDirectory() as directory:
             root, evidence_id = self._evidence(directory)
             config = root.parent / ".circled-wiki" / "config.yaml"
@@ -264,39 +264,58 @@ class CurationMaterializationTests(unittest.TestCase):
                 encoding="utf-8",
             )
             output = {
-                "action": "guide", "domain": "marketing", "bundle_type": "guide",
-                "title": "Curated guide", "summary": "Summary.", "body": "# Guide",
-                "evidence_ids": [evidence_id], "tags": ["curated", "guide"],
+                "action": "report", "domain": "marketing", "bundle_type": "report",
+                "title": "Curated report", "summary": "Summary.", "body": "# Report",
+                "evidence_ids": [evidence_id], "tags": ["curated", "report"],
             }
             completed = type("Completed", (), {"stdout": json.dumps(output)})()
             with patch("circled_wiki.core.curation.propose_update", return_value={"recommended_action": "create_draft_bundle", "blocking_conditions": []}):
                 with patch("circled_wiki.core.curation.subprocess.run", return_value=completed) as adapter:
                     result = run_configured_curation(root, evidence_id)
 
-            self.assertEqual(result["action"], "created_review")
+            self.assertEqual(result["action"], "created")
             request = json.loads(adapter.call_args.kwargs["input"])
             self.assertEqual(
                 {item["type"] for item in request["bundle_taxonomy"]},
                 {"policy", "guide", "runbook", "manual", "decision", "spec", "reference", "report"},
             )
             self.assertEqual(request["pre_creation_review_types"], ["manual", "runbook"])
-            self.assertEqual(list_curation_candidates(root), [])
+            self.assertEqual(len(list_curation_candidates(root)), 1)
             with patch("circled_wiki.core.curation.propose_update", return_value={"recommended_action": "create_draft_bundle", "blocking_conditions": []}):
                 with patch("circled_wiki.core.curation.subprocess.run", return_value=completed):
                     repeated = run_configured_curation(root, evidence_id)
-            self.assertEqual(repeated["action"], "reused_review")
-            self.assertEqual(len(list_curation_reviews(root, include_resolved=True)), 1)
+            self.assertEqual(repeated["action"], "reused")
+            self.assertEqual(list_curation_reviews(root, include_resolved=True), [])
             evidence = find_document_by_id(root, evidence_id)
             self.assertNotIn("curated_into", evidence.frontmatter)
-            self.assertEqual(evidence.frontmatter["extensions"]["curation_queue"]["status"], "review_pending")
-            review = list_curation_reviews(root)[0]
-            snapshot = parse_markdown(root.parent / review["path"]).frontmatter["extensions"]["curation_review"]["evidence_snapshot"]
-            self.assertEqual(snapshot["evidence_id"], evidence_id)
-            self.assertEqual(snapshot["checksum"], evidence.frontmatter["checksum"])
-            self.assertEqual(snapshot["why_collected"], "test")
-            self.assertEqual(snapshot["intended_use"], ["marketing"])
+            self.assertEqual(evidence.frontmatter["extensions"]["curation_queue"]["status"], "bundled")
             batch = run_configured_curation_batch(root, limit=1)
             self.assertEqual(batch["attempted"], 0)
+
+    def test_configured_adapter_creates_review_for_manual(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, evidence_id = self._evidence(directory)
+            config = root.parent / ".circled-wiki" / "config.yaml"
+            config.parent.mkdir(exist_ok=True)
+            config.write_text(
+                "schema_version: 1\ncuration:\n"
+                "  enabled: true\n  provider: test\n  model: curated\n  command: adapter\n",
+                encoding="utf-8",
+            )
+            output = {
+                "action": "manual", "domain": "marketing", "bundle_type": "manual",
+                "title": "Curated manual", "summary": "Summary.", "body": "# Manual",
+                "evidence_ids": [evidence_id], "tags": ["curated", "manual"],
+            }
+            completed = type("Completed", (), {"stdout": json.dumps(output)})()
+
+            with patch("circled_wiki.core.curation.propose_update", return_value={"recommended_action": "create_draft_bundle", "blocking_conditions": []}):
+                with patch("circled_wiki.core.curation.subprocess.run", return_value=completed):
+                    result = run_configured_curation(root, evidence_id)
+
+            self.assertEqual(result["action"], "created_review")
+            self.assertEqual(len(list_curation_reviews(root)), 1)
+            self.assertEqual(list_curation_candidates(root), [])
 
     def test_failed_review_approval_preserves_review_card(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -343,7 +362,7 @@ class CurationMaterializationTests(unittest.TestCase):
             self.assertEqual(evidence.frontmatter["extensions"]["curation_queue"]["status"], "no_bundle")
             self.assertEqual(list_curation_queue(root), [])
 
-    def test_high_confidence_reference_still_requires_curation_review(self):
+    def test_high_confidence_reference_directly_creates_draft(self):
         with tempfile.TemporaryDirectory() as directory:
             root, evidence_id = self._evidence(directory)
             config = root.parent / ".circled-wiki" / "config.yaml"
@@ -363,9 +382,9 @@ class CurationMaterializationTests(unittest.TestCase):
             with patch("circled_wiki.core.curation.propose_update", return_value=proposal):
                 with patch("circled_wiki.core.curation.subprocess.run", return_value=completed):
                     result = run_configured_curation(root, evidence_id)
-            self.assertEqual(result["action"], "created_review")
-            self.assertEqual(len(list_curation_reviews(root)), 1)
-            self.assertEqual(list_curation_candidates(root), [])
+            self.assertEqual(result["action"], "created")
+            self.assertEqual(list_curation_reviews(root), [])
+            self.assertEqual(len(list_curation_candidates(root)), 1)
 
     def test_rebuildable_workspace_queue_tracks_pending_and_resolved_evidence(self):
         with tempfile.TemporaryDirectory() as directory:
