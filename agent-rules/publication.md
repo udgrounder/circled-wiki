@@ -19,7 +19,6 @@
 
 - 품질 경고와 신선도
 - 변경 영향과 롤백 조건
-- `knowledge/`의 안내·탐색 문서를 이동·삭제하면, 계속 필요한 운영·관리 정보만 `knowledge/README.md`에 먼저 통합됐고 개별 문서 목록·요약을 누적하지 않았으며 README 설명이 실제 구조와 일치하는지
 - Bundle 파일명·Frontmatter ID 변경이면 `OPERATING_RULES.md`의 RB-KNW-026 Bundle Identity Contract, 대상 파일 목록, 참조·링크 영향과 rollback 경로
 
 ## Gates
