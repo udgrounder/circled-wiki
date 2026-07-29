@@ -342,6 +342,24 @@ class ValidatorTests(unittest.TestCase):
 
         self.assertIn("archived Bundle must define extensions.archive", result.profile_errors)
 
+    def test_archive_named_domain_is_not_a_reserved_archive_location(self):
+        bundle_uuid = str(uuid.uuid4())
+        evidence_uuid = str(uuid.uuid4())
+        path = self.root / "bundles" / "archive" / "normal-document.md"
+        path.parent.mkdir(parents=True)
+        path.write_text(render_markdown({
+            "type": "policy", "id": f"bundle/example-org/normal-document--{bundle_uuid}",
+            "bundle_uuid": bundle_uuid, "title": "Normal Document", "status": "draft",
+            "summary": "A document in an ordinary archive-named domain",
+            "updated_at": "2026-07-14T00:00:00+00:00",
+            "evidence": [f"evidence/example-org/normal-source_{evidence_uuid}.md"],
+            "extensions": {},
+        }), encoding="utf-8")
+
+        result = validate_document(path, self.root)
+
+        self.assertTrue(result.is_valid, result.as_dict())
+
     def test_artifact_profile_requires_supported_type_and_sections(self):
         bundle_uuid = str(uuid.uuid4())
         evidence_uuid = str(uuid.uuid4())
