@@ -14,6 +14,13 @@ from typing import Any, Callable, Dict, Iterator, List, Optional
 from uuid import uuid4
 
 from .frontmatter import parse_markdown, render_markdown
+from .inbox_review_queue import (
+    complete_inbox_review,
+    enqueue_inbox_review,
+    has_blocking_inbox_review,
+    resolve_inbox_review_requirement,
+    review_context,
+)
 from .namespace import require_stable_organization_id
 from .sensitive_data import redact_sensitive_data
 from .evidence import (
@@ -279,6 +286,10 @@ def accept_conversation_intake(
             raise ValueError("only pending Inbox items can be accepted")
         if data.get("sensitivity_review") == "required":
             raise ValueError("sensitivity review must be completed before acceptance")
+        if has_blocking_inbox_review(
+            knowledge_root, intake_id, str(data.get("checksum", ""))
+        ):
+            raise ValueError("inbox review must be resolved before acceptance")
         updated = dict(data)
         updated["status"] = "accepted"
         updated["inspection"] = {
@@ -336,7 +347,15 @@ def complete_inbox_sensitivity_review(
             "decision": decision,
         }
         path.write_text(render_markdown(updated, document.body), encoding="utf-8")
-        return {"intake_id": intake_id, "sensitivity_review": decision, "status": "pending"}
+        review = resolve_inbox_review_requirement(
+            knowledge_root, intake_id=intake_id, source_checksum=str(data["checksum"]),
+            reason_code="sensitivity_review_required", actor=actor.strip(),
+            decision=decision, receipt=f"inbox-review://sensitivity/{intake_id.rsplit('/', 1)[-1]}",
+        )
+        return {
+            "intake_id": intake_id, "sensitivity_review": decision,
+            "status": "pending", "review_status": review["status"],
+        }
     raise ValueError("intake_id must refer to an existing Inbox item")
 
 
@@ -361,9 +380,26 @@ def record_inbox_pii_scan_receipt(
             reviewed_by=reviewed_by, receipt=receipt, scanned_at=scanned_at,
         )
         updated["pii_scan_receipt"] = scan
+        if result == "needs_review":
+            updated["status"] = "needs_review"
         document = parse_markdown(path)
         path.write_text(render_markdown(updated, document.body), encoding="utf-8")
-        return {"intake_id": intake_id, "pii_scan_receipt": scan}
+        if result == "needs_review":
+            queue = enqueue_inbox_review(
+                knowledge_root, intake_id=intake_id, inbox_path=path,
+                source_checksum=str(data["checksum"]), current_stage="pii_scan",
+                reason_code="pii_needs_review",
+            )
+            return {"intake_id": intake_id, "pii_scan_receipt": scan, "review_queue": queue}
+        review = resolve_inbox_review_requirement(
+            knowledge_root, intake_id=intake_id, source_checksum=str(data["checksum"]),
+            reason_code="pii_needs_review", actor=reviewed_by,
+            decision=f"pii_scan_{result}", receipt=receipt,
+        )
+        if data.get("status") == "needs_review" and review["status"] == "reprocessing":
+            updated["status"] = "accepted"
+            path.write_text(render_markdown(updated, document.body), encoding="utf-8")
+        return {"intake_id": intake_id, "pii_scan_receipt": scan, "review_status": review["status"]}
     raise ValueError("intake_id must refer to an existing Inbox item")
 
 
@@ -387,6 +423,7 @@ def ingest_evidence(
     capture_fidelity: Optional[str] = None,
     pii_scanned: bool = False,
     pii_scan_receipt: Optional[Dict[str, object]] = None,
+    inbox_review: Optional[Dict[str, object]] = None,
     capture_details: Optional[Dict[str, object]] = None,
     original_stem: Optional[str] = None,
 ) -> IngestResult:
@@ -561,6 +598,8 @@ def ingest_evidence(
         frontmatter["extensions"]["pii_scan"] = receipt
         frontmatter["extensions"]["pii_scanned"] = receipt.get("result") in {"passed", "masked"}
         frontmatter["extensions"]["pii_masked"] = receipt.get("result") == "masked"
+    if inbox_review is not None:
+        frontmatter["extensions"]["inbox_review"] = dict(inbox_review)
     if content_mode == "embedded":
         frontmatter["extensions"]["content_mode"] = "embedded"
         frontmatter["extensions"]["checksum_scope"] = "original_content"
@@ -730,6 +769,12 @@ def capture_conversation(
         ),
         encoding="utf-8",
     )
+    if sensitivity_review == "required":
+        enqueue_inbox_review(
+            knowledge_root, intake_id=intake_id, inbox_path=capture_path,
+            source_checksum=checksum, current_stage="sensitivity_review",
+            reason_code="sensitivity_review_required",
+        )
     return CaptureResult(intake_id, capture_path, checksum)
 
 
@@ -845,6 +890,12 @@ def capture_document(
         ),
         encoding="utf-8",
     )
+    if sensitivity_review == "required":
+        enqueue_inbox_review(
+            knowledge_root, intake_id=intake_id, inbox_path=path,
+            source_checksum=checksum, current_stage="sensitivity_review",
+            reason_code="sensitivity_review_required",
+        )
     return CaptureResult(intake_id, path, checksum)
 
 
@@ -913,4 +964,10 @@ def capture_file(
         "intended_use": [item.strip() for item in intended_use], "sensitivity_review": sensitivity_review,
     }
     envelope.write_text(render_markdown(frontmatter, "# Inbox File\n\nPending inspection.\n"), encoding="utf-8")
+    if sensitivity_review == "required":
+        enqueue_inbox_review(
+            knowledge_root, intake_id=intake_id, inbox_path=envelope,
+            source_checksum=checksum, current_stage="sensitivity_review",
+            reason_code="sensitivity_review_required",
+        )
     return CaptureResult(intake_id, envelope, checksum)

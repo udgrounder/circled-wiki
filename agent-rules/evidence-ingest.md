@@ -35,7 +35,7 @@
 - 승인된 검사 기록
 - Evidence Schema와 원본 checksum 일치
 - RB-EVD-021·RB-SEC-010의 재검수 Gate 통과
-- PII Scan 입력이 있으면 RB-EVD-020·RB-SEC-005의 Receipt Gate 통과. `needs_review` 결과는 Inbox에 유지하고 Evidence로 변환하지 않음
+- PII Scan 입력이 있으면 RB-EVD-020·RB-SEC-005의 Receipt Gate 통과. `needs_review` 결과는 Inbox에 유지하고 `workspace/task/inbox-review-queue/`에 현재 단계·요청 조치만 기록하며 Evidence로 변환하지 않음
 - Evidence와 Curation Queue가 RB-EVD-023의 동일 처리 단위로 확정될 것
 
 ## Output
@@ -44,7 +44,7 @@ RB-EVD-023에 따라 함께 확정된 Evidence ID·보존 경로와 Curation Que
 
 ## Failure State
 
-RB-EVD-007·023에 따라 Inbox 원본과 필요 시 `.raw/`를 유지하고 Evidence·Queue의 부분 성공을 남기지 않는다.
+RB-EVD-007·023에 따라 Inbox 원본과 필요 시 `.raw/`를 유지하고 Evidence·Queue의 부분 성공을 남기지 않는다. Inbox Review Queue는 사용자 결정 후에도 Evidence와 Curation Queue의 동일 처리 단위가 성공할 때까지 `reprocessing`으로 유지한다.
 민감정보 실패는 RB-SEC-001에 따라 실제 값 없이 범주와 재검토 조건만 기록한다.
 
 ## Prohibited

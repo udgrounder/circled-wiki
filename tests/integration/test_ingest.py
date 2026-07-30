@@ -15,9 +15,11 @@ from circled_wiki.core.ingest import (
     capture_conversation,
     capture_document,
     capture_file,
+    complete_inbox_sensitivity_review,
     ingest_evidence,
     record_inbox_pii_scan_receipt,
 )
+from circled_wiki.core.inbox_review_queue import list_inbox_review_queue
 from circled_wiki.core.repository import apply_bundle_revision, create_bundle
 from circled_wiki.core.curator import propose_update
 from circled_wiki.core.search import search_knowledge
@@ -28,6 +30,71 @@ from circled_wiki.worker.jobs import ingest_accepted_inbox, inspect_inbox
 
 
 class IngestEvidenceTests(unittest.TestCase):
+    def test_required_sensitivity_creates_exception_only_review_queue(self):
+        with tempfile.TemporaryDirectory() as temp_directory:
+            knowledge_root = Path(temp_directory) / "knowledge"
+            captured = capture_document(
+                knowledge_root, "reviewed source", "manual", title="Review needed",
+                why_collected="review queue test", intended_use=["test"],
+                idempotency_key="review-queue-sensitivity",
+            )
+
+            queue = list_inbox_review_queue(knowledge_root)
+            self.assertEqual(len(queue), 1)
+            self.assertEqual(queue[0]["current_stage"], "sensitivity_review")
+            self.assertEqual(queue[0]["requirements"][0]["reason_code"], "sensitivity_review_required")
+
+            complete_inbox_sensitivity_review(
+                knowledge_root, captured.intake_id, "human-reviewer", "completed"
+            )
+            accept_conversation_intake(knowledge_root, captured.intake_id, "inspector")
+            result = ingest_accepted_inbox(knowledge_root)
+
+            self.assertEqual(result["ingested_count"], 1)
+            self.assertEqual(list_inbox_review_queue(knowledge_root), [])
+            evidence = parse_markdown(knowledge_root.parent / result["items"][0]["evidence_path"])
+            self.assertEqual(
+                evidence.frontmatter["extensions"]["inbox_review"]["reason_codes"],
+                ["sensitivity_review_required"],
+            )
+
+    def test_pii_needs_review_blocks_then_resumes_and_archives_queue(self):
+        with tempfile.TemporaryDirectory() as temp_directory:
+            knowledge_root = Path(temp_directory) / "knowledge"
+            captured = capture_document(
+                knowledge_root, "safe replacement", "manual", title="PII review",
+                why_collected="review queue test", intended_use=["test"],
+                idempotency_key="review-queue-pii", sensitivity_review="not_applicable",
+            )
+            accept_conversation_intake(knowledge_root, captured.intake_id, "inspector")
+            self.assertEqual(list_inbox_review_queue(knowledge_root), [])
+            blocked = record_inbox_pii_scan_receipt(
+                knowledge_root, captured.intake_id, scanner="test", scanner_version="1",
+                result="needs_review", reviewed_by="scanner", receipt="test://needs-review",
+            )
+            self.assertEqual(blocked["review_queue"]["status"], "awaiting_user")
+            self.assertEqual(list_inbox_review_queue(knowledge_root)[0]["current_stage"], "pii_scan")
+            self.assertEqual(ingest_accepted_inbox(knowledge_root)["ingested_count"], 0)
+
+            resumed = record_inbox_pii_scan_receipt(
+                knowledge_root, captured.intake_id, scanner="test", scanner_version="2",
+                result="masked", reviewed_by="human-reviewer", receipt="test://masked",
+            )
+            self.assertEqual(resumed["review_status"], "reprocessing")
+            result = ingest_accepted_inbox(knowledge_root)
+
+            self.assertEqual(result["ingested_count"], 1)
+            self.assertEqual(list_inbox_review_queue(knowledge_root), [])
+            archived = list((knowledge_root.parent / "workspace" / "task" / ".archive" / "inbox-review-queue").glob("*.md"))
+            self.assertEqual(len(archived), 1)
+            evidence = parse_markdown(knowledge_root.parent / result["items"][0]["evidence_path"])
+            self.assertEqual(evidence.frontmatter["extensions"]["pii_scan"]["result"], "masked")
+            self.assertEqual(evidence.frontmatter["extensions"]["inbox_review"]["reason_codes"], ["pii_needs_review"])
+            self.assertEqual(
+                evidence.frontmatter["extensions"]["inbox_review"]["decisions"][0]["decision"],
+                "pii_scan_masked",
+            )
+
     def test_inbox_pii_receipt_is_fixed_at_evidence_creation(self):
         with tempfile.TemporaryDirectory() as temp_directory:
             knowledge_root = Path(temp_directory) / "knowledge"

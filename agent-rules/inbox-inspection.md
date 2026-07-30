@@ -15,7 +15,7 @@
 - Inbox 내용을 직접 다시 읽어 Capture 단계의 지정된 고위험 식별자·자격증명 마스킹 누락 가능성을 **2차 확인**하고, Evidence 변환 시 Ingest Agent가 수행할 2차 마스킹 확인·재검수를 안내. 이 확인은 전체 PII Scan을 주장하지 않는다.
 - 명확한 누락은 정책에 맞게 `*`로 마스킹한 안전한 파생 입력으로 교체하되, 불변 파일 원본과 기존 checksum을 직접 변경하지 않음
 - 외부 문서의 source URL·locator 존재 여부 검사
-- `required` 민감성 상태는 식별된 검토자의 `completed` 또는 `not_applicable` 결정으로만 해소
+- `required` 민감성 상태는 식별된 검토자의 `completed` 또는 `not_applicable` 결정으로만 해소. 이 상태는 `workspace/task/inbox-review-queue/`의 예외 작업으로 표시하며 원문은 큐에 복사하지 않음
 - 통과 항목을 검사자 actor와 함께 `accepted`로 기록
 
 ## Checks

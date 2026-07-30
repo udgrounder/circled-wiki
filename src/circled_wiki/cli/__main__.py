@@ -249,6 +249,7 @@ def main() -> int:
     pending.add_argument("--limit", type=int, default=100)
     inspect_inbox = subparsers.add_parser("inspect-inbox")
     inspect_inbox.add_argument("--limit", type=int, default=100)
+    subparsers.add_parser("list-inbox-review-queue")
     accept_inbox = subparsers.add_parser("accept-inbox")
     accept_inbox.add_argument("--intake", required=True)
     accept_inbox.add_argument("--actor", required=True)
@@ -689,6 +690,9 @@ def main() -> int:
         return 0
     if args.command == "inspect-inbox":
         print(json.dumps(service.inspect_inbox(args.limit), ensure_ascii=False, indent=2))
+        return 0
+    if args.command == "list-inbox-review-queue":
+        print(json.dumps(service.list_inbox_review_queue(), ensure_ascii=False, indent=2))
         return 0
     if args.command == "accept-inbox":
         print(json.dumps(service.accept_inbox(args.intake, args.actor), ensure_ascii=False, indent=2))

@@ -11,6 +11,7 @@ from uuid import uuid4
 from circled_wiki.core.curator import propose_update
 from circled_wiki.core.frontmatter import FrontmatterError, parse_markdown
 from circled_wiki.core.ingest import ingest_evidence, read_conversation_intake
+from circled_wiki.core.inbox_review_queue import complete_inbox_review, review_context
 from circled_wiki.core.repository import iter_documents
 from circled_wiki.core.curation_queue import list_curation_queue
 from circled_wiki.core.service import KnowledgeService
@@ -216,6 +217,9 @@ def ingest_accepted_inbox(knowledge_root: Path, limit: int = 100) -> Dict[str, o
         try:
             captured_at = datetime.fromisoformat(str(data["captured_at"]).replace("Z", "+00:00"))
             capture_details = data.get("capture_details")
+            inbox_review = review_context(
+                knowledge_root, str(data["id"]), str(data["checksum"])
+            )
             result = ingest_evidence(
                 knowledge_root,
                 temporary_path,
@@ -237,6 +241,7 @@ def ingest_accepted_inbox(knowledge_root: Path, limit: int = 100) -> Dict[str, o
                     data.get("pii_scan_receipt")
                     if isinstance(data.get("pii_scan_receipt"), dict) else None
                 ),
+                inbox_review=inbox_review,
                 capture_details=(
                     capture_details if data.get("content_type") == "conversation" and isinstance(capture_details, dict) else None
                 ),
@@ -249,6 +254,11 @@ def ingest_accepted_inbox(knowledge_root: Path, limit: int = 100) -> Dict[str, o
                     )
                 ),
             )
+            if inbox_review is not None:
+                complete_inbox_review(
+                    knowledge_root, intake_id=str(data["id"]),
+                    source_checksum=str(data["checksum"]), evidence_id=result.evidence_id,
+                )
             outcome_linked = _link_workflow_outcome(knowledge_root, data, result.evidence_id)
             path.unlink()
             if is_file:

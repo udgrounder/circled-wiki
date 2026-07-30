@@ -25,6 +25,7 @@ TOOLS = [
     {"name": "capture_file", "description": "Land a PDF, Word, HTML, or other source file as a pending Inbox item with an original-preserving envelope; it does not ingest or curate it.", "inputSchema": {"type": "object", "required": ["payload_base64", "original_filename", "provider", "title", "why_collected", "intended_use", "idempotency_key"], "properties": {"payload_base64": {"type": "string", "minLength": 1}, "original_filename": {"type": "string"}, "provider": {"type": "string"}, "title": {"type": "string"}, "why_collected": {"type": "string"}, "intended_use": {"type": "array", "minItems": 1, "items": {"type": "string"}}, "idempotency_key": {"type": "string"}, "source_url": {"type": "string"}, "source_locator": {"type": "string"}, "captured_from": {"type": "string", "enum": ["api", "webhook", "manual", "upload", "sync"], "default": "upload"}, "sensitivity_review": {"type": "string", "enum": ["completed", "required", "not_applicable"], "default": "required"}}}},
     {"name": "inspect_inbox", "description": "Read-only validation of pending conversation, document, and file Inbox items against the inspection gate.", "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer", "minimum": 1, "maximum": 1000, "default": 100}}}},
     {"name": "record_inbox_pii_scan", "description": "Record a checksum-bound PII Scan Receipt on an Inbox item before immutable Evidence creation.", "inputSchema": {"type": "object", "required": ["intake_id", "scanner", "scanner_version", "result", "reviewed_by", "receipt"], "properties": {"intake_id": {"type": "string"}, "scanner": {"type": "string"}, "scanner_version": {"type": "string"}, "result": {"type": "string", "enum": ["passed", "masked", "needs_review"]}, "reviewed_by": {"type": "string"}, "receipt": {"type": "string"}, "scanned_at": {"type": "string", "format": "date-time"}}}},
+    {"name": "list_inbox_review_queue", "description": "List exceptional Inbox items awaiting a human decision or automatic reprocessing.", "inputSchema": {"type": "object", "properties": {}}},
     {"name": "review_inbox_sensitivity", "description": "Record an identified human sensitivity-review decision before Inbox acceptance.", "inputSchema": {"type": "object", "required": ["intake_id", "actor", "decision"], "properties": {"intake_id": {"type": "string"}, "actor": {"type": "string"}, "decision": {"type": "string", "enum": ["completed", "not_applicable"]}}}},
     {"name": "accept_inbox", "description": "Record an identified inspector acceptance for one pending Inbox item that passes all gates.", "inputSchema": {"type": "object", "required": ["intake_id", "actor"], "properties": {"intake_id": {"type": "string"}, "actor": {"type": "string"}}}},
     {"name": "ingest_accepted", "description": "Convert accepted Inbox items to Evidence without performing curation.", "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer", "minimum": 1, "maximum": 1000, "default": 100}}}},
@@ -64,7 +65,7 @@ TOOLS = [
 ]
 
 READ_ONLY_TOOLS = {
-    "search_knowledge", "read_bundle", "prepare_context", "propose_update", "propose_pending", "inspect_inbox", "list_curation_candidates", "list_curation_reviews", "list_curation_queue",
+    "search_knowledge", "read_bundle", "prepare_context", "propose_update", "propose_pending", "inspect_inbox", "list_inbox_review_queue", "list_curation_candidates", "list_curation_reviews", "list_curation_queue",
     "validate_result", "find_workflow", "audit_knowledge", "list_knowledge_inventory", "audit_hardcoded_install_values", "curation_backlog_metrics",
     "validate_claim_support", "measure_runbook_effectiveness", "get_task",
 }
@@ -147,6 +148,7 @@ def handle_request(
                 sensitivity_review=arguments.get("sensitivity_review", "required"),
             )
             elif name == "inspect_inbox": content = service.inspect_inbox(arguments.get("limit", 100))
+            elif name == "list_inbox_review_queue": content = service.list_inbox_review_queue()
             elif name == "record_inbox_pii_scan": content = service.record_inbox_pii_scan(
                 arguments["intake_id"], scanner=arguments["scanner"],
                 scanner_version=arguments["scanner_version"], result=arguments["result"],

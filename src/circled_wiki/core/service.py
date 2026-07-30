@@ -26,6 +26,7 @@ from .curation import (
 )
 from .curation_reviews import decide_curation_review, generate_curation_review, list_curation_reviews
 from .curation_queue import list_curation_queue, refresh_curation_queue
+from .inbox_review_queue import list_inbox_review_queue
 from .curation_contract import validate_curation_output
 from .config_audit import audit_hardcoded_install_values
 from .search import search_knowledge
@@ -205,6 +206,9 @@ class KnowledgeService:
         from circled_wiki.worker.jobs import inspect_inbox
 
         return inspect_inbox(self.knowledge_root, limit=limit)
+
+    def list_inbox_review_queue(self) -> List[Dict[str, object]]:
+        return list_inbox_review_queue(self.knowledge_root)
 
     def accept_inbox(self, intake_id: str, actor: str) -> Dict[str, object]:
         return accept_conversation_intake(self.knowledge_root, intake_id, actor)
