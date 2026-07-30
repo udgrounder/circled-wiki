@@ -491,7 +491,7 @@ def ingest_evidence(
             "checksum": source_checksum,
             "extensions": {
                 "pii_scan": receipt,
-                "pii_scanned": receipt_result in {"passed", "masked"},
+                "pii_scanned": True,
                 "pii_masked": receipt_result == "masked",
             },
         }
