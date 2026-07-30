@@ -24,7 +24,10 @@ from .curation import (
     materialize_curation_candidate, run_configured_curation,
     run_configured_curation_batch,
 )
-from .curation_reviews import decide_curation_review, generate_curation_review, list_curation_reviews
+from .curation_reviews import (
+    apply_approved_curation_update, decide_curation_review,
+    generate_curation_review, list_curation_reviews,
+)
 from .curation_queue import list_curation_queue, refresh_curation_queue
 from .inbox_review_queue import list_inbox_review_queue
 from .curation_contract import validate_curation_output
@@ -143,6 +146,16 @@ class KnowledgeService:
     def decide_curation_review(self, review_id: str, *, action: str, actor: str, note: str = "") -> Dict[str, object]:
         return decide_curation_review(self.knowledge_root, review_id, action=action, actor=actor, note=note)
 
+    def apply_approved_curation_update(self, review_id: str, *, actor: str) -> Dict[str, object]:
+        return apply_approved_curation_update(self.knowledge_root, review_id, actor=actor)
+
+    def create_curation_review(self, evidence_id: str, output: Dict[str, object], *, generated_by: str, curation_receipt: str) -> Dict[str, object]:
+        return generate_curation_review(
+            self.knowledge_root, evidence_id,
+            validate_curation_output(output, [evidence_id]), generated_by=generated_by,
+            curation_receipt=curation_receipt,
+        )
+
     def review_curation_candidate(
         self, bundle_id: str, *, action: str, actor: str, note: str = "",
         merged_into: Optional[str] = None,
@@ -157,7 +170,7 @@ class KnowledgeService:
         curation_receipt: str,
     ) -> Dict[str, object]:
         raise ValueError(
-            "direct candidate materialization is disabled; create a curation review and wait for independent approval"
+            "direct candidate materialization is disabled; create a curation review and record a separate verification attempt"
         )
 
     def promote_curation_candidate(

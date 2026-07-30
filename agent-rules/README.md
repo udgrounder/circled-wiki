@@ -61,7 +61,7 @@ inbox-capture
 | `pending` | `accept_inbox` · Inbox Inspection | 모든 Gate 통과, inspector actor | `accepted` |
 | `accepted` | Evidence PII Scan · Evidence Ingest | RB-EVD-020·021·023, RB-SEC-005·010, Evidence Schema | 불변 Evidence + Curation Queue |
 | Curation Queue | `propose_pending` · Knowledge Curation | Evidence 원본 접근, 관련성 검토 | Bundle 또는 Review 카드 |
-| Draft (`runbook`·`manual`) | Review · Publication | Validator, Evidence, 보안, 독립 Owner 승인 | 발행 가능 |
+| Draft (`runbook`·`manual`) | Review · Publication | Validator, Evidence, 보안, 사용자 또는 검증 Agent의 별도 검증 시도 기록 | 발행 가능 |
 | Draft (`policy`·`guide`·`decision`·`spec`·`reference`·`report`) | RB-CUR-006 Automatic Promotion | Validator, Evidence·PII·참조 무결성, Security Receipt | active 또는 Gate 실패 Draft |
 
 ## Exceptions

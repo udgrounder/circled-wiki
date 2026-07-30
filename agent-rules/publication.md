@@ -30,7 +30,7 @@
 - Publication Security Review
 - 승인 상태와 발행 권한
 - 기존 staged 변경 없음
-- 현재 Evidence checksum과 승격 provenance 기록. `runbook`·`manual`은 생성 전 Review ID와 독립 Owner 승인이 필수이며, 직접 생성 가능한 유형은 RB-CUR-006 자동 Gate의 provenance를 남긴다
+- 현재 Evidence checksum과 승격 provenance 기록. `runbook`·`manual`은 생성 전 Review ID와 별도 검증 시도 기록이 필수이며, 직접 생성 가능한 유형은 RB-CUR-006 자동 Gate의 provenance를 남긴다
 - active 전환이면 전용 Promotion Gate의 Security Receipt와 PII Scan Receipt
 
 ## Output
@@ -45,6 +45,6 @@ Draft를 유지하고 발행 차단 원인과 수정 조건을 기록한다.
 
 - Gate 우회
 - 일반 Bundle 생성·revision API로 `draft -> active`를 전환
-- `runbook`·`manual`의 active 전환에 Review 카드·독립 Owner 승인 없이 active 상태를 주장
+- `runbook`·`manual`의 active 전환에 Review 카드·별도 검증 시도 기록 없이 active 상태를 주장
 - 미검토·`needs_review` 자료 발행
 - 승인 없는 외부 게시·Commit

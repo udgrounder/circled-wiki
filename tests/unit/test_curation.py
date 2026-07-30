@@ -5,6 +5,7 @@ import json
 import hashlib
 import multiprocessing
 import threading
+from uuid import UUID
 from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import patch
 from pathlib import Path
@@ -21,6 +22,7 @@ from circled_wiki.core.repository import apply_bundle_revision, create_bundle, f
 from circled_wiki.core.validator import validate_document
 from circled_wiki.core.candidates import promote_curation_candidate, review_curation_candidate
 from circled_wiki.core.curation_reviews import (
+    apply_approved_curation_update,
     decide_curation_review,
     generate_curation_review,
     list_curation_reviews,
@@ -154,6 +156,9 @@ class CurationMaterializationTests(unittest.TestCase):
                 root, evidence_id, self._output(evidence_id, "manual"),
                 generated_by="curator", curation_receipt="test://curation",
             )
+            UUID(review["review_id"].removeprefix("review-"))
+            review_card = parse_markdown(root.parent / review["path"])
+            attempt_id = review_card.frontmatter["extensions"]["curation_review"]["verification_attempt_id"]
 
             applied = decide_curation_review(
                 root, review["review_id"], action="approve", actor="manual-owner",
@@ -164,6 +169,10 @@ class CurationMaterializationTests(unittest.TestCase):
             self.assertEqual(
                 bundle.frontmatter["extensions"]["curation"]["review_decision"]["review_id"],
                 review["review_id"],
+            )
+            self.assertEqual(
+                bundle.frontmatter["extensions"]["curation"]["review_decision"]["verification_attempt_id"],
+                attempt_id,
             )
             self.assertTrue(applied["review_deleted"])
             review_path = root.parent / review["path"]
@@ -260,7 +269,43 @@ class CurationMaterializationTests(unittest.TestCase):
             root, evidence_id = self._evidence(directory)
             result = run_configured_curation(root, evidence_id)
             self.assertEqual(result["action"], "needs_review")
-            self.assertFalse(result["stored"])
+            self.assertTrue(result["stored"])
+            self.assertEqual(result["reason"], "adapter_disabled")
+            queue = list_curation_queue(root)
+            self.assertEqual(queue[0]["reason"], "adapter_disabled")
+            self.assertIn("Configure the curation adapter", queue[0]["next_action"])
+
+    def test_approved_update_review_applies_revision_and_archives_card(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, evidence_id = self._evidence(directory)
+            target = create_bundle(
+                root, domain="marketing", slug="existing-guide", title="Existing",
+                bundle_type="guide", summary="Existing summary.", evidence_id=evidence_id,
+            )
+            output = validate_curation_output({
+                "action": "guide", "domain": "marketing", "bundle_type": "guide",
+                "title": "Reviewed update", "summary": "Updated summary.",
+                "body": "# Reviewed update\n", "evidence_ids": [evidence_id],
+                "existing_bundle_candidates": [target.frontmatter["id"]],
+                "tags": ["marketing", "reviewed-update"],
+            }, [evidence_id])
+            review = generate_curation_review(
+                root, evidence_id, output, generated_by="curator", curation_receipt="test://curation",
+            )
+            decided = decide_curation_review(root, review["review_id"], action="approve", actor="verifier")
+            self.assertEqual(decided["result"]["action"], "approved_update")
+
+            applied = apply_approved_curation_update(root, review["review_id"], actor="editor")
+
+            self.assertEqual(applied["status"], "applied")
+            bundle = find_document_by_id(root, target.frontmatter["id"])
+            self.assertEqual(bundle.frontmatter["title"], "Reviewed update")
+            self.assertEqual(bundle.frontmatter["extensions"]["knowledge_revision"], 2)
+            self.assertEqual(
+                bundle.frontmatter["extensions"]["curation"]["review_decision"]["review_id"],
+                review["review_id"],
+            )
+            self.assertFalse((root.parent / review["path"]).exists())
 
     def test_configured_curation_batch_reports_bounded_needs_review_outcomes(self):
         with tempfile.TemporaryDirectory() as directory:

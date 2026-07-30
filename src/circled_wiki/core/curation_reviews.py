@@ -4,7 +4,9 @@ from datetime import datetime, timezone
 import hashlib
 from pathlib import Path
 import re
+from copy import deepcopy
 from typing import Dict, List, Optional
+from uuid import uuid4
 
 from .curation_contract import CurationOutput, validate_curation_output
 from .curation_queue import (
@@ -14,7 +16,7 @@ from .curation_queue import (
 )
 from .curation_safety import curation_body_safety_errors
 from .frontmatter import parse_markdown, render_markdown
-from .repository import find_document_by_id
+from .repository import apply_bundle_revision, find_document_by_id
 from .validator import validate_document
 
 
@@ -85,13 +87,16 @@ def generate_curation_review(
             return {"action": "reused_review", "review_id": document.frontmatter["review_id"], "path": str(review["path"])}
 
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    review_id = "review-" + idempotency_key[:16]
+    # Identity is assigned when the Review work item is created.  The
+    # deterministic key above remains solely for retry/reuse detection.
+    review_id = "review-" + str(uuid4())
     month = now[:7]
     path = knowledge_root / "curation-reviews" / month / f"{review_id}.md"
     payload = _output_payload(output)
     metadata: Dict[str, object] = {
         "idempotency_key": idempotency_key, "generated_by": generated_by.strip(),
         "curation_receipt": curation_receipt.strip(), "output": payload,
+        "verification_attempt_id": "verification-" + str(uuid4()),
     }
     if receipt_metadata is not None:
         metadata["receipt"] = receipt_metadata
@@ -136,8 +141,6 @@ def decide_curation_review(knowledge_root: Path, review_id: str, *, action: str,
     metadata = data.get("extensions", {}).get("curation_review", {})
     if not isinstance(metadata, dict):
         raise ValueError("review metadata is missing")
-    if actor.strip() == metadata.get("generated_by") and action in {"approve", "no_bundle"}:
-        raise ValueError("curation review decision actor must differ from the generating actor")
     evidence_ref = _single_evidence_ref(data)
     evidence = find_document_by_id(knowledge_root, evidence_ref["evidence_id"])
     if evidence is None or evidence.frontmatter.get("checksum") != evidence_ref["checksum"]:
@@ -189,6 +192,14 @@ def decide_curation_review(knowledge_root: Path, review_id: str, *, action: str,
     data["decided_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
     data["decided_by"] = actor.strip()
     data["decision_note"] = note
+    metadata["verification"] = {
+        "verified_by": actor.strip(), "verified_at": data["decided_at"],
+        "verification_attempt_id": metadata["verification_attempt_id"],
+        "evidence_checksum": evidence_ref["checksum"], "result": action,
+    }
+    extensions = dict(data.get("extensions", {}))
+    extensions["curation_review"] = metadata
+    data["extensions"] = extensions
     if delete_review_after_decision and action == "approve":
         bundle = find_document_by_id(knowledge_root, str(result.get("bundle_id", "")))
         if bundle is None:
@@ -201,6 +212,7 @@ def decide_curation_review(knowledge_root: Path, review_id: str, *, action: str,
             "review_id": review_id,
             "decided_at": data["decided_at"],
             "decided_by": data["decided_by"],
+            "verification_attempt_id": metadata["verification_attempt_id"],
             "decision_note": note,
         }
         bundle_extensions["curation"] = curation
@@ -233,6 +245,88 @@ def decide_curation_review(knowledge_root: Path, review_id: str, *, action: str,
         }
     path.write_text(render_markdown(data, document.body), encoding="utf-8")
     return {"review_id": review_id, "status": data["status"], "result": result}
+
+
+def apply_approved_curation_update(
+    knowledge_root: Path, review_id: str, *, actor: str,
+) -> Dict[str, object]:
+    """Apply one checksum- and revision-bound approved update review.
+
+    This is intentionally the only update path that consumes an
+    ``update_existing`` review.  It preserves the Bundle status and immutable
+    identifiers, then archives the Review card as the durable decision receipt.
+    """
+    if not actor.strip():
+        raise ValueError("actor must be non-empty")
+    path, document = _find_review(knowledge_root, review_id)
+    data = dict(document.frontmatter)
+    if data.get("status") != "approved" or data.get("recommendation") != "update_existing":
+        raise ValueError("review must be an approved update_existing review")
+    metadata = data.get("extensions", {}).get("curation_review", {})
+    if not isinstance(metadata, dict):
+        raise ValueError("review metadata is missing")
+    verification = metadata.get("verification")
+    if not isinstance(verification, dict) or verification.get("result") != "approve":
+        raise ValueError("approved review is missing its verification record")
+    evidence_ref = _single_evidence_ref(data)
+    evidence = find_document_by_id(knowledge_root, evidence_ref["evidence_id"])
+    if evidence is None or evidence.frontmatter.get("checksum") != evidence_ref["checksum"]:
+        _stale_review(path, data, document.body, knowledge_root, evidence)
+        raise ValueError("Evidence changed; review is stale")
+    target_id = str(data.get("target_bundle_id") or "")
+    target = find_document_by_id(knowledge_root, target_id)
+    expected_revision = data.get("expected_knowledge_revision")
+    actual_revision = target.frontmatter.get("extensions", {}).get("knowledge_revision") if target else None
+    if target is None or actual_revision != expected_revision:
+        _stale_review(path, data, document.body, knowledge_root, evidence)
+        raise ValueError("target Bundle changed; review is stale")
+    payload = metadata.get("output")
+    if not isinstance(payload, dict):
+        raise ValueError("review output is missing")
+    output = validate_curation_output(payload, [evidence_ref["evidence_id"]])
+    if output.action != target.frontmatter.get("type"):
+        raise ValueError("review Bundle type does not match the target Bundle")
+
+    proposed = deepcopy(target.frontmatter)
+    proposed["title"] = output.title
+    proposed["summary"] = output.summary
+    proposed["tags"] = list(output.tags)
+    proposed["evidence"] = list(dict.fromkeys([
+        *[str(item) for item in target.frontmatter.get("evidence", [])],
+        evidence_ref["evidence_id"],
+    ]))
+    extensions = dict(proposed.get("extensions", {}))
+    curation = dict(extensions.get("curation", {}))
+    curation["review_decision"] = {
+        "review_id": review_id,
+        "decided_at": data.get("decided_at"),
+        "decided_by": data.get("decided_by"),
+        "verification_attempt_id": verification.get("verification_attempt_id"),
+        "evidence_checksum": evidence_ref["checksum"],
+        "decision_note": data.get("decision_note", ""),
+    }
+    extensions["curation"] = curation
+    proposed["extensions"] = extensions
+    original_bundle = target.path.read_text(encoding="utf-8")
+    updated = apply_bundle_revision(
+        knowledge_root, bundle_id=target_id, expected_revision=expected_revision,
+        proposed_frontmatter=proposed, body=output.body, actor=actor,
+        approved_curation_review_id=review_id,
+    )
+    data["status"] = "applied"
+    data["applied_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    data["applied_by"] = actor.strip()
+    try:
+        _archive_review(path, data, document.body)
+    except Exception:
+        target.path.write_text(original_bundle, encoding="utf-8")
+        if path.exists():
+            path.write_text(render_markdown(document.frontmatter, document.body), encoding="utf-8")
+        raise
+    return {
+        "review_id": review_id, "status": "applied", "bundle_id": target_id,
+        "knowledge_revision": updated.frontmatter["extensions"]["knowledge_revision"],
+    }
 
 
 def _target_bundle(knowledge_root: Path, output: CurationOutput):

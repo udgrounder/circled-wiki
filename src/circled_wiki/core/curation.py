@@ -21,7 +21,7 @@ from .repository import create_bundle, find_document_by_id, iter_documents
 from .validator import validate_document
 from .curation_safety import curation_body_safety_errors
 from .curation_reviews import generate_curation_review
-from .curation_queue import complete_curation_work, list_curation_queue
+from .curation_queue import complete_curation_work, list_curation_queue, record_curation_blocker
 from .bundle_types import PRE_CREATION_REVIEW_TYPES, curation_taxonomy
 
 
@@ -110,10 +110,16 @@ def run_configured_curation(knowledge_root: Path, evidence_id: str) -> Dict[str,
     if evidence is None or evidence.frontmatter.get("type") != "evidence":
         raise ValueError("evidence_id must refer to an existing Evidence Record")
     if not config.enabled:
-        return {"action": "needs_review", "evidence_id": evidence_id, "reason": "curation adapter is disabled", "stored": False}
+        return _record_curation_blocker(
+            evidence, knowledge_root, "adapter_disabled",
+            "Configure the curation adapter, or create a curation review manually.",
+        )
     original = evidence_original_bytes(evidence)
     if original is None:
-        return {"action": "needs_review", "evidence_id": evidence_id, "reason": "Evidence original is unavailable", "stored": False}
+        return _record_curation_blocker(
+            evidence, knowledge_root, "evidence_original_unavailable",
+            "Restore the original Evidence source, then rerun curation.",
+        )
     started_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
     receipt_metadata = _configured_receipt_metadata(
         evidence, config, started_at=started_at, status="started",
@@ -141,7 +147,10 @@ def run_configured_curation(knowledge_root: Path, evidence_id: str) -> Dict[str,
     }
     command = shlex.split(config.command)
     if not command:
-        return {"action": "needs_review", "evidence_id": evidence_id, "reason": "curation command is empty", "stored": False}
+        return _record_curation_blocker(
+            evidence, knowledge_root, "adapter_command_empty",
+            "Configure a curation command, or create a curation review manually.",
+        )
     failure_kind = "adapter_failed"
     for _ in range(config.max_retries + 1):
         try:
@@ -188,7 +197,14 @@ def _record_curation_failure(
     receipt_metadata: Optional[Dict[str, object]] = None,
 ) -> Dict[str, object]:
     """Report an incomplete attempt while leaving its Evidence queue item retryable."""
-    del knowledge_root
+    next_action = {
+        "proposal_blocked": "Resolve the proposal blocking condition, then rerun curation.",
+        "contract_or_gate_rejected": "Correct the curation output or Gate condition, then rerun curation.",
+    }.get(failure_kind, "Check the curation adapter and rerun this queued Evidence.")
+    record_curation_blocker(
+        knowledge_root, str(evidence.frontmatter["id"]), evidence.path,
+        reason=failure_kind, next_action=next_action,
+    )
     result: Dict[str, object] = {
         "action": "needs_review",
         "evidence_id": evidence.frontmatter["id"],
@@ -199,6 +215,19 @@ def _record_curation_failure(
     if receipt_metadata is not None:
         result["receipt"] = receipt_metadata
     return result
+
+
+def _record_curation_blocker(
+    evidence, knowledge_root: Path, reason: str, next_action: str,
+) -> Dict[str, object]:
+    record_curation_blocker(
+        knowledge_root, str(evidence.frontmatter["id"]), evidence.path,
+        reason=reason, next_action=next_action,
+    )
+    return {
+        "action": "needs_review", "evidence_id": evidence.frontmatter["id"],
+        "reason": reason, "next_action": next_action, "stored": True,
+    }
 
 
 def run_configured_curation_batch(knowledge_root: Path, *, limit: int = 100) -> Dict[str, object]:

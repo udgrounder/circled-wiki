@@ -405,6 +405,7 @@ def apply_bundle_revision(
     proposed_frontmatter: Dict[str, Any],
     body: str,
     actor: str,
+    approved_curation_review_id: Optional[str] = None,
 ) -> MarkdownDocument:
     """Atomically apply one validated Bundle revision."""
     if isinstance(expected_revision, bool) or not isinstance(expected_revision, int):
@@ -447,7 +448,11 @@ def apply_bundle_revision(
 
     existing_extensions = existing.frontmatter.get("extensions")
     current_curation = existing_extensions.get("curation") if isinstance(existing_extensions, dict) else None
-    if isinstance(current_curation, dict) and proposed.get("status") == "active":
+    if (
+        isinstance(current_curation, dict)
+        and proposed.get("status") == "active"
+        and not isinstance(approved_curation_review_id, str)
+    ):
         raise ValueError(
             "curation candidates cannot be promoted through apply_bundle_revision; "
             "use the Owner and Security publication Gate"

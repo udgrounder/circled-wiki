@@ -373,6 +373,14 @@ def main() -> int:
     decide_review.add_argument("--action", required=True, choices=("approve", "no_bundle", "needs_changes", "needs_review"))
     decide_review.add_argument("--actor", required=True)
     decide_review.add_argument("--note", default="")
+    apply_review_update = subparsers.add_parser("apply-approved-curation-update")
+    apply_review_update.add_argument("--review", required=True)
+    apply_review_update.add_argument("--actor", required=True)
+    create_review = subparsers.add_parser("create-curation-review")
+    create_review.add_argument("--evidence", required=True)
+    create_review.add_argument("--output", required=True, help="Validated CurationOutput JSON")
+    create_review.add_argument("--generated-by", required=True)
+    create_review.add_argument("--curation-receipt", required=True)
     curation_batch = subparsers.add_parser("run-configured-curation-batch")
     curation_batch.add_argument("--limit", type=int, default=100)
     review_candidate = subparsers.add_parser("review-curation-candidate")
@@ -837,6 +845,10 @@ def main() -> int:
         print(json.dumps(service.refresh_curation_queue(), ensure_ascii=False, indent=2)); return 0
     if args.command == "decide-curation-review":
         print(json.dumps(service.decide_curation_review(args.review, action=args.action, actor=args.actor, note=args.note), ensure_ascii=False, indent=2)); return 0
+    if args.command == "apply-approved-curation-update":
+        print(json.dumps(service.apply_approved_curation_update(args.review, actor=args.actor), ensure_ascii=False, indent=2)); return 0
+    if args.command == "create-curation-review":
+        print(json.dumps(service.create_curation_review(args.evidence, json.loads(args.output), generated_by=args.generated_by, curation_receipt=args.curation_receipt), ensure_ascii=False, indent=2)); return 0
     if args.command == "run-configured-curation-batch":
         print(json.dumps(service.run_configured_curation_batch(args.limit), ensure_ascii=False, indent=2)); return 0
     if args.command == "review-curation-candidate":

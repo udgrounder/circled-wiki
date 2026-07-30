@@ -168,8 +168,8 @@ PYTHONPATH=src python3 -m circled_wiki.cli propose-update \
 
 `policy`, `guide`, `decision`, `spec`, `reference`, `report`는 신규 공식 지식 후보로 직접 Draft를 생성할 수 있다. `--evidence`에는
 위에서 생성된 URI를 그대로 넣는다. `manual`과 `runbook`은 아래 자동 정제와 같은
-Review 카드·독립 승인 흐름을 사용한다. 직접 생성한 Draft도 `active` 전환 전에는 동일한 Review·독립 Owner
-승인·Security Gate를 거쳐야 한다. 그 밖의 직접 생성 가능 유형은 RB-CUR-006의 Evidence·PII·참조 무결성·전체
+Review 카드·별도 검증 시도 기록 흐름을 사용한다. 직접 생성한 Draft도 `active` 전환 전에는 전용 Promotion·Security
+Gate를 거쳐야 한다. 그 밖의 직접 생성 가능 유형은 RB-CUR-006의 Evidence·PII·참조 무결성·전체
 Validator 및 Security Gate를 통과하면 `promote-curation-candidate --automated`로 사람 승인 없이 active로 승격할 수 있다.
 
 ```sh
@@ -220,8 +220,8 @@ PYTHONPATH=src python3 -m circled_wiki.cli decide-curation-review \
   --review review-<id> --action approve --actor <reviewer-id>
 ```
 
-자동 정제 결과 중 `manual`과 `runbook`은 항상 `curation-reviews/` Review 카드로 먼저 생성되며, 독립 Owner 승인을
-거쳐야 Draft를 만들 수 있다. `policy`, `guide`, `decision`, `spec`, `reference`, `report`는 Evidence Gate를 통과하면
+자동 정제 결과 중 `manual`과 `runbook`은 항상 `curation-reviews/` Review 카드로 먼저 생성되며, 사용자 또는 검증
+Agent가 별도 검증 시도·주체·시각·Evidence checksum·결과를 기록한 승인 뒤에만 Draft를 만들 수 있다. `policy`, `guide`, `decision`, `spec`, `reference`, `report`는 Evidence Gate를 통과하면
 직접 Draft 생성이 가능하고, RB-CUR-006의 자동 Promotion Gate로 active 전환할 수 있다. 모든 active 전환에는 전용
 Promotion Gate와 Security Receipt를 사용한다.
 
@@ -398,8 +398,8 @@ printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' \
 1. 사용자·지정 Batch·Hermes가 원본을 `knowledge/inbox/<provider>/`에 넣는다.
 2. 대화는 `capture_conversation`, URL에서 가져온 텍스트·HTML은 `capture_document`, PDF·Word·기타 파일은 `capture_file`로 적재한 뒤 `inspect_inbox`, 필요 시 `review_inbox_sensitivity`, `accept_inbox`, `ingest_accepted`를 순서대로 실행한다. URL만 저장하지 않고, 수집기가 실제로 읽은 원문과 URL·locator를 함께 보존한다.
 3. `propose_pending` 또는 `propose_update`로 기존 Bundle 후보와 신규 초안을 검토한다.
-4. LLM/하위 Agent Curation 결과는 먼저 Git 추적 검토카드로 저장한다. 사용자 reviewer가 `decide_curation_review`로 승인한 신규 후보만 PII-cleared Draft를 만들며, 생성 성공 후 승인 기록은 Draft로 이동하고 소비된 검토카드는 삭제한다. 기존 Bundle 보완은 expected revision을 확인한 별도 `apply_bundle_revision`으로만 적용한다.
-5. 미처리 검토카드는 `list_curation_reviews`로 확인하고, 이미 생성된 Draft 후보는 `list_curation_candidates`와 `review_curation_candidate`로 검토한다. Active 전환은 설정된 `approval.knowledge_owner`가 독립된 Security receipt와 함께 `promote_curation_candidate`로만 수행한다.
+4. LLM/하위 Agent Curation 결과는 먼저 Git 추적 검토카드로 저장한다. 사용자 또는 검증 Agent가 `decide_curation_review`로 별도 검증 시도를 기록한 신규 후보만 PII-cleared Draft를 만들며, 생성 성공 후 승인 기록은 Draft로 이동하고 소비된 검토카드는 archive로 이동한다. 기존 Bundle 보완은 승인된 `update_existing` Review의 `apply_approved_curation_update`로만 적용한다.
+5. 미처리 검토카드는 `list_curation_reviews`로 확인하고, Curation Adapter의 실패·중단은 `list_curation_queue`의 `reason`·`next_action`으로 확인한다. 이미 생성된 Draft 후보는 `list_curation_candidates`와 `review_curation_candidate`로 검토한다. Active 전환은 전용 `promote_curation_candidate` Gate와 Security receipt로만 수행한다.
 6. `validate_result` 또는 CLI `validate`와 보안 게이트가 통과하면 Hermes가 변경된 `knowledge/`를 자동 Git commit하고 결과를 로그에 남긴다.
 7. 사용자 작업 요청은 `find_workflow`와 `prepare_task`로 실행하고, 종료 결과는 `record_outcome`으로 `pending` Inbox에 환류한다. 이후에도 같은 `inspect_inbox -> review_inbox_sensitivity -> accept_inbox -> ingest_accepted -> propose_pending` 흐름을 적용한다.
 
@@ -428,10 +428,11 @@ Draft Bundle은 기본 질의·Workflow 실행 대상이 아니다. Agent는 공
 | `review_inbox_sensitivity` | 식별된 사람이 민감정보 검토 완료·비해당 결정을 기록 | `knowledge/inbox/<provider>/` |
 | `accept_inbox` | 검사자 actor와 함께 통과 항목을 `accepted`로 승인 | `knowledge/inbox/<provider>/` |
 | `ingest_accepted` | 승인된 입력만 Evidence로 변환 | `knowledge/inbox/<provider>/`, `knowledge/evidence/` |
-| `create_draft_bundle` | `policy`·`decision`·`spec`·`reference` 신규 Draft 생성 (`guide`/Manual·`runbook`은 Review 카드 필요) | `knowledge/bundles/`, Evidence 역참조 |
+| `create_draft_bundle` | `policy`·`guide`·`decision`·`spec`·`reference`·`report` 신규 Draft 생성 (`manual`·`runbook`은 Review 카드 필요) | `knowledge/bundles/`, Evidence 역참조 |
 | `materialize_curation_candidate` | 내부 Curation Review 승인 처리에서만 사용하는 구현 경로; Runtime MCP에는 노출하지 않음 | `knowledge/bundles/`, Evidence 역참조 |
 | `list_curation_reviews` | Git 추적 검토카드와 Evidence 위치·상태 확인 | 없음 |
 | `decide_curation_review` | 승인·불필요·수정 요청을 기록하고 승인된 신규 후보만 Draft 생성; 생성 성공 시 소비된 카드 삭제 | 검토카드, Evidence, 필요 시 Draft Bundle |
+| `apply_approved_curation_update` | 승인된 기존 Bundle 갱신 Review를 revision/checksum 검사 후 적용 | Bundle, 검토카드 archive |
 | `list_curation_candidates` | Draft 후보와 검토 상태 확인 | 없음 |
 | `review_curation_candidate` | 후보 검토·승인·거절·병합 기록 | `knowledge/bundles/` |
 | `promote_curation_candidate` | 설정 Owner와 Security receipt로 approved 후보 Active 승격 | `knowledge/bundles/` |

@@ -81,6 +81,21 @@ def _complete_curation_work_unlocked(
     return existed
 
 
+def record_curation_blocker(
+    knowledge_root: Path, evidence_id: str, evidence_path: Path, *, reason: str,
+    next_action: str,
+) -> Path:
+    """Annotate existing retryable work with an actionable, non-Evidence error."""
+    if not reason.strip() or not next_action.strip():
+        raise ValueError("reason and next_action must be non-empty")
+    with curation_queue_transaction(knowledge_root):
+        target = _enqueue_curation_work_unlocked(knowledge_root, evidence_id, evidence_path)
+        data = parse_markdown(target).frontmatter
+        data["last_blocker"] = {"reason": reason.strip(), "next_action": next_action.strip()}
+        target.write_text(render_markdown(data), encoding="utf-8")
+        return target
+
+
 def list_curation_queue(knowledge_root: Path, *, include_resolved: bool = False) -> List[Dict[str, object]]:
     """List pending work-item files; file existence is the only queue status."""
     del include_resolved  # Compatibility: completed items no longer exist.
@@ -100,6 +115,11 @@ def list_curation_queue(knowledge_root: Path, *, include_resolved: bool = False)
             "path": evidence_path,
             "status": "pending",
             "queue_path": path.relative_to(knowledge_root.parent).as_posix(),
+            **({"reason": data["last_blocker"].get("reason"), "next_action": data["last_blocker"].get("next_action")}
+               if isinstance(data.get("last_blocker"), dict)
+               and isinstance(data["last_blocker"].get("reason"), str)
+               and isinstance(data["last_blocker"].get("next_action"), str)
+               else {}),
         })
     return rows
 
@@ -148,7 +168,21 @@ def _refresh_curation_queue_unlocked(
             data = parse_markdown(target).frontmatter
         except (OSError, ValueError):
             data = {}
-        if data != {"evidence_id": evidence_id, "evidence_path": relative}:
+        base = {"evidence_id": evidence_id, "evidence_path": relative}
+        blocker = data.get("last_blocker") if isinstance(data, dict) else None
+        valid_blocker = (
+            isinstance(blocker, dict)
+            and isinstance(blocker.get("reason"), str)
+            and blocker["reason"].strip()
+            and isinstance(blocker.get("next_action"), str)
+            and blocker["next_action"].strip()
+        )
+        if not isinstance(data, dict) or any(data.get(key) != value for key, value in base.items()) or set(data) - {"evidence_id", "evidence_path", "last_blocker"}:
+            _enqueue_curation_work_unlocked(
+                knowledge_root, evidence_id, path, Path(relative)
+            )
+            repaired += 1
+        elif blocker is not None and not valid_blocker:
             _enqueue_curation_work_unlocked(
                 knowledge_root, evidence_id, path, Path(relative)
             )
