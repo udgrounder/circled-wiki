@@ -38,7 +38,7 @@ _CREDENTIAL_ASSIGNMENT = re.compile(
 )
 _PRESIGNED_URL_CREDENTIAL = re.compile(
     r"(?i)(?P<label>[?&]X-Amz-(?:Security-Token|Credential|Signature)=)"
-    r"(?P<value>[^&#\s'\"`]+)"
+    r"(?P<value>[^&#\s'\"`\\)]+)"
 )
 _PRIVATE_KEY_BLOCK = re.compile(
     r"-----BEGIN (?:[A-Z0-9 ]+ )?PRIVATE KEY-----.*?-----END (?:[A-Z0-9 ]+ )?PRIVATE KEY-----",
@@ -50,6 +50,7 @@ _KNOWN_TOKEN = re.compile(
     r"xox[baprs]-[A-Za-z0-9-]{20,})(?![A-Za-z0-9_-])"
 )
 _CARD_CANDIDATE = re.compile(r"(?<!\d)(?:\d[ -]?){12,18}\d(?!\d)")
+_HTML_LAYOUT_NUMBER = re.compile(r'(?P<attribute>\b(?:width|height)\s*=\s*["\'])(?P<value>\d+(?:\.\d+)?)(?P<end>["\'])', re.I)
 
 
 def _luhn_valid(number: str) -> bool:
@@ -75,6 +76,13 @@ def redact_sensitive_data(content: str) -> SensitiveDataPrecheckResult:
         raise TypeError("content must be a string")
 
     categories: set[str] = set()
+    protected: list[str] = []
+
+    def protect_layout(match: re.Match[str]) -> str:
+        protected.append(match.group(0))
+        return f"__CW_LAYOUT_{len(protected) - 1}__"
+
+    content = _HTML_LAYOUT_NUMBER.sub(protect_layout, content)
 
     def redact_resident_registration(match: re.Match[str]) -> str:
         categories.add("resident_registration_number")
@@ -104,6 +112,8 @@ def redact_sensitive_data(content: str) -> SensitiveDataPrecheckResult:
     redacted = _RESIDENT_REGISTRATION_NUMBER.sub(redact_resident_registration, redacted)
     redacted = _ACCOUNT_NUMBER.sub(redact_account, redacted)
     redacted = _CARD_CANDIDATE.sub(redact_card, redacted)
+    for index, value in enumerate(protected):
+        redacted = redacted.replace(f"__CW_LAYOUT_{index}__", value)
     return SensitiveDataPrecheckResult(redacted, tuple(sorted(categories)))
 
 

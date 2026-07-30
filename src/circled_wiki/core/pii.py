@@ -50,10 +50,8 @@ def pii_scan_receipt_errors(frontmatter: Dict[str, Any]) -> List[str]:
         errors.append("extensions.pii_scan.source_checksum must be a sha256 checksum")
     if source_checksum != frontmatter.get("checksum"):
         errors.append("extensions.pii_scan.source_checksum must equal Evidence checksum")
-    if result in {"passed", "masked"} and scanned is not True:
-        errors.append("successful PII scan receipt requires pii_scanned: true")
-    if result == "needs_review" and scanned is not False:
-        errors.append("needs_review PII scan receipt requires pii_scanned: false")
+    if scanned is not True:
+        errors.append("PII scan receipt requires pii_scanned: true")
     if masked is not (result == "masked"):
         errors.append("extensions.pii_masked must match a masked PII scan result")
     return errors
