@@ -247,3 +247,10 @@ Bundle 생성으로 세지 않는다.
   적용·발행은 차단해야 한다.
 - 검토카드는 Git 추적 대상이므로 최소 필요 정보만 담고, 원문·토큰·PII·restricted metadata를 넣지 않는다.
 - 사용자 편의성을 위해 자동화를 넓히더라도, 추천·결정·변경·발행은 서로 다른 Gate로 유지한다.
+
+## 10. 2026-07-30 정책 정정
+
+이 문서의 초기 `idempotency_key` 기반 Review 중복 방지·생성 actor 분리 승인 설명은 당시 설계 기록이다. 현재 Runtime 정본은
+`OPERATING_RULES.md` RB-CUR-003·004·006이며, Review는 생성 시 UUID를 부여하고 Curation Queue 재처리 시 같은 Evidence의
+미완료 카드를 재사용한다. 생성 actor와 동일한 검증 주체도 별도 검증 시도를 기록하면 허용하며, 보완 Review는 최초 생성 Review를
+덮어쓰지 않고 `extensions.curation.review_receipts`에 누적한다.

@@ -30,7 +30,7 @@
 - Publication Security Review
 - 승인 상태와 발행 권한
 - 기존 staged 변경 없음
-- 현재 Evidence checksum과 승격 provenance 기록. `runbook`·`manual`은 생성 전 Review ID와 별도 검증 시도 기록이 필수이며, 직접 생성 가능한 유형은 RB-CUR-006 자동 Gate의 provenance를 남긴다
+- 현재 Evidence checksum과 승격 provenance 기록. `runbook`·`manual`은 생성 전 Review ID와 별도 검증 시도 기록이 필수이며, 최초 생성·보완 Review는 `extensions.curation.review_receipts`에 누적 보존한다. 직접 생성 가능한 유형은 RB-CUR-006 자동 Gate의 provenance를 남긴다
 - active 전환이면 전용 Promotion Gate의 Security Receipt와 PII Scan Receipt
 
 ## Output

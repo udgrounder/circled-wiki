@@ -174,6 +174,10 @@ class CurationMaterializationTests(unittest.TestCase):
                 bundle.frontmatter["extensions"]["curation"]["review_decision"]["verification_attempt_id"],
                 attempt_id,
             )
+            self.assertEqual(
+                bundle.frontmatter["extensions"]["curation"]["review_receipts"][0]["review_id"],
+                review["review_id"],
+            )
             self.assertTrue(applied["review_deleted"])
             review_path = root.parent / review["path"]
             self.assertFalse(review_path.exists())
@@ -301,11 +305,26 @@ class CurationMaterializationTests(unittest.TestCase):
             bundle = find_document_by_id(root, target.frontmatter["id"])
             self.assertEqual(bundle.frontmatter["title"], "Reviewed update")
             self.assertEqual(bundle.frontmatter["extensions"]["knowledge_revision"], 2)
-            self.assertEqual(
-                bundle.frontmatter["extensions"]["curation"]["review_decision"]["review_id"],
-                review["review_id"],
-            )
+            receipt = bundle.frontmatter["extensions"]["curation"]["review_receipts"][-1]
+            self.assertEqual(receipt["review_id"], review["review_id"])
+            self.assertEqual(receipt["kind"], "update")
+            self.assertEqual(receipt["applied_revision"], 2)
             self.assertFalse((root.parent / review["path"]).exists())
+
+            data = dict(bundle.frontmatter)
+            extensions = dict(data["extensions"])
+            curation = dict(extensions["curation"])
+            receipts = list(curation["review_receipts"])
+            receipts[-1] = {**receipts[-1], "applied_revision": "two"}
+            curation["review_receipts"] = receipts
+            extensions["curation"] = curation
+            data["extensions"] = extensions
+            bundle.path.write_text(render_markdown(data, bundle.body), encoding="utf-8")
+            errors = validate_document(bundle.path, root).profile_errors
+            self.assertIn(
+                "extensions.curation.review_receipts.applied_revision must be a positive integer",
+                errors,
+            )
 
     def test_configured_curation_batch_reports_bounded_needs_review_outcomes(self):
         with tempfile.TemporaryDirectory() as directory:

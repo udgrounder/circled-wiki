@@ -405,7 +405,24 @@ def apply_bundle_revision(
     proposed_frontmatter: Dict[str, Any],
     body: str,
     actor: str,
-    approved_curation_review_id: Optional[str] = None,
+) -> MarkdownDocument:
+    """Apply a general Bundle revision; it cannot revise active curated knowledge."""
+    return _apply_bundle_revision(
+        knowledge_root, bundle_id=bundle_id, expected_revision=expected_revision,
+        proposed_frontmatter=proposed_frontmatter, body=body, actor=actor,
+        allow_active_curation_revision=False,
+    )
+
+
+def _apply_bundle_revision(
+    knowledge_root: Path,
+    *,
+    bundle_id: str,
+    expected_revision: int,
+    proposed_frontmatter: Dict[str, Any],
+    body: str,
+    actor: str,
+    allow_active_curation_revision: bool,
 ) -> MarkdownDocument:
     """Atomically apply one validated Bundle revision."""
     if isinstance(expected_revision, bool) or not isinstance(expected_revision, int):
@@ -451,7 +468,7 @@ def apply_bundle_revision(
     if (
         isinstance(current_curation, dict)
         and proposed.get("status") == "active"
-        and not isinstance(approved_curation_review_id, str)
+        and not allow_active_curation_revision
     ):
         raise ValueError(
             "curation candidates cannot be promoted through apply_bundle_revision; "

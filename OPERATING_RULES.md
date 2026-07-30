@@ -263,11 +263,11 @@ accepted Evidence
 - **RB-CUR-001** `runbook`과 `manual` 신규 Bundle 정제 제안은 Evidence checksum, 생성 actor와 제안 내용을 가진 `curation_review` 카드로 먼저 기록한다. `policy`, `guide`, `decision`, `spec`, `reference`, `report` Draft는 Evidence·PII Gate를 통과하면 직접 생성할 수 있다.
 - **RB-CUR-002** `runbook`과 `manual` Draft는 Review 카드가 승인되고 RB-CUR-003 검증 기록이 있을 때만 생성할 수 있다. 기본 Owner 설정은 후보를 배정할 수 있을 뿐, 검토·승인을 자동으로 기록하지 않는다.
 - **RB-CUR-003** Review 검증은 사용자 또는 허용된 검증 Agent가 별도 검증 시도로 기록한다. 생성 actor와의 동일성은 금지 조건이 아니나, 생성 직후 동일 실행 시도의 자동 검증은 허용하지 않는다. 검증 기록에는 주체·시각·검증 시도 ID·현재 Evidence checksum·결과를 남긴다.
-- **RB-CUR-004** Review가 필요한 유형에서 카드가 없거나 Evidence checksum·대상 Bundle revision이 달라 stale 상태이면 Draft 생성·revision·Promotion을 중단한다. 기존 Bundle 갱신은 승인된 `update_existing` Review의 전용 적용 경로로만 수행한다. stale 카드는 숨김 archive에 보존하고 해당 Evidence를 Curation Queue에 다시 등록해 현재 상태 기준 제안을 새로 만든다.
+- **RB-CUR-004** Review가 필요한 유형에서 카드가 없으면 Draft 생성·revision·Promotion을 중단한다. Curation Queue 재처리는 동일 Evidence의 미완료 Review 카드를 먼저 찾아 재사용하고, 카드가 없을 때만 새 UUID 카드를 생성한다. 승인 또는 `update_existing` 적용 직전에는 현재 Evidence checksum과 대상 Bundle revision을 다시 확인하며, 달라지면 stale 처리한다. 기존 Bundle 갱신은 승인된 `update_existing` Review의 전용 적용 경로로만 수행한다. stale 카드는 숨김 archive에 보존하고 해당 Evidence를 Curation Queue에 다시 등록해 현재 상태 기준 제안을 새로 만든다.
 - **RB-CUR-005** `draft -> active` 상태 전환은 전용 Promotion Gate만 수행한다. 일반 Bundle 생성·revision API와 직접 Frontmatter 변경은 active 전환 수단이 아니다.
-- **RB-CUR-006** 모든 active Bundle에는 승격 actor·시각, Security Receipt, 현재 Evidence checksum과 PII Scan Receipt를 검증 가능한 provenance로 남긴다. `runbook`과 `manual`에는 생성 전 Review ID와 RB-CUR-003의 별도 검증 기록이 필수다. `policy`, `guide`, `decision`, `spec`, `reference`, `report`는 Evidence·PII·참조 무결성·전체 Validator Gate를 통과하면 자동으로 `active`로 승격할 수 있으며, provenance에 자동 승격임을 기록한다.
-- **RB-CUR-007** 가상·테스트 Evidence도 같은 Gate를 적용한다. 테스트 목적이라는 이유로 Review, 독립 승인, 보안 검증 또는 Validator를 생략할 수 없다.
-- **RB-CUR-008** Gate 중 하나라도 누락되면 Bundle은 `draft` 또는 `needs_review`로 유지한다. Agent는 도구가 허용하더라도 상태를 직접 보정하거나 self-approval하지 않는다.
+- **RB-CUR-006** 모든 active Bundle에는 승격 actor·시각, Security Receipt, 현재 Evidence checksum과 PII Scan Receipt를 검증 가능한 provenance로 남긴다. `runbook`과 `manual`에는 생성 전 Review ID와 RB-CUR-003의 별도 검증 기록이 필수다. 최초 생성 Review와 이후 보완 Review는 `extensions.curation.review_receipts`에 Review ID·검증 시도 ID·검증 주체·시각·Evidence checksum·적용 revision·결정 메모로 누적 보존하며 최초 생성 Review를 덮어쓰지 않는다. `policy`, `guide`, `decision`, `spec`, `reference`, `report`는 Evidence·PII·참조 무결성·전체 Validator Gate를 통과하면 자동으로 `active`로 승격할 수 있으며, provenance에 자동 승격임을 기록한다.
+- **RB-CUR-007** 가상·테스트 Evidence도 같은 Gate를 적용한다. 테스트 목적이라는 이유로 Review, 별도 검증 시도 기록, 보안 검증 또는 Validator를 생략할 수 없다.
+- **RB-CUR-008** Gate 중 하나라도 누락되면 Bundle은 `draft` 또는 `needs_review`로 유지한다. Agent는 도구가 허용하더라도 상태를 직접 보정하거나 생성과 같은 실행 시도에서 자동 검증·승인하지 않는다.
 - **RB-CUR-009** Curation 또는 Promotion CLI가 Contract와 다르게 동작하거나 우회 경로를 허용하면 Runtime Agent는 active 전환을 중단하고 `workspace/issues/`에 관찰 사실을 기록한다.
 - **RB-CUR-010** `no_bundle`은 Curator가 계약에 맞는 분석을 성공적으로 끝내고 Bundle이 불필요하다고 판단한 결과에만 사용한다. Adapter timeout·실행 실패·응답 파싱 실패·계약 또는 Gate 거부는 Review 결론으로 변환하지 않고 시도 Receipt를 반환하며 Curation Queue 항목을 유지한다. 이 경우 큐에는 원문 대신 마지막 차단 사유와 다음 행동만 기록한다.
 

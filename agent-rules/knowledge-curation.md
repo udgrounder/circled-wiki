@@ -55,10 +55,12 @@ Evidence를 기존 Bundle과 비교하거나 신규 Draft를 작성한다.
 `guide`와 `extensions.rulebook`으로 표현한다. Owner가 없는 Draft 후보는
 `assign_owner_and_review_draft`와 차단 조건을 반환한다.
 
-Evidence 정제 결과와 Curation Queue 소비는 RB-EVD-003·023을 적용한다. Curator가 Review 카드를 만들면 해당 카드가
+Evidence 정제 결과와 Curation Queue 소비는 RB-EVD-003·023을 적용한다. Queue 재처리 시에는 같은 Evidence의 미완료 Review 카드를 먼저 재사용하고, 카드가 없을 때만 새 UUID 카드를 만든다. Curator가 Review 카드를 만들면 해당 카드가
 검토 handoff를 표현한다. Review 카드는 Evidence ID·상대
-경로·checksum·제목·수집 목적·intended use의 안전한 snapshot을 보존하며, 실제 Evidence 링크를 기준으로 검토한다. 승인 또는
-`no_bundle` 결정으로 작업을 소비하면 카드를 숨김 archive로 이동해 기본 목록에서는 제거하되 결정 receipt는 보존한다.
+경로·checksum·제목·수집 목적·intended use의 안전한 snapshot을 보존하며, 실제 Evidence 링크를 기준으로 검토한다. 신규 Draft 승인 또는
+`no_bundle` 결정으로 작업을 소비하면 카드를 숨김 archive로 이동해 기본 목록에서는 제거하되 결정 receipt는 보존한다. `update_existing` 승인 카드는
+전용 적용 전까지 `approved`로 유지하고, 적용 직전 checksum·대상 revision을 다시 확인한다. 적용되면 최초 생성 Review를 유지한 채
+`extensions.curation.review_receipts`에 보완 이력을 누적하고 카드를 archive한다.
 Evidence 원문은 카드에 복사하지 않는다. stale 카드는 RB-CUR-004에 따라 archive하고 다시 큐잉한다. Adapter 실패는
 RB-CUR-010에 따라 Review 또는 `no_bundle` 결론으로 만들지 않는다. 큐 이상은 `refresh-curation-queue`로 복구한다.
 
@@ -72,7 +74,7 @@ Curation 실행 실패는 Curation Queue 항목과 시도 Receipt를 유지한�
 
 - `runbook`·`manual`을 checksum 결합 Review와 별도 검증 시도 없이 active 승격하거나, 직접 생성 가능 유형을 RB-CUR-006 자동 Gate 없이 active 승격
 - `create-bundle`, 일반 revision API 또는 Frontmatter 직접 변경으로 `draft -> active` 전환
-- 테스트·가상 데이터라는 이유로 Review가 필요한 유형 또는 active 전환의 Review 카드, 독립 승인, Security Receipt 또는 Validator 생략
+- 테스트·가상 데이터라는 이유로 Review가 필요한 유형 또는 active 전환의 Review 카드, 별도 검증 시도 기록, Security Receipt 또는 Validator 생략
 - 한 번의 Outcome 자동 일반화
 - RB-EVD-023을 위반하는 Evidence 변경
 - Evidence의 평문 자격증명·PII를 Bundle·요약·제안·로그에 복사

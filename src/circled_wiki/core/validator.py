@@ -208,6 +208,9 @@ def _validate_curation_review(document: MarkdownDocument, result: ValidationResu
     for field in ("review_id", "title", "recommendation"):
         if not _is_nonempty_string(data.get(field)):
             result.profile_errors.append(f"curation review {field} must be non-empty")
+    review_id = data.get("review_id")
+    if not isinstance(review_id, str) or not review_id.startswith("review-") or not _is_uuid(review_id.removeprefix("review-")):
+        result.profile_errors.append("curation review review_id must be a review- prefixed UUID")
     if not _is_timestamp(data.get("created_at")):
         result.profile_errors.append("curation review created_at must be ISO 8601")
     refs = data.get("evidence_refs")
@@ -225,9 +228,12 @@ def _validate_curation_review(document: MarkdownDocument, result: ValidationResu
     metadata = data.get("extensions", {}).get("curation_review") if isinstance(data.get("extensions"), dict) else None
     if not isinstance(metadata, dict):
         result.profile_errors.append("curation review extensions.curation_review must be an object")
-    elif not _is_nonempty_string(metadata.get("idempotency_key")) or not _is_nonempty_string(metadata.get("generated_by")):
-        result.profile_errors.append("curation review idempotency_key and generated_by must be non-empty")
+    elif not _is_nonempty_string(metadata.get("generated_by")) or not _is_nonempty_string(metadata.get("verification_attempt_id")):
+        result.profile_errors.append("curation review generated_by and verification_attempt_id must be non-empty")
     else:
+        attempt_id = str(metadata["verification_attempt_id"])
+        if not attempt_id.startswith("verification-") or not _is_uuid(attempt_id.removeprefix("verification-")):
+            result.profile_errors.append("curation review verification_attempt_id must be a verification- prefixed UUID")
         snapshot = metadata.get("evidence_snapshot")
         if not isinstance(snapshot, dict):
             result.profile_errors.append("curation review must preserve an Evidence snapshot")
@@ -367,6 +373,35 @@ def _validate_curation(
         result.profile_errors.append("extensions.curation.reviewed_by must be non-empty")
     if reviewed_at is not None and not _is_timestamp(reviewed_at):
         result.profile_errors.append("extensions.curation.reviewed_at must be ISO 8601")
+    review_receipts = curation.get("review_receipts")
+    if review_receipts is not None:
+        if not isinstance(review_receipts, list) or not review_receipts:
+            result.profile_errors.append("extensions.curation.review_receipts must be a non-empty array")
+        else:
+            for receipt in review_receipts:
+                if not isinstance(receipt, dict):
+                    result.profile_errors.append("extensions.curation.review_receipts items must be objects")
+                    continue
+                review_id = receipt.get("review_id")
+                if not isinstance(review_id, str) or not review_id.startswith("review-") or not _is_uuid(review_id.removeprefix("review-")):
+                    result.profile_errors.append("extensions.curation.review_receipts.review_id must be a review- prefixed UUID")
+                attempt_id = receipt.get("verification_attempt_id")
+                if not isinstance(attempt_id, str) or not attempt_id.startswith("verification-") or not _is_uuid(attempt_id.removeprefix("verification-")):
+                    result.profile_errors.append("extensions.curation.review_receipts.verification_attempt_id must be a verification- prefixed UUID")
+                if not _is_nonempty_string(receipt.get("decided_by")):
+                    result.profile_errors.append("extensions.curation.review_receipts.decided_by must be non-empty")
+                if not _is_timestamp(receipt.get("decided_at")):
+                    result.profile_errors.append("extensions.curation.review_receipts.decided_at must be ISO 8601")
+                checksum = receipt.get("evidence_checksum")
+                if not isinstance(checksum, str) or not re.fullmatch(r"sha256:[0-9a-f]{64}", checksum):
+                    result.profile_errors.append("extensions.curation.review_receipts.evidence_checksum must be a sha256 checksum")
+                if receipt.get("kind") not in {"creation", "update"}:
+                    result.profile_errors.append("extensions.curation.review_receipts.kind is invalid")
+                revision = receipt.get("applied_revision")
+                if isinstance(revision, bool) or not isinstance(revision, int) or revision < 1:
+                    result.profile_errors.append("extensions.curation.review_receipts.applied_revision must be a positive integer")
+                if not isinstance(receipt.get("decision_note", ""), str):
+                    result.profile_errors.append("extensions.curation.review_receipts.decision_note must be a string")
     history = curation.get("review_history")
     if history is not None:
         if not isinstance(history, list) or not history:

@@ -19,6 +19,7 @@ Vault 구조·domain·provider·운영 흐름을 관리하거나 변경하는 �
 | 승인된 Inbox를 Evidence로 변환 | `agent-rules/evidence-ingest.md` |
 | Evidence 정제·Bundle 초안 또는 갱신 | `agent-rules/knowledge-curation.md` |
 | `manual`·`runbook` 직접 Review 카드 생성 또는 검증 | `agent-rules/knowledge-curation.md` |
+| 승인된 `update_existing` Review로 기존 Bundle 보완 적용 | `agent-rules/knowledge-curation.md` |
 | Bundle 파일명·Frontmatter ID 규칙 확인 또는 현재 충돌 점검 | 아래 **Bundle Identity Routing**의 1~3단계를 먼저 수행. 변경 전에는 `agent-rules/knowledge-curation.md` |
 | 승인된 Bundle 파일명·Frontmatter ID 일괄 정규화 | 아래 **Bundle Identity Routing** 전체와 `agent-rules/publication.md` |
 | 검토·발행·Commit | `agent-rules/publication.md` |

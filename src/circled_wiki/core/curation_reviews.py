@@ -1,7 +1,6 @@
 """Git-tracked review cards between external curation and Bundle mutation."""
 
 from datetime import datetime, timezone
-import hashlib
 from pathlib import Path
 import re
 from copy import deepcopy
@@ -10,13 +9,13 @@ from uuid import uuid4
 
 from .curation_contract import CurationOutput, validate_curation_output
 from .curation_queue import (
+    _complete_curation_work_unlocked,
     _enqueue_curation_work_unlocked,
-    complete_curation_work,
     curation_queue_transaction,
 )
 from .curation_safety import curation_body_safety_errors
 from .frontmatter import parse_markdown, render_markdown
-from .repository import apply_bundle_revision, find_document_by_id
+from .repository import _apply_bundle_revision, find_document_by_id
 from .validator import validate_document
 
 
@@ -70,31 +69,13 @@ def generate_curation_review(
     recommendation = "no_bundle" if output.action == "no_bundle" else (
         "update_existing" if target_bundle_id else "create_draft_bundle"
     )
-    key_input = "|".join((evidence_id, checksum, recommendation, target_bundle_id or "", str(expected_revision or "")))
-    idempotency_key = hashlib.sha256(key_input.encode("utf-8")).hexdigest()
-    for review in list_curation_reviews(knowledge_root, include_resolved=True):
-        review_path = knowledge_root.parent / str(review["path"])
-        document = parse_markdown(review_path)
-        metadata = document.frontmatter.get("extensions", {}).get("curation_review", {})
-        if isinstance(metadata, dict) and metadata.get("idempotency_key") == idempotency_key and document.frontmatter.get("status") != "stale":
-            validation = validate_document(review_path, knowledge_root)
-            if not validation.is_valid:
-                raise ValueError(
-                    "existing curation review validation failed: "
-                    + "; ".join(validation.profile_errors)
-                )
-            complete_curation_work(knowledge_root, evidence_id)
-            return {"action": "reused_review", "review_id": document.frontmatter["review_id"], "path": str(review["path"])}
-
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    # Identity is assigned when the Review work item is created.  The
-    # deterministic key above remains solely for retry/reuse detection.
     review_id = "review-" + str(uuid4())
     month = now[:7]
     path = knowledge_root / "curation-reviews" / month / f"{review_id}.md"
     payload = _output_payload(output)
     metadata: Dict[str, object] = {
-        "idempotency_key": idempotency_key, "generated_by": generated_by.strip(),
+        "generated_by": generated_by.strip(),
         "curation_receipt": curation_receipt.strip(), "output": payload,
         "verification_attempt_id": "verification-" + str(uuid4()),
     }
@@ -115,16 +96,23 @@ def generate_curation_review(
             "evidence_snapshot": _evidence_snapshot(evidence, evidence_path, checksum),
         }},
     }
-    path.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        path.write_text(render_markdown(data, _review_body(output)), encoding="utf-8")
-        validation = validate_document(path, knowledge_root)
-        if not validation.is_valid:
-            raise ValueError("curation review validation failed: " + "; ".join(validation.profile_errors))
-        complete_curation_work(knowledge_root, evidence_id)
-    except Exception:
-        path.unlink(missing_ok=True)
-        raise
+    with curation_queue_transaction(knowledge_root):
+        existing = _find_reusable_review(
+            knowledge_root, evidence_id=evidence_id, checksum=checksum,
+        )
+        if existing is not None:
+            _complete_curation_work_unlocked(knowledge_root, evidence_id)
+            return existing
+        path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            path.write_text(render_markdown(data, _review_body(output)), encoding="utf-8")
+            validation = validate_document(path, knowledge_root)
+            if not validation.is_valid:
+                raise ValueError("curation review validation failed: " + "; ".join(validation.profile_errors))
+            _complete_curation_work_unlocked(knowledge_root, evidence_id)
+        except Exception:
+            path.unlink(missing_ok=True)
+            raise
     return {"action": "created_review", "review_id": review_id, "path": path.relative_to(knowledge_root.parent).as_posix(), "recommendation": recommendation}
 
 
@@ -208,13 +196,19 @@ def decide_curation_review(knowledge_root: Path, review_id: str, *, action: str,
         bundle_data = dict(bundle.frontmatter)
         bundle_extensions = dict(bundle_data.get("extensions", {}))
         curation = dict(bundle_extensions.get("curation", {}))
-        curation["review_decision"] = {
+        decision = {
             "review_id": review_id,
             "decided_at": data["decided_at"],
             "decided_by": data["decided_by"],
             "verification_attempt_id": metadata["verification_attempt_id"],
+            "evidence_checksum": evidence_ref["checksum"],
             "decision_note": note,
         }
+        curation.setdefault("creation_review_id", review_id)
+        curation.setdefault("review_decision", decision)
+        history = list(curation.get("review_receipts", []))
+        history.append({**decision, "kind": "creation", "applied_revision": bundle_data["extensions"]["knowledge_revision"]})
+        curation["review_receipts"] = history
         bundle_extensions["curation"] = curation
         bundle_data["extensions"] = bundle_extensions
         try:
@@ -297,7 +291,7 @@ def apply_approved_curation_update(
     ]))
     extensions = dict(proposed.get("extensions", {}))
     curation = dict(extensions.get("curation", {}))
-    curation["review_decision"] = {
+    decision = {
         "review_id": review_id,
         "decided_at": data.get("decided_at"),
         "decided_by": data.get("decided_by"),
@@ -305,13 +299,18 @@ def apply_approved_curation_update(
         "evidence_checksum": evidence_ref["checksum"],
         "decision_note": data.get("decision_note", ""),
     }
+    history = list(curation.get("review_receipts", []))
+    if not history and isinstance(curation.get("review_decision"), dict):
+        history.append({**curation["review_decision"], "kind": "creation"})
+    history.append({**decision, "kind": "update", "applied_revision": expected_revision + 1})
+    curation["review_receipts"] = history
     extensions["curation"] = curation
     proposed["extensions"] = extensions
     original_bundle = target.path.read_text(encoding="utf-8")
-    updated = apply_bundle_revision(
+    updated = _apply_bundle_revision(
         knowledge_root, bundle_id=target_id, expected_revision=expected_revision,
         proposed_frontmatter=proposed, body=output.body, actor=actor,
-        approved_curation_review_id=review_id,
+        allow_active_curation_revision=True,
     )
     data["status"] = "applied"
     data["applied_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -336,6 +335,33 @@ def _target_bundle(knowledge_root: Path, output: CurationOutput):
         if bundle is not None and isinstance(revision, int):
             return bundle_id, revision
     return None, None
+
+
+def _find_reusable_review(
+    knowledge_root: Path, *, evidence_id: str, checksum: str,
+) -> Optional[Dict[str, object]]:
+    """Find the existing live card for this Queue work, without a duplicate key."""
+    for review in list_curation_reviews(knowledge_root, include_resolved=True):
+        if review.get("status") not in {"pending", "needs_changes", "needs_review", "approved"}:
+            continue
+        try:
+            ref = _single_evidence_ref({"evidence_refs": review.get("evidence_refs")})
+        except ValueError:
+            continue
+        if ref["evidence_id"] != evidence_id or ref["checksum"] != checksum:
+            continue
+        review_path = knowledge_root.parent / str(review["path"])
+        validation = validate_document(review_path, knowledge_root)
+        if not validation.is_valid:
+            raise ValueError(
+                "existing curation review validation failed: "
+                + "; ".join(validation.profile_errors)
+            )
+        return {
+            "action": "reused_review", "review_id": review["review_id"],
+            "path": str(review["path"]), "recommendation": review["recommendation"],
+        }
+    return None
 
 
 def _output_payload(output: CurationOutput) -> Dict[str, object]:
