@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 
 from circled_wiki.config.settings import load_settings
 
-from .candidates import list_curation_candidates
+from .candidates import list_curation_candidates, promote_curation_candidate
 from .curator import propose_update
 from .curation_contract import CurationOutput
 from .curation_contract import validate_curation_output
@@ -151,10 +151,14 @@ def run_configured_curation(knowledge_root: Path, evidence_id: str) -> Dict[str,
             receipt = f"curation://{config.provider}/{config.model}/{config.profile_version}"
             completed_receipt = _completed_receipt(receipt_metadata, "completed")
             if output.action != "no_bundle" and output.bundle_type not in PRE_CREATION_REVIEW_TYPES:
-                return materialize_curation_candidate(
+                materialized = materialize_curation_candidate(
                     knowledge_root, evidence_id, output,
                     generated_by=settings.operator_agent, curation_receipt=receipt,
                     receipt_metadata=completed_receipt,
+                )
+                return _auto_promote_materialized_candidate(
+                    knowledge_root, materialized, actor=settings.operator_agent,
+                    security_receipt=_automatic_security_receipt(config, evidence),
                 )
             return generate_curation_review(
                 knowledge_root, evidence_id, output, generated_by=settings.operator_agent,
@@ -210,7 +214,8 @@ def run_configured_curation_batch(knowledge_root: Path, *, limit: int = 100) -> 
     counts = {
         "draft_created": 0, "draft_reused": 0, "no_bundle": 0,
         "review_created": 0, "review_reused": 0, "blocked": 0,
-        "failed": 0, "needs_review": 0,
+        "failed": 0, "needs_review": 0, "auto_promoted": 0,
+        "auto_promotion_blocked": 0,
     }
     queued_ids = {str(item["evidence_id"]) for item in list_curation_queue(knowledge_root)}
     for path in iter_documents(knowledge_root):
@@ -226,7 +231,12 @@ def run_configured_curation_batch(knowledge_root: Path, *, limit: int = 100) -> 
         result = run_configured_curation(knowledge_root, str(data["id"]))
         action = str(result.get("action", "needs_review"))
         reason = str(result.get("reason", ""))
-        if action == "created":
+        promotion = result.get("promotion")
+        if isinstance(promotion, dict) and promotion.get("status") == "active":
+            counts["auto_promoted"] += 1
+        elif isinstance(promotion, dict) and promotion.get("status") == "draft":
+            counts["auto_promotion_blocked"] += 1
+        elif action == "created":
             counts["draft_created"] += 1
         elif action == "reused":
             counts["draft_reused"] += 1
@@ -269,6 +279,57 @@ def _completed_receipt(receipt: Dict[str, object], status: str) -> Dict[str, obj
     completed["completed_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
     completed["status"] = status
     return completed
+
+
+def _automatic_security_receipt(config, evidence) -> str:
+    """Bind an automatic publication receipt to the configured curation attempt."""
+    checksum = str(evidence.frontmatter["checksum"]).removeprefix("sha256:")
+    return (
+        f"automatic-gate://{config.provider}/{config.model}/{config.profile_version}"
+        f"/{checksum}"
+    )
+
+
+def _auto_promote_materialized_candidate(
+    knowledge_root: Path,
+    materialized: Dict[str, object],
+    *,
+    actor: str,
+    security_receipt: str,
+) -> Dict[str, object]:
+    """Complete RB-CUR-006 for direct Draft types without a human review step."""
+    bundle_id = materialized.get("bundle_id")
+    if not isinstance(bundle_id, str) or not bundle_id:
+        return materialized
+    bundle = find_document_by_id(knowledge_root, bundle_id)
+    if bundle is None:
+        return materialized
+    if bundle.frontmatter.get("status") == "active":
+        result = dict(materialized)
+        result["promotion"] = {
+            "bundle_id": bundle_id,
+            "status": "active",
+            "promotion_mode": "automatic",
+            "reused": True,
+        }
+        return result
+    try:
+        promotion = promote_curation_candidate(
+            knowledge_root, bundle_id, actor=actor,
+            security_receipt=security_receipt, automated=True,
+        )
+    except ValueError as error:
+        result = dict(materialized)
+        result["promotion"] = {
+            "bundle_id": bundle_id,
+            "status": "draft",
+            "promotion_mode": "automatic",
+            "error": str(error),
+        }
+        return result
+    result = dict(materialized)
+    result["promotion"] = promotion
+    return result
 
 
 def _require_curation_safe_evidence(evidence, knowledge_root: Path) -> None:

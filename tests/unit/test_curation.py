@@ -297,7 +297,7 @@ class CurationMaterializationTests(unittest.TestCase):
             self.assertEqual(list_curation_reviews(root), [])
             self.assertEqual(list_curation_queue(root)[0]["evidence_id"], evidence_id)
 
-    def test_configured_adapter_directly_creates_report_draft(self):
+    def test_configured_adapter_auto_promotes_report_without_human_review(self):
         with tempfile.TemporaryDirectory() as directory:
             root, evidence_id = self._evidence(directory)
             evidence_path = find_document_by_id(root, evidence_id).path
@@ -326,11 +326,15 @@ class CurationMaterializationTests(unittest.TestCase):
                 {"policy", "guide", "runbook", "manual", "decision", "spec", "reference", "report"},
             )
             self.assertEqual(request["pre_creation_review_types"], ["manual", "runbook"])
-            self.assertEqual(len(list_curation_candidates(root)), 1)
+            self.assertEqual(result["promotion"]["promotion_mode"], "automatic")
+            promoted = find_document_by_id(root, result["bundle_id"])
+            self.assertEqual(promoted.frontmatter["status"], "active")
+            self.assertEqual(list_curation_candidates(root), [])
             with patch("circled_wiki.core.curation.propose_update", return_value={"recommended_action": "create_draft_bundle", "blocking_conditions": []}):
                 with patch("circled_wiki.core.curation.subprocess.run", return_value=completed):
                     repeated = run_configured_curation(root, evidence_id)
             self.assertEqual(repeated["action"], "reused")
+            self.assertTrue(repeated["promotion"]["reused"])
             self.assertEqual(list_curation_reviews(root, include_resolved=True), [])
             evidence = find_document_by_id(root, evidence_id)
             self.assertNotIn("curated_into", evidence.frontmatter)
@@ -361,6 +365,32 @@ class CurationMaterializationTests(unittest.TestCase):
 
             self.assertEqual(result["action"], "created_review")
             self.assertEqual(len(list_curation_reviews(root)), 1)
+            self.assertEqual(list_curation_candidates(root), [])
+
+    def test_configured_curation_batch_counts_report_as_auto_promoted(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, evidence_id = self._evidence(directory)
+            config = root.parent / ".circled-wiki" / "config.yaml"
+            config.parent.mkdir(exist_ok=True)
+            config.write_text(
+                "schema_version: 1\ncuration:\n"
+                "  enabled: true\n  provider: test\n  model: report\n  command: adapter\n",
+                encoding="utf-8",
+            )
+            output = {
+                "action": "report", "domain": "marketing", "bundle_type": "report",
+                "title": "Batch report", "summary": "Summary.", "body": "# Report",
+                "evidence_ids": [evidence_id], "tags": ["batch", "report"],
+            }
+            completed = type("Completed", (), {"stdout": json.dumps(output)})()
+            proposal = {"recommended_action": "create_draft_bundle", "blocking_conditions": [], "candidate_bundles": []}
+            with patch("circled_wiki.core.curation.propose_update", return_value=proposal):
+                with patch("circled_wiki.core.curation.subprocess.run", return_value=completed):
+                    batch = run_configured_curation_batch(root, limit=1)
+
+            self.assertEqual(batch["counts"]["auto_promoted"], 1)
+            self.assertEqual(batch["counts"]["draft_created"], 0)
+            self.assertEqual(batch["items"][0]["result"]["promotion"]["promotion_mode"], "automatic")
             self.assertEqual(list_curation_candidates(root), [])
 
     def test_reused_review_consumes_a_repaired_queue_item(self):
@@ -425,7 +455,7 @@ class CurationMaterializationTests(unittest.TestCase):
             self.assertEqual(evidence_path.read_bytes(), evidence_before)
             self.assertEqual(list_curation_queue(root), [])
 
-    def test_high_confidence_reference_directly_creates_draft(self):
+    def test_high_confidence_reference_auto_promotes_without_human_review(self):
         with tempfile.TemporaryDirectory() as directory:
             root, evidence_id = self._evidence(directory)
             config = root.parent / ".circled-wiki" / "config.yaml"
@@ -446,8 +476,9 @@ class CurationMaterializationTests(unittest.TestCase):
                 with patch("circled_wiki.core.curation.subprocess.run", return_value=completed):
                     result = run_configured_curation(root, evidence_id)
             self.assertEqual(result["action"], "created")
+            self.assertEqual(result["promotion"]["promotion_mode"], "automatic")
             self.assertEqual(list_curation_reviews(root), [])
-            self.assertEqual(len(list_curation_candidates(root)), 1)
+            self.assertEqual(list_curation_candidates(root), [])
 
     def test_rebuildable_workspace_queue_tracks_pending_and_resolved_evidence(self):
         with tempfile.TemporaryDirectory() as directory:

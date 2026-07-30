@@ -40,7 +40,7 @@ Evidence를 기존 Bundle과 비교하거나 신규 Draft를 작성한다.
 - Evidence 참조와 source UUID
 - 기존 Bundle 갱신 시 expected revision 일치
 - Bundle 생성·갱신의 파일명과 Frontmatter `id`가 RB-KNW-026 canonical 형식에 맞을 것. legacy 형식의 일괄 정규화는 Publication Profile의 검토·발행 Gate로 넘길 것
-- Review가 필요한 유형 또는 active 전환 후보를 정식 검토 대상으로 넘길 Owner 존재
+- `runbook`·`manual` Review 또는 직접 생성 가능 유형의 자동 Promotion Gate를 수행할 실행 주체 존재
 - RB-SEC-001·005와 RB-PUB-002의 보안 Gate. Draft와 active 전환의 차이는 RB-CUR-006을 적용
 - `runbook`과 `manual`은 `knowledge/curation-reviews/`의 checksum 결합 Review 카드 존재. `policy`, `guide`, `decision`, `spec`, `reference`, `report`는 Evidence·PII Gate 통과 후 Draft 직접 생성 가능
 - `runbook`과 `manual`의 Review는 생성 actor와 다른 Owner 또는 명시 위임 승인자의 승인 기록. 직접 생성 가능한 유형은 RB-CUR-006의 Evidence·PII·참조 무결성·전체 Validator Gate를 통과하면 별도 사람 Review 없이 자동 active 전환 가능
@@ -70,7 +70,7 @@ Curation 실행 실패는 Curation Queue 항목과 시도 Receipt를 유지한�
 
 ## Prohibited
 
-- 검토 없이 active 승격
+- `runbook`·`manual`을 독립 Review 없이 active 승격하거나, 직접 생성 가능 유형을 RB-CUR-006 자동 Gate 없이 active 승격
 - `create-bundle`, 일반 revision API 또는 Frontmatter 직접 변경으로 `draft -> active` 전환
 - 테스트·가상 데이터라는 이유로 Review가 필요한 유형 또는 active 전환의 Review 카드, 독립 승인, Security Receipt 또는 Validator 생략
 - 한 번의 Outcome 자동 일반화
