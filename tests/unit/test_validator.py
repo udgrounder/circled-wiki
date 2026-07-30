@@ -77,6 +77,40 @@ class ValidatorTests(unittest.TestCase):
 
         self.assertTrue(result.is_valid, result.as_dict())
 
+    def test_evidence_link_allows_square_brackets_in_display_title(self):
+        bundle_uuid = str(uuid.uuid4())
+        evidence_uuid = str(uuid.uuid4())
+        evidence_path = self.root / "evidence" / "manual" / "source.md"
+        evidence_path.parent.mkdir(parents=True)
+        evidence_path.write_text("# source\n", encoding="utf-8")
+        path = self.root / "bundles" / "cs" / f"promotion_{bundle_uuid}.md"
+        path.write_text(
+            render_markdown(
+                {
+                    "type": "policy",
+                    "id": f"bundle/example-org/promotion_{bundle_uuid}.md",
+                    "bundle_uuid": bundle_uuid,
+                    "title": "Promotion",
+                    "status": "draft",
+                    "summary": "Promotion policy",
+                    "updated_at": "2026-07-10T10:00:00+09:00",
+                    "evidence": [f"evidence/example-org/promotion-source_{evidence_uuid}.md"],
+                    "evidence_links": [
+                        "[[CA]프로모션 안내](evidence/manual/source.md)",
+                    ],
+                    "extensions": {"knowledge_revision": 1},
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        result = validate_document(path, self.root)
+
+        self.assertNotIn(
+            "evidence_links must contain Markdown links to knowledge-root Evidence Markdown paths",
+            result.profile_errors,
+        )
+
     def test_canonical_bundle_id_slug_must_match_human_readable_filename(self):
         bundle_uuid = str(uuid.uuid4())
         evidence_uuid = str(uuid.uuid4())

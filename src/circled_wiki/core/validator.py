@@ -157,7 +157,10 @@ def _path_kind(path: Path, knowledge_root: Path) -> str:
 def _is_valid_evidence_link(value: Any, knowledge_root: Path) -> bool:
     if not isinstance(value, str) or not value.strip():
         return False
-    match = re.fullmatch(r"\[[^\]\r\n]+\]\(([^()\r\n]+)\)", value.strip())
+    # Evidence titles may themselves use square brackets, e.g. ``[CA]``.
+    # Treat the final ``](...)`` pair as the Markdown link delimiter while
+    # keeping the path validation below as the security boundary.
+    match = re.fullmatch(r"\[[^\r\n]+\]\(([^()\r\n]+)\)", value.strip())
     if match is None:
         return False
     link = Path(match.group(1))
