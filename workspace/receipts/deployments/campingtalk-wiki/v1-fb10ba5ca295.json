@@ -1,0 +1,18 @@
+{
+  "receipt_type": "deployment",
+  "release_id": "v1-fb10ba5ca295",
+  "previous_release": "v1-acdd72890f54",
+  "target_ref": "campingtalk-wiki",
+  "planned_at": "2026-07-31T06:22:40.736098+00:00",
+  "applied_at": "2026-07-31T06:22:40.736164+00:00",
+  "backup_ref": ".circled-wiki-backups/v1-acdd72890f54-20260731T062212Z",
+  "actions": {
+    "applied": [
+      ".circled-wiki/ managed assets (29 upgrades, 5 creates, 1 legacy retirement)"
+    ],
+    "preserved": [],
+    "proposed": []
+  },
+  "status": "verification_pending",
+  "release_receipt": "/Users/kjkim/Study/circled-wiki/workspace/receipts/releases/v1-fb10ba5ca295.json"
+}
