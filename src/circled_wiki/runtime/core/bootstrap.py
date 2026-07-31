@@ -36,6 +36,7 @@ RUNTIME_PROFILE_ALLOWLIST = (
     "README.md",
     "evidence-ingest.md",
     "inbox-capture.md",
+    "inbox-disposition.md",
     "inbox-inspection.md",
     "knowledge-curation.md",
     "knowledge-query.md",
