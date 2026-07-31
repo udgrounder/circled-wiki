@@ -44,7 +44,7 @@ RB-EVD-023에 따라 함께 확정된 Evidence ID·보존 경로와 Curation Que
 
 ## Failure State
 
-RB-EVD-007·023에 따라 Inbox 원본과 필요 시 `.raw/`를 유지하고 Evidence·Queue의 부분 성공을 남기지 않는다. Inbox Review Queue는 사용자 결정 후에도 Evidence와 Curation Queue의 동일 처리 단위가 성공할 때까지 `reprocessing`으로 유지한다.
+RB-EVD-007·023에 따라 Inbox 원본과 필요 시 `.raw/`를 유지하고 Evidence·Queue의 부분 성공을 남기지 않는다. Inbox 예외 계약 작업은 사용자 결정 후에도 Evidence와 Curation Queue의 동일 처리 단위가 성공할 때까지 `reprocessing`으로 유지한다.
 민감정보 실패는 RB-SEC-001에 따라 실제 값 없이 범주와 재검토 조건만 기록한다.
 
 ## Prohibited

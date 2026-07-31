@@ -19,6 +19,7 @@ from circled_wiki.worker.jobs import (
     run_maintenance,
 )
 from circled_wiki.core.publisher import PublishError, _require_sensitive_data_review, publish_changes
+from circled_wiki.core.inbox_contracts import curation_blocker_policy
 
 
 class WorkerJobTests(unittest.TestCase):
@@ -57,7 +58,7 @@ class WorkerJobTests(unittest.TestCase):
             self.assertEqual(result["accepted"]["accepted_count"], 1)
             self.assertEqual(result["ingested"]["ingested_count"], 1)
             self.assertEqual(result["blocked"][0]["intake_id"], blocked.intake_id)
-            self.assertEqual(result["blocked"][0]["next_action"], "inbox_review_queue")
+            self.assertEqual(result["blocked"][0]["next_action"], "inbox_reconciliation")
             self.assertEqual(
                 next(item for item in result["after"]["items"] if item["intake_id"] == ready.intake_id)["status"],
                 "evidence",
@@ -103,6 +104,47 @@ class WorkerJobTests(unittest.TestCase):
 
             with self.assertRaisesRegex(ValueError, "contract outcomes are incomplete"):
                 reconcile_curation(root)
+
+    def test_reconcile_inbox_rejects_an_unsupported_review_requirement(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "knowledge"
+            contract_root = root.parent / "agent-rules" / "contracts"
+            contract_root.mkdir(parents=True)
+            for name in ("index.yaml", "inbox.yaml"):
+                shutil.copyfile(
+                    Path(__file__).resolve().parents[2] / "agent-rules" / "contracts" / name,
+                    contract_root / name,
+                )
+            contract_path = contract_root / "inbox.yaml"
+            contract_path.write_text(
+                contract_path.read_text(encoding="utf-8").replace(
+                    "complete_sensitivity_review", "approve_without_review", 1
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "contract transition is unsupported: pending"):
+                reconcile_inbox(root, "contract-worker")
+
+    def test_every_curation_blocker_reason_has_a_contract_policy(self):
+        expected = {
+            "adapter_disabled": ("configuration", "configure_curation_adapter"),
+            "adapter_command_empty": ("configuration", "configure_curation_adapter"),
+            "evidence_original_unavailable": ("evidence_source", "restore_evidence_original"),
+            "proposal_blocked": ("gate", "resolve_curation_gate"),
+            "contract_or_gate_rejected": ("gate", "resolve_curation_gate"),
+            "adapter_failed": ("adapter_execution", "retry_curation"),
+            "adapter_unavailable": ("adapter_execution", "retry_curation"),
+            "invalid_json": ("adapter_execution", "retry_curation"),
+            "timeout": ("adapter_execution", "retry_curation"),
+        }
+
+        for reason, (category, next_action) in expected.items():
+            with self.subTest(reason=reason):
+                self.assertEqual(
+                    curation_blocker_policy(reason),
+                    {"category": category, "safe_next_action": next_action},
+                )
 
     def test_accept_ready_inbox_accepts_only_items_that_already_pass_gates(self):
         with tempfile.TemporaryDirectory() as directory:

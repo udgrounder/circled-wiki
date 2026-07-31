@@ -145,15 +145,18 @@ def record_curation_contract_outcome(
 
 def record_curation_blocker(
     knowledge_root: Path, evidence_id: str, evidence_path: Path, *, reason: str,
-    next_action: str,
+    reason_category: str, next_action: str,
 ) -> Path:
     """Annotate existing retryable work with an actionable, non-Evidence error."""
-    if not reason.strip() or not next_action.strip():
-        raise ValueError("reason and next_action must be non-empty")
+    if not reason.strip() or not reason_category.strip() or not next_action.strip():
+        raise ValueError("reason, reason_category, and next_action must be non-empty")
     with curation_queue_transaction(knowledge_root):
         target = _enqueue_curation_work_unlocked(knowledge_root, evidence_id, evidence_path)
         data = parse_markdown(target).frontmatter
-        data["last_blocker"] = {"reason": reason.strip(), "next_action": next_action.strip()}
+        data["last_blocker"] = {
+            "reason": reason.strip(), "reason_category": reason_category.strip(),
+            "next_action": next_action.strip(),
+        }
         data["current"] = {
             "stage": "queued", "status": "pending", "next_action": next_action.strip(),
         }
@@ -184,9 +187,14 @@ def list_curation_queue(knowledge_root: Path, *, include_resolved: bool = False)
             "path": evidence_path,
             "status": "pending",
             "queue_path": path.relative_to(knowledge_root.parent).as_posix(),
-            **({"reason": data["last_blocker"].get("reason"), "next_action": data["last_blocker"].get("next_action")}
+            **({
+                "reason": data["last_blocker"].get("reason"),
+                "reason_category": data["last_blocker"].get("reason_category"),
+                "next_action": data["last_blocker"].get("next_action"),
+            }
                if isinstance(data.get("last_blocker"), dict)
                and isinstance(data["last_blocker"].get("reason"), str)
+               and isinstance(data["last_blocker"].get("reason_category"), str)
                and isinstance(data["last_blocker"].get("next_action"), str)
                else {}),
         })
@@ -243,6 +251,8 @@ def _refresh_curation_queue_unlocked(
             isinstance(blocker, dict)
             and isinstance(blocker.get("reason"), str)
             and blocker["reason"].strip()
+            and isinstance(blocker.get("reason_category"), str)
+            and blocker["reason_category"].strip()
             and isinstance(blocker.get("next_action"), str)
             and blocker["next_action"].strip()
         )
@@ -252,9 +262,17 @@ def _refresh_curation_queue_unlocked(
             )
             repaired += 1
         elif blocker is not None and not valid_blocker:
-            _enqueue_curation_work_unlocked(
-                knowledge_root, evidence_id, path, Path(relative)
-            )
+            # A malformed blocker must not survive a reported repair.  Preserve
+            # the task receipts, but discard only the unusable diagnostic data
+            # and return the task to the contract's normal queued action.
+            data.pop("last_blocker", None)
+            data["current"] = {
+                "stage": "queued",
+                "status": "pending",
+                "next_action": "run_configured_curation_batch",
+            }
+            _append_step(data, stage="queued", status="pending", outcome="blocker_repaired")
+            _write_task(target, data)
             repaired += 1
     for path in existing_paths - expected_paths:
         path.unlink(missing_ok=True)

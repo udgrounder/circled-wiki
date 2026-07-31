@@ -193,10 +193,17 @@ class AgentRuleProfileTests(unittest.TestCase):
 
     def test_contract_reconciliation_preserves_inbox_stage_gates(self):
         operating = (ROOT / "OPERATING_RULES.md").read_text(encoding="utf-8")
+        contract = (ROOT / "agent-rules" / "contracts" / "inbox.yaml").read_text(
+            encoding="utf-8"
+        )
 
         self.assertIn("reconcile_inbox", operating)
         self.assertIn("검사·수용·Evidence 변환 Gate와 상태 기록", operating)
         self.assertIn("민감성·PII·승인 판단을 건너뛰거나 추정하지 않는다", operating)
+        self.assertIn("on_blocked:", contract)
+        self.assertIn("reasons:", contract)
+        self.assertIn("sensitivity_review_required", contract)
+        self.assertIn("pii_needs_review", contract)
 
     def test_curation_contract_preserves_review_and_revision_gates(self):
         operating = (ROOT / "OPERATING_RULES.md").read_text(encoding="utf-8")
@@ -213,6 +220,7 @@ class AgentRuleProfileTests(unittest.TestCase):
         self.assertIn("no_bundle_recorded", contract)
         self.assertIn("review_handoff", contract)
         self.assertIn("retryable_block", contract)
+        self.assertIn("reason_categories", contract)
         self.assertNotIn("apply_approved_curation_update", contract)
 
     def test_contract_readme_explains_schema_and_rule_boundaries(self):
@@ -224,6 +232,7 @@ class AgentRuleProfileTests(unittest.TestCase):
             "`api_version`", "`kind`", "`metadata.name`", "`metadata.version`",
             "`metadata.description`", "`spec`", "`stages.<state>.next_stage`",
             "`outcomes.<name>.queue_disposition`", "`outcomes.<name>.terminal`",
+            "`stages.<state>.on_blocked.reasons.<reason>`",
             "`RB-ROUTE-015~016`", "`RB-CUR-001~010`",
         ):
             self.assertIn(field, readme)

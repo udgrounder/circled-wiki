@@ -6,11 +6,12 @@ from typing import Dict, List, Optional
 from uuid import UUID
 
 from .frontmatter import parse_markdown, render_markdown
+from .inbox_contracts import SUPPORTED_INBOX_REVIEW_REQUIREMENTS
 
 
 REVIEW_ACTIONS = {
-    "sensitivity_review_required": "complete_sensitivity_review",
-    "pii_needs_review": "decide_safe_handling",
+    reason: str(requirement["requested_action"])
+    for reason, requirement in SUPPORTED_INBOX_REVIEW_REQUIREMENTS.items()
 }
 CONTRACT_NAME = "inbox_reconciliation"
 CONTRACT_VERSION = 1
@@ -49,8 +50,11 @@ def enqueue_inbox_review(
     current_stage: str, reason_code: str,
 ) -> Dict[str, object]:
     """Create or extend the one active review item for an exceptional Inbox item."""
-    if reason_code not in REVIEW_ACTIONS:
+    requirement = SUPPORTED_INBOX_REVIEW_REQUIREMENTS.get(reason_code)
+    if requirement is None:
         raise ValueError("inbox review reason_code is invalid")
+    if current_stage != requirement["current_stage"]:
+        raise ValueError("inbox review current_stage is invalid for its reason_code")
     if not source_checksum.startswith("sha256:"):
         raise ValueError("inbox review source_checksum must be a sha256 checksum")
     knowledge_root = knowledge_root.resolve()
@@ -89,7 +93,7 @@ def enqueue_inbox_review(
     if not any(item.get("reason_code") == reason_code for item in requirements):
         requirements.append({
             "reason_code": reason_code,
-            "requested_action": REVIEW_ACTIONS[reason_code],
+            "requested_action": requirement["requested_action"],
             "status": "awaiting_user",
         })
     status = "awaiting_user"
@@ -100,7 +104,7 @@ def enqueue_inbox_review(
         "updated_at": _now(),
         "current": {
             "stage": current_stage, "status": status,
-            "next_action": REVIEW_ACTIONS[reason_code],
+            "next_action": requirement["requested_action"],
         },
     })
     _append_step(data, stage=current_stage, status=status, outcome=reason_code)
@@ -157,7 +161,10 @@ def resolve_inbox_review_requirement(
     review["current"] = {
         "stage": str(review.get("current_stage", "inbox_review")),
         "status": str(review["status"]),
-        "next_action": "reprocess_inbox" if review["status"] == "reprocessing" else REVIEW_ACTIONS[reason_code],
+        "next_action": (
+            SUPPORTED_INBOX_REVIEW_REQUIREMENTS[reason_code]["resolved_next_action"]
+            if review["status"] == "reprocessing" else REVIEW_ACTIONS[reason_code]
+        ),
     }
     _append_step(
         review, stage=str(review.get("current_stage", "inbox_review")),

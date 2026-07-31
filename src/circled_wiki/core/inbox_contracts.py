@@ -21,7 +21,16 @@ SUPPORTED_TRANSITIONS = {
         "profile": "inbox-inspection",
         "action": "accept_ready_inbox",
         "next_stage": "accepted",
-        "on_blocked": "inbox_review_queue",
+        "on_blocked": {
+            "task_contract": "inbox_reconciliation",
+            "reasons": {
+                "sensitivity_review_required": {
+                    "current_stage": "sensitivity_review",
+                    "requested_action": "complete_sensitivity_review",
+                    "resolved_next_action": "reprocess_inbox",
+                },
+            },
+        },
         "requires": {
             "required_metadata", "provider_folder", "content_checksum", "sensitivity_review_resolved",
         },
@@ -30,9 +39,23 @@ SUPPORTED_TRANSITIONS = {
         "profile": "evidence-ingest",
         "action": "ingest_accepted",
         "next_stage": "evidence",
-        "on_blocked": "inbox_review_queue",
+        "on_blocked": {
+            "task_contract": "inbox_reconciliation",
+            "reasons": {
+                "pii_needs_review": {
+                    "current_stage": "pii_scan",
+                    "requested_action": "decide_safe_handling",
+                    "resolved_next_action": "reprocess_inbox",
+                },
+            },
+        },
         "requires": {"accepted_inspection", "pii_review_not_blocking"},
     },
+}
+SUPPORTED_INBOX_REVIEW_REQUIREMENTS = {
+    reason: definition
+    for transition in SUPPORTED_TRANSITIONS.values()
+    for reason, definition in transition["on_blocked"]["reasons"].items()
 }
 SUPPORTED_CURATION_STAGES = {
     "queued": {
@@ -66,8 +89,39 @@ SUPPORTED_CURATION_OUTCOMES = {
         "next_stage": "queued",
         "queue_disposition": "retain",
         "terminal": False,
+        "reason_categories": {
+            "configuration": {
+                "reason_codes": ["adapter_disabled", "adapter_command_empty"],
+                "safe_next_action": "configure_curation_adapter",
+            },
+            "evidence_source": {
+                "reason_codes": ["evidence_original_unavailable"],
+                "safe_next_action": "restore_evidence_original",
+            },
+            "gate": {
+                "reason_codes": ["proposal_blocked", "contract_or_gate_rejected"],
+                "safe_next_action": "resolve_curation_gate",
+            },
+            "adapter_execution": {
+                "reason_codes": ["adapter_failed", "adapter_unavailable", "invalid_json", "timeout"],
+                "safe_next_action": "retry_curation",
+            },
+        },
     },
 }
+
+
+def curation_blocker_policy(reason_code: str) -> Dict[str, str]:
+    """Return the contract-defined operational category and safe action."""
+    retryable = SUPPORTED_CURATION_OUTCOMES["retryable_block"]
+    categories = retryable["reason_categories"]
+    for category, policy in categories.items():
+        if reason_code in policy["reason_codes"]:
+            return {
+                "category": category,
+                "safe_next_action": policy["safe_next_action"],
+            }
+    raise ValueError("curation blocker reason_code is unsupported")
 
 
 def inbox_contract_path(knowledge_root: Path) -> Path:
@@ -84,9 +138,10 @@ def inbox_contract_path(knowledge_root: Path) -> Path:
 
 def load_inbox_contract(knowledge_root: Path) -> Dict[str, object]:
     """Load only the contract shape required by the Inbox reconciler."""
-    return _load_registered_contract(
+    loaded = _load_registered_contract(
         knowledge_root, CONTRACT_NAME, CONTRACT_VERSION, SUPPORTED_TRANSITIONS
     )
+    return loaded
 
 
 def load_curation_contract(knowledge_root: Path) -> Dict[str, object]:
@@ -128,13 +183,13 @@ def _load_registered_contract(
         definition = stages.get(stage)
         if not isinstance(definition, dict) or not all(
             isinstance(definition.get(field), str) and definition[field]
-            for field in ("profile", "action", "next_stage", "on_blocked")
+            for field in ("profile", "action", "next_stage")
         ) or not isinstance(definition.get("requires"), list):
             raise ValueError(f"{contract_name} contract stage is invalid: {stage}")
         expected = supported_transitions[stage]
         if any(definition[field] != expected[field] for field in (
-            "profile", "action", "next_stage", "on_blocked"
-        )) or set(definition["requires"]) != expected["requires"]:
+            "profile", "action", "next_stage"
+        )) or definition.get("on_blocked") != expected["on_blocked"] or set(definition["requires"]) != expected["requires"]:
             raise ValueError(f"{contract_name} contract transition is unsupported: {stage}")
     return {"path": path, "version": expected_version, "contract": contract}
 

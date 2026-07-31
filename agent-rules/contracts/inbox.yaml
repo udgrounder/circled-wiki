@@ -17,7 +17,13 @@ spec:
         - provider_folder
         - content_checksum
         - sensitivity_review_resolved
-      on_blocked: inbox_review_queue
+      on_blocked:
+        task_contract: inbox_reconciliation
+        reasons:
+          sensitivity_review_required:
+            current_stage: sensitivity_review
+            requested_action: complete_sensitivity_review
+            resolved_next_action: reprocess_inbox
     accepted:
       profile: evidence-ingest
       action: ingest_accepted
@@ -25,4 +31,10 @@ spec:
       requires:
         - accepted_inspection
         - pii_review_not_blocking
-      on_blocked: inbox_review_queue
+      on_blocked:
+        task_contract: inbox_reconciliation
+        reasons:
+          pii_needs_review:
+            current_stage: pii_scan
+            requested_action: decide_safe_handling
+            resolved_next_action: reprocess_inbox

@@ -37,3 +37,25 @@ spec:
           next_stage: queued
           queue_disposition: retain
           terminal: false
+          reason_categories:
+            configuration:
+              reason_codes:
+                - adapter_disabled
+                - adapter_command_empty
+              safe_next_action: configure_curation_adapter
+            evidence_source:
+              reason_codes:
+                - evidence_original_unavailable
+              safe_next_action: restore_evidence_original
+            gate:
+              reason_codes:
+                - proposal_blocked
+                - contract_or_gate_rejected
+              safe_next_action: resolve_curation_gate
+            adapter_execution:
+              reason_codes:
+                - adapter_failed
+                - adapter_unavailable
+                - invalid_json
+                - timeout
+              safe_next_action: retry_curation

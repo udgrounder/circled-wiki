@@ -285,7 +285,29 @@ class CurationMaterializationTests(unittest.TestCase):
             self.assertEqual(result["reason"], "adapter_disabled")
             queue = list_curation_queue(root)
             self.assertEqual(queue[0]["reason"], "adapter_disabled")
-            self.assertIn("Configure the curation adapter", queue[0]["next_action"])
+            self.assertEqual(queue[0]["next_action"], "configure_curation_adapter")
+            self.assertEqual(queue[0]["reason_category"], "configuration")
+
+    def test_refresh_discards_a_malformed_blocker_before_reporting_repair(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, evidence_id = self._evidence(directory)
+            task_path = next((root.parent / "workspace" / "task" / "curation_reconciliation").glob("*.md"))
+            task = parse_markdown(task_path)
+            data = dict(task.frontmatter)
+            data["last_blocker"] = {
+                "reason": "adapter_disabled",
+                "next_action": "configure_curation_adapter",
+            }
+            task_path.write_text(render_markdown(data), encoding="utf-8")
+
+            refreshed = refresh_curation_queue(root)
+
+            self.assertEqual(refreshed["repaired_count"], 1)
+            repaired = parse_markdown(task_path).frontmatter
+            self.assertNotIn("last_blocker", repaired)
+            self.assertEqual(repaired["current"]["next_action"], "run_configured_curation_batch")
+            self.assertEqual(repaired["step_receipts"][-1]["outcome"], "blocker_repaired")
+            self.assertEqual(list_curation_queue(root)[0]["evidence_id"], evidence_id)
 
     def test_reconcile_curation_closes_contract_valid_no_bundle(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -367,7 +389,8 @@ class CurationMaterializationTests(unittest.TestCase):
             self.assertEqual(result["blocked"], [{
                 "evidence_id": evidence_id,
                 "stage": "queued",
-                "next_action": "curation_queue",
+                "next_action": "configure_curation_adapter",
+                "reason_category": "configuration",
                 "reason": "adapter_disabled",
             }])
             self.assertEqual(result["after"]["items"][0]["evidence_id"], evidence_id)

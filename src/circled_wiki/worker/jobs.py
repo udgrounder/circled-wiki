@@ -14,6 +14,7 @@ from circled_wiki.core.ingest import accept_ready_inbox, ingest_evidence, read_c
 from circled_wiki.core.inbox_contracts import (
     CONTRACT_NAME,
     CURATION_CONTRACT_NAME,
+    curation_blocker_policy,
     load_curation_contract,
     load_inbox_contract,
 )
@@ -145,14 +146,15 @@ def reconcile_curation(knowledge_root: Path, limit: int = 100) -> Dict[str, obje
             **outcome,
         })
         if outcome_name == "retryable_block":
+            retry_policy = curation_blocker_policy(
+                str(result.get("reason", "")) if isinstance(result, dict) else ""
+            )
             blocked.append({
                 "evidence_id": item.get("evidence_id"),
                 "stage": "queued",
-                "next_action": "curation_queue",
-                "reason": (
-                    result.get("reason", "needs_review")
-                    if isinstance(result, dict) else "needs_review"
-                ),
+                "next_action": retry_policy["safe_next_action"],
+                "reason_category": retry_policy["category"],
+                "reason": str(result.get("reason", "")),
             })
     remaining = [
         item for item in list_curation_queue(knowledge_root)
@@ -481,7 +483,7 @@ def reconcile_inbox(knowledge_root: Path, actor: str, limit: int = 100) -> Dict[
         {
             "intake_id": item["intake_id"],
             "stage": "pending",
-            "next_action": stages["pending"]["on_blocked"],
+            "next_action": stages["pending"]["on_blocked"]["task_contract"],
             "reasons": [item["reason"]],
         }
         for item in accepted["skipped"]
@@ -490,7 +492,7 @@ def reconcile_inbox(knowledge_root: Path, actor: str, limit: int = 100) -> Dict[
         {
             "intake_id": failure["intake_id"],
             "stage": "accepted",
-            "next_action": stages["accepted"]["on_blocked"],
+            "next_action": stages["accepted"]["on_blocked"]["task_contract"],
             "reasons": [failure["error"]],
         }
         for failure in ingested["failures"]
