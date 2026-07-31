@@ -280,36 +280,82 @@ def accept_conversation_intake(
         if document.frontmatter.get("id") != intake_id:
             continue
         data, _ = read_conversation_intake(path)
-        if data.get("status") == "accepted":
-            return {"intake_id": intake_id, "status": "accepted", "reused": True}
-        if data.get("status") != "pending":
-            raise ValueError("only pending Inbox items can be accepted")
-        if data.get("sensitivity_review") == "required":
-            raise ValueError("sensitivity review must be completed before acceptance")
-        if has_blocking_inbox_review(
-            knowledge_root, intake_id, str(data.get("checksum", ""))
-        ):
-            raise ValueError("inbox review must be resolved before acceptance")
-        updated = dict(data)
-        updated["status"] = "accepted"
-        updated["inspection"] = {
-            "actor": actor.strip(),
-            "inspected_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-            "checks": [
-                "required_metadata",
-                "provider_folder",
-                "content_checksum",
-                "sensitivity_review",
-            ],
-        }
-        path.write_text(render_markdown(updated, document.body), encoding="utf-8")
-        return {
-            "intake_id": intake_id,
-            "status": "accepted",
-            "inbox_path": path.relative_to(knowledge_root.parent.resolve()).as_posix(),
-            "reused": False,
-        }
+        return _accept_inbox_document(knowledge_root, path, document, data, actor)
     raise ValueError("intake_id must refer to an existing Inbox item")
+
+
+def accept_ready_inbox(
+    knowledge_root: Path, actor: str, *, limit: int = 100,
+) -> Dict[str, object]:
+    """Accept every pending Inbox item that already passes the inspection Gate.
+
+    This bounded batch uses one Inbox traversal.  It never resolves sensitivity
+    review or other blocking review work, which remains an explicit operation.
+    """
+    if not isinstance(actor, str) or not actor.strip():
+        raise ValueError("actor must be non-empty")
+    if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 1000:
+        raise ValueError("limit must be an integer between 1 and 1000")
+    knowledge_root = knowledge_root.resolve()
+    accepted: List[Dict[str, object]] = []
+    skipped: List[Dict[str, str]] = []
+    for path in sorted((knowledge_root / "inbox").glob("*/*.md")):
+        if len(accepted) >= limit:
+            break
+        try:
+            document = parse_markdown(path)
+            data, _ = read_conversation_intake(path)
+        except (FrontmatterError, OSError, ValueError):
+            continue
+        if data.get("status") != "pending":
+            continue
+        try:
+            accepted.append(_accept_inbox_document(knowledge_root, path, document, data, actor))
+        except ValueError as error:
+            skipped.append({
+                "intake_id": str(data.get("id", "")),
+                "reason": str(error),
+            })
+    return {
+        "accepted_count": len(accepted), "skipped_count": len(skipped),
+        "items": accepted, "skipped": skipped,
+    }
+
+
+def _accept_inbox_document(
+    knowledge_root: Path, path: Path, document, data: Dict[str, object], actor: str,
+) -> Dict[str, object]:
+    """Validate and record one acceptance using an already located Inbox file."""
+    intake_id = str(data.get("id", ""))
+    if data.get("status") == "accepted":
+        return {"intake_id": intake_id, "status": "accepted", "reused": True}
+    if data.get("status") != "pending":
+        raise ValueError("only pending Inbox items can be accepted")
+    if data.get("sensitivity_review") == "required":
+        raise ValueError("sensitivity review must be completed before acceptance")
+    if has_blocking_inbox_review(
+        knowledge_root, intake_id, str(data.get("checksum", ""))
+    ):
+        raise ValueError("inbox review must be resolved before acceptance")
+    updated = dict(data)
+    updated["status"] = "accepted"
+    updated["inspection"] = {
+        "actor": actor.strip(),
+        "inspected_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "checks": [
+            "required_metadata",
+            "provider_folder",
+            "content_checksum",
+            "sensitivity_review",
+        ],
+    }
+    path.write_text(render_markdown(updated, document.body), encoding="utf-8")
+    return {
+        "intake_id": intake_id,
+        "status": "accepted",
+        "inbox_path": path.relative_to(knowledge_root.parent.resolve()).as_posix(),
+        "reused": False,
+    }
 
 
 def complete_inbox_sensitivity_review(

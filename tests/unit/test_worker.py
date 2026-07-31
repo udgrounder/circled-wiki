@@ -3,7 +3,11 @@ import unittest
 import subprocess
 from pathlib import Path
 
-from circled_wiki.core.ingest import accept_conversation_intake, capture_conversation
+from circled_wiki.core.ingest import (
+    accept_conversation_intake,
+    accept_ready_inbox,
+    capture_conversation,
+)
 from circled_wiki.worker.jobs import (
     MaintenanceReport,
     ingest_accepted_inbox,
@@ -15,6 +19,25 @@ from circled_wiki.core.publisher import PublishError, _require_sensitive_data_re
 
 
 class WorkerJobTests(unittest.TestCase):
+    def test_accept_ready_inbox_accepts_only_items_that_already_pass_gates(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "knowledge"
+            ready = capture_conversation(
+                root, "safe source", "test", title="Ready", why_collected="test",
+                intended_use=["test"], idempotency_key="ready", sensitivity_review="completed",
+            )
+            blocked = capture_conversation(
+                root, "review source", "test", title="Blocked", why_collected="test",
+                intended_use=["test"], idempotency_key="blocked", sensitivity_review="required",
+            )
+
+            result = accept_ready_inbox(root, "batch-inspector")
+
+            self.assertEqual(result["accepted_count"], 1)
+            self.assertEqual(result["items"][0]["intake_id"], ready.intake_id)
+            self.assertEqual(result["skipped_count"], 1)
+            self.assertEqual(result["skipped"][0]["intake_id"], blocked.intake_id)
+
     def test_maintenance_report_uses_evidence_record_name_with_compatibility_alias(self):
         report = MaintenanceReport(
             valid=True,

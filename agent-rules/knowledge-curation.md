@@ -43,12 +43,13 @@ Evidence를 기존 Bundle과 비교하거나 신규 Draft를 작성한다.
 - `runbook`·`manual` Review 또는 직접 생성 가능 유형의 자동 Promotion Gate를 수행할 실행 주체 존재
 - RB-SEC-001·005와 RB-PUB-002의 보안 Gate. Draft와 active 전환의 차이는 RB-CUR-006을 적용
 - `runbook`과 `manual`은 `knowledge/curation-reviews/`의 checksum 결합 Review 카드 존재. `policy`, `guide`, `decision`, `spec`, `reference`, `report`는 Evidence·PII Gate 통과 후 Draft 직접 생성 가능
-- `runbook`과 `manual`의 Review는 사용자 또는 검증 Agent의 별도 검증 시도·주체·시각·Evidence checksum·결과 기록. 직접 생성 가능한 유형은 RB-CUR-006의 Evidence·PII·참조 무결성·전체 Validator Gate를 통과하면 별도 사람 Review 없이 자동 active 전환 가능
+- `runbook`과 `manual`의 Review는 사용자 또는 검증 Agent의 별도 검증 시도·주체·시각·Evidence checksum·결과 기록. Review 카드 생성 뒤 Curator는 현재 대화에서 승인 선택지를 묻지 않고 `knowledge/curation-reviews/` Queue에 handoff. 직접 생성 가능한 유형은 RB-CUR-006의 Evidence·PII·참조 무결성·전체 Validator Gate를 통과하면 별도 사람 Review 없이 자동 active 전환 가능
 - active Runbook은 사람이 읽는 비어 있지 않은 `## Workflow Summary` 본문 section과 `extensions.workflow` 실행 정의를 함께 가질 것
 
 ## Output
 
-정제 제안 또는 Evidence를 참조하는 Draft Bundle. 제안은 `suggested_bundle_type`을 힌트로 제공하되 Curator가
+정제 제안 또는 Evidence를 참조하는 Draft Bundle. `no_bundle`은 결정 Receipt를 남겨 자동 종결하고, `update_existing`처럼
+승인이 필요한 제안은 Review Queue handoff 결과를 반환한다. Curator는 대화형 승인 선택지를 만들지 않는다. 제안은 `suggested_bundle_type`을 힌트로 제공하되 Curator가
 원문을 검토해 `no_bundle` 또는 전체 Bundle 타입(`policy`, `guide`, `runbook`, `manual`, `decision`,
 `spec`, `reference`, `report`) 중 적절한 결과를 선택한다. 시점 기준 현황·평가·주기 보고는 `report`,
 제품·시스템 사용 절차는 `manual`, 반복 운영·장애 대응 절차는 `runbook`으로 구분한다. Business Rulebook은

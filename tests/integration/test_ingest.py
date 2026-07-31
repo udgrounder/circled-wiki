@@ -1,6 +1,6 @@
 from copy import deepcopy
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import tempfile
 import threading
 import unittest
@@ -216,6 +216,8 @@ class IngestEvidenceTests(unittest.TestCase):
     def test_markdown_file_original_does_not_overwrite_evidence_manifest(self):
         with tempfile.TemporaryDirectory() as temp_directory:
             knowledge_root = Path(temp_directory) / "knowledge"
+            fixture_reviewed_at = datetime.now(timezone.utc) - timedelta(days=1)
+            fixture_review_due_at = fixture_reviewed_at + timedelta(days=30)
             content = b"# Synthetic fixture\n\nNo personal data.\n"
             captured = capture_file(
                 knowledge_root,
@@ -272,8 +274,8 @@ class IngestEvidenceTests(unittest.TestCase):
             approved["evidence"] = evidence_ids
             approved["extensions"]["review_state"] = "approved"
             approved["extensions"]["governance"] = {
-                "reviewed_at": "2026-07-01T09:00:00+09:00",
-                "review_due_at": "2026-07-31T09:00:00+09:00",
+                "reviewed_at": fixture_reviewed_at.isoformat(),
+                "review_due_at": fixture_review_due_at.isoformat(),
                 "freshness_policy": "risk_based",
                 "risk_tier": "medium",
                 "source_volatility": "periodic",

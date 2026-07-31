@@ -20,6 +20,8 @@
 - `find_workflow` 또는 portable CLI의 `find-workflow`로 active Runbook을 먼저 탐색했는지, Runbook 신선도와 실행 중 관찰 결과
 - 직접 파일시스템 탐색은 공식 Workflow 탐색이 실패하거나 결과가 불충분할 때 작업을 계속하기 위한 최후 수단으로 사용하고,
   `system-observation` Profile의 `record-system-issue`로 문제를 남긴 뒤 fallback 사유와 사용한 범위를 기록했는지
+- 기존 공식 절차로 처리할 수 없는 Runbook 부재·모호성 때문에 사용자 의사 판단을 문의한 경우,
+  `system-observation` Profile의 `record-system-issue`로 절차 부재·모호성, 막힌 단계와 안전한 다음 행동을 기록했는지
 
 ## Gates
 

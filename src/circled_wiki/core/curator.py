@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 import re
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from .evidence import evidence_content_mode, evidence_original_bytes, evidence_original_path
 from .repository import find_document_by_id
@@ -13,7 +13,12 @@ from .search import search_knowledge
 TEXT_EXTENSIONS = {".md", ".txt", ".csv", ".json"}
 
 
-def propose_update(knowledge_root: Path, evidence_id: str) -> Dict[str, object]:
+SearchCache = Dict[Tuple[str, Tuple[Tuple[str, str], ...]], list]
+
+
+def propose_update(
+    knowledge_root: Path, evidence_id: str, *, search_cache: Optional[SearchCache] = None,
+) -> Dict[str, object]:
     """Produce a reviewable proposal; it never creates or changes a Bundle."""
     evidence = find_document_by_id(knowledge_root, evidence_id)
     if evidence is None or evidence.frontmatter.get("type") != "evidence":
@@ -26,9 +31,9 @@ def propose_update(knowledge_root: Path, evidence_id: str) -> Dict[str, object]:
     capture_context = extensions.get("capture_context", {}) if isinstance(extensions, dict) else {}
     candidates = []
     for candidate_query in _candidate_queries(query, capture_context):
-        candidates += search_knowledge(knowledge_root, candidate_query)
-        candidates += search_knowledge(
-            knowledge_root, candidate_query, {"status": "draft"}
+        candidates += _cached_search(knowledge_root, candidate_query, {}, search_cache)
+        candidates += _cached_search(
+            knowledge_root, candidate_query, {"status": "draft"}, search_cache
         )
     candidates = list({hit.document_id: hit for hit in candidates}.values())
     candidates = [
@@ -78,6 +83,17 @@ def propose_update(knowledge_root: Path, evidence_id: str) -> Dict[str, object]:
             "Any resulting Bundle must pass both OKF and the configured organization Profile validation.",
         ],
     }
+
+
+def _cached_search(
+    knowledge_root: Path, query: str, filters: Dict[str, str], cache: Optional[SearchCache],
+) -> list:
+    if cache is None:
+        return search_knowledge(knowledge_root, query, filters)
+    key = (query, tuple(sorted(filters.items())))
+    if key not in cache:
+        cache[key] = search_knowledge(knowledge_root, query, filters)
+    return cache[key]
 
 
 def _is_semantically_related(

@@ -23,7 +23,7 @@ Vault 구조·domain·provider·운영 흐름을 관리하거나 변경하는 �
 | Bundle 파일명·Frontmatter ID 규칙 확인 또는 현재 충돌 점검 | 아래 **Bundle Identity Routing**의 1~3단계를 먼저 수행. 변경 전에는 `agent-rules/knowledge-curation.md` |
 | 승인된 Bundle 파일명·Frontmatter ID 일괄 정규화 | 아래 **Bundle Identity Routing** 전체와 `agent-rules/publication.md` |
 | 검토·발행·Commit | `agent-rules/publication.md` |
-| 오류·비정상 결과·개선 기회 기록 | `agent-rules/system-observation.md` |
+| 오류·비정상 결과·개선 기회, 또는 기존 절차로 처리할 수 없는 사용자 의사 판단 사례 기록 | `agent-rules/system-observation.md` |
 | 배포 후 설치본 독립 검증 | `agent-rules/runtime-upgrade-verification.md` |
 | Circled Wiki OS version 준비·배포·rollback | Runtime mutation 금지. 제품 source repository의 `AGENTS.md`에서 `release-preparation` 또는 `deployment-coordination`으로 전환 |
 

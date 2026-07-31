@@ -20,7 +20,7 @@ from .pii import pii_scan_receipt_errors
 from .repository import create_bundle, find_document_by_id, iter_documents
 from .validator import validate_document
 from .curation_safety import curation_body_safety_errors
-from .curation_reviews import generate_curation_review
+from .curation_reviews import decide_curation_review, generate_curation_review
 from .curation_queue import complete_curation_work, list_curation_queue, record_curation_blocker
 from .bundle_types import PRE_CREATION_REVIEW_TYPES, curation_taxonomy
 
@@ -102,7 +102,9 @@ def materialize_curation_candidate(
     return {"action": "created", "bundle_id": data["id"], "path": bundle.path.relative_to(knowledge_root.parent).as_posix()}
 
 
-def run_configured_curation(knowledge_root: Path, evidence_id: str) -> Dict[str, object]:
+def run_configured_curation(
+    knowledge_root: Path, evidence_id: str, *, search_cache: Optional[Dict] = None,
+) -> Dict[str, object]:
     """Invoke an installation-configured JSON adapter, or safely return needs_review."""
     settings = load_settings(knowledge_root.resolve().parent)
     config = settings.curation
@@ -124,7 +126,7 @@ def run_configured_curation(knowledge_root: Path, evidence_id: str) -> Dict[str,
     receipt_metadata = _configured_receipt_metadata(
         evidence, config, started_at=started_at, status="started",
     )
-    proposal = propose_update(knowledge_root, evidence_id)
+    proposal = propose_update(knowledge_root, evidence_id, search_cache=search_cache)
     blocking_conditions = proposal.get("blocking_conditions", [])
     if not isinstance(blocking_conditions, list) or blocking_conditions:
         return _record_curation_failure(
@@ -159,6 +161,21 @@ def run_configured_curation(knowledge_root: Path, evidence_id: str) -> Dict[str,
             output = validate_curation_output(payload, [evidence_id])
             receipt = f"curation://{config.provider}/{config.model}/{config.profile_version}"
             completed_receipt = _completed_receipt(receipt_metadata, "completed")
+            if output.action == "no_bundle":
+                review = generate_curation_review(
+                    knowledge_root, evidence_id, output,
+                    generated_by=settings.operator_agent, curation_receipt=receipt,
+                    receipt_metadata=completed_receipt,
+                )
+                decision = decide_curation_review(
+                    knowledge_root, str(review["review_id"]), action="no_bundle",
+                    actor=settings.operator_agent,
+                    note="Configured Curator completed a contract-valid no_bundle decision.",
+                )
+                return {
+                    "action": "no_bundle", "evidence_id": evidence_id,
+                    "review_id": review["review_id"], "decision": decision,
+                }
             if output.action != "no_bundle" and output.bundle_type not in PRE_CREATION_REVIEW_TYPES:
                 materialized = materialize_curation_candidate(
                     knowledge_root, evidence_id, output,
@@ -169,11 +186,19 @@ def run_configured_curation(knowledge_root: Path, evidence_id: str) -> Dict[str,
                     knowledge_root, materialized, actor=settings.operator_agent,
                     security_receipt=_automatic_security_receipt(config, evidence),
                 )
-            return generate_curation_review(
+            review = generate_curation_review(
                 knowledge_root, evidence_id, output, generated_by=settings.operator_agent,
                 curation_receipt=receipt,
                 receipt_metadata=completed_receipt,
             )
+            return {
+                **review,
+                "handoff": {
+                    "status": "queued_for_review",
+                    "queue": "knowledge/curation-reviews/",
+                    "next_action": "Wait for the assigned reviewer or verification Agent; do not request a decision in the current conversation.",
+                },
+            }
         except subprocess.TimeoutExpired:
             failure_kind = "timeout"
         except json.JSONDecodeError:
@@ -247,6 +272,7 @@ def run_configured_curation_batch(knowledge_root: Path, *, limit: int = 100) -> 
         "auto_promotion_blocked": 0,
     }
     queued_ids = {str(item["evidence_id"]) for item in list_curation_queue(knowledge_root)}
+    search_cache: Dict = {}
     for path in iter_documents(knowledge_root):
         document = parse_markdown(path)
         data = document.frontmatter
@@ -257,7 +283,9 @@ def run_configured_curation_batch(knowledge_root: Path, *, limit: int = 100) -> 
             or (isinstance(extensions, dict) and extensions.get("visibility") == "restricted")
         ):
             continue
-        result = run_configured_curation(knowledge_root, str(data["id"]))
+        result = run_configured_curation(
+            knowledge_root, str(data["id"]), search_cache=search_cache,
+        )
         action = str(result.get("action", "needs_review"))
         reason = str(result.get("reason", ""))
         promotion = result.get("promotion")
@@ -286,6 +314,7 @@ def run_configured_curation_batch(knowledge_root: Path, *, limit: int = 100) -> 
             break
     return {
         "limit": limit, "attempted": len(items), "counts": counts, "items": items,
+        "cached_searches": len(search_cache),
         "usage": {"tokens": "unknown", "cost": "unknown", "reason": "adapter usage receipts are not yet supplied"},
     }
 

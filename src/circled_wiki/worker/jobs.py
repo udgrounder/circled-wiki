@@ -62,6 +62,7 @@ def run_curation_batch(knowledge_root: Path, limit: int = 100) -> Dict[str, obje
         raise ValueError("limit must be an integer between 1 and 1000")
     pending: List[Dict[str, object]] = []
     skipped_restricted = 0
+    search_cache = {}
     queued_ids = {str(item["evidence_id"]) for item in list_curation_queue(knowledge_root)}
     for path in iter_documents(knowledge_root):
         if path.name in {"index.md", "log.md"}:
@@ -76,12 +77,15 @@ def run_curation_batch(knowledge_root: Path, limit: int = 100) -> Dict[str, obje
         if isinstance(extensions, dict) and extensions.get("visibility") == "restricted":
             skipped_restricted += 1
             continue
-        pending.append(propose_update(knowledge_root, str(data["id"])))
+        pending.append(propose_update(
+            knowledge_root, str(data["id"]), search_cache=search_cache,
+        ))
         if len(pending) >= limit:
             break
     return {
         "proposal_count": len(pending),
         "skipped_restricted": skipped_restricted,
+        "cached_searches": len(search_cache),
         "proposals": pending,
     }
 

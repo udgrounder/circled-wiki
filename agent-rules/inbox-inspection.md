@@ -17,6 +17,7 @@
 - 외부 문서의 source URL·locator 존재 여부 검사
 - `required` 민감성 상태는 식별된 검토자의 `completed` 또는 `not_applicable` 결정으로만 해소. 이 상태는 `workspace/task/inbox-review-queue/`의 예외 작업으로 표시하며 원문은 큐에 복사하지 않음
 - 통과 항목을 검사자 actor와 함께 `accepted`로 기록
+- `inspect-inbox` 검사 보고에서 통과했고 필요한 민감성·PII 예외가 모두 해소된 여러 `pending` 항목은 `accept-ready-inbox`로 한 번에 `accepted`로 전환. 이 일괄 처리는 검사·민감성 결정·PII 예외 해소를 대신하거나 우회하지 않음
 
 ## Checks
 

@@ -222,6 +222,21 @@ class AgentRuleProfileTests(unittest.TestCase):
         self.assertIn("직접 `find`,\n   `grep`, `rg` 탐색은", bootstrap)
         self.assertIn("`record-system-issue`", bootstrap)
 
+    def test_unhandled_procedure_ambiguity_that_requires_user_judgment_is_recorded(self):
+        operating = (ROOT / "OPERATING_RULES.md").read_text(encoding="utf-8")
+        observation = (ROOT / "agent-rules" / "system-observation.md").read_text(
+            encoding="utf-8"
+        )
+        workflow = (ROOT / "agent-rules" / "workflow-execution.md").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("기존 공식 절차로 처리할 수 없는", operating)
+        self.assertIn("사용자 의사 판단", operating)
+        self.assertIn("향후 그런 실시간 판단을 줄이기", observation)
+        self.assertIn("기존 절차를 변경·차단하거나", observation)
+        self.assertIn("기존 공식 절차로 처리할 수 없는", workflow)
+
     def test_bundle_identity_contract_is_directly_discoverable_to_runtime_agents(self):
         router = (ROOT / ".circled-wiki" / "AGENT_ROUTER.md").read_text(
             encoding="utf-8"

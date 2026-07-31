@@ -428,8 +428,35 @@ class CurationMaterializationTests(unittest.TestCase):
                     result = run_configured_curation(root, evidence_id)
 
             self.assertEqual(result["action"], "created_review")
+            self.assertEqual(result["handoff"]["status"], "queued_for_review")
             self.assertEqual(len(list_curation_reviews(root)), 1)
             self.assertEqual(list_curation_candidates(root), [])
+
+    def test_configured_adapter_automatically_closes_a_valid_no_bundle_decision(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, evidence_id = self._evidence(directory)
+            config = root.parent / ".circled-wiki" / "config.yaml"
+            config.parent.mkdir(exist_ok=True)
+            config.write_text(
+                "schema_version: 1\ncuration:\n"
+                "  enabled: true\n  provider: test\n  model: curated\n  command: adapter\n",
+                encoding="utf-8",
+            )
+            output = {
+                "action": "no_bundle", "evidence_ids": [evidence_id],
+                "rationale": "The Evidence duplicates existing knowledge.",
+                "recheck_condition": "New non-duplicate Evidence arrives.",
+            }
+            completed = type("Completed", (), {"stdout": json.dumps(output)})()
+
+            with patch("circled_wiki.core.curation.propose_update", return_value={"recommended_action": "no_bundle", "blocking_conditions": []}):
+                with patch("circled_wiki.core.curation.subprocess.run", return_value=completed):
+                    result = run_configured_curation(root, evidence_id)
+
+            self.assertEqual(result["action"], "no_bundle")
+            self.assertEqual(result["decision"]["status"], "no_bundle")
+            self.assertEqual(list_curation_reviews(root), [])
+            self.assertEqual(list_curation_queue(root), [])
 
     def test_configured_curation_batch_counts_report_as_auto_promoted(self):
         with tempfile.TemporaryDirectory() as directory:

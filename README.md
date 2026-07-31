@@ -210,14 +210,25 @@ PYTHONPATH=src python3 -m circled_wiki.cli review-curation-candidate \
   --actor <reviewer-id>
 ```
 
-외부 Curator가 야간에 처리한 결과는 Bundle 대신 Git 추적 검토카드 `knowledge/curation-reviews/`에 먼저 저장된다.
+외부 Curator가 야간에 처리한 결과 중 Review가 필요한 항목은 Bundle 대신 Git 추적 검토카드 `knowledge/curation-reviews/`에 먼저 저장된다.
 카드는 Evidence ID·상대 경로·checksum을 함께 기록하며, `approve` 전에는 Bundle을 만들지 않는다.
 신규 Draft Bundle 생성 승인이 성공하면 승인 정보는 Bundle의 Curation metadata로 옮기고 소비된 검토카드는 삭제한다.
+카드가 생성된 Curator 작업은 Review Queue handoff로 종료하며, 현재 대화에서 승인 선택지를 묻지 않는다. 계약을 충족한
+`no_bundle`은 결정 Receipt를 남긴 뒤 자동 종결한다.
 
 ```sh
 PYTHONPATH=src python3 -m circled_wiki.cli list-curation-reviews
 PYTHONPATH=src python3 -m circled_wiki.cli decide-curation-review \
   --review review-<id> --action approve --actor <reviewer-id>
+```
+
+`inspect-inbox` 검사 보고에서 통과했고 필요한 민감성·PII 예외가 모두 해소된 여러 Inbox는, 항목별
+`accept-inbox` 호출 대신 한 번의 순회로 일괄 승인할 수 있다. 이 명령은 검사·민감성 결정·PII 예외 해소를
+대신하거나 우회하지 않고, 사전 Gate를 통과한 항목만 `accepted`로 전환한다.
+
+```sh
+PYTHONPATH=src python3 -m circled_wiki.cli accept-ready-inbox \
+  --actor <inspection-agent> --limit 100
 ```
 
 자동 정제 결과 중 `manual`과 `runbook`은 항상 `curation-reviews/` Review 카드로 먼저 생성되며, 사용자 또는 검증
@@ -597,6 +608,10 @@ Graphify는 Circled Wiki와 별도 설치하는 파생 관계 인덱스다. Boot
 ### 운영 이슈와 사용자 피드백
 
 운영 중 발생한 오류·불편·개선 제안과 사용자가 제기한 문제는 사용자 소유 `workspace/issues/`에 기록한다.
+기존 공식 절차로 처리할 수 없는 부재·모호성 때문에 사용자 의사 판단을 문의해야 하는 경우도 이슈로 기록하며,
+Agent가 발견한 절차 문제는 `--reported-from agent`를 사용한다. 이는 이미 잘 동작하는 절차를 막는 Gate가 아니라,
+향후 실시간 사용자 판단을 줄이기 위한 개선 입력이다. 문의 내용, 막힌 단계, 불명확한 절차와 안전한 다음 행동을
+사실과 가설로 구분한다.
 Runtime 운영 중 legacy `.circled-wiki/issues/`는 기존 기록을 제자리에서 읽고 상태 갱신할 수 있지만 일반 upgrade가 이동하지 않는다. Product Agent는 사용자가 특정 Issue 수집 또는 migration을 명시적으로 요청한 경우에만 Git Gate를 거쳐 이동할 수 있다.
 CLI에서는
 `--reported-from user`로 사용자 제기를 구분한다.

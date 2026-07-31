@@ -11,6 +11,7 @@ from .curator import propose_update
 from .ingest import (
     CaptureResult,
     accept_conversation_intake,
+    accept_ready_inbox,
     capture_conversation,
     capture_document,
     capture_file,
@@ -225,6 +226,9 @@ class KnowledgeService:
 
     def accept_inbox(self, intake_id: str, actor: str) -> Dict[str, object]:
         return accept_conversation_intake(self.knowledge_root, intake_id, actor)
+
+    def accept_ready_inbox(self, actor: str, limit: int = 100) -> Dict[str, object]:
+        return accept_ready_inbox(self.knowledge_root, actor, limit=limit)
 
     def review_inbox_sensitivity(
         self, intake_id: str, actor: str, decision: str
