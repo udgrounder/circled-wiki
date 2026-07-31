@@ -48,8 +48,7 @@ Evidence를 기존 Bundle과 비교하거나 신규 Draft를 작성한다.
 
 ## Output
 
-정제 제안 또는 Evidence를 참조하는 Draft Bundle. `no_bundle`은 결정 Receipt를 남겨 자동 종결하고, `update_existing`처럼
-승인이 필요한 제안은 Review Queue handoff 결과를 반환한다. Curator는 대화형 승인 선택지를 만들지 않는다. 제안은 `suggested_bundle_type`을 힌트로 제공하되 Curator가
+정제 제안 또는 Evidence를 참조하는 Draft Bundle. `no_bundle`은 결정 Receipt를 남겨 자동 종결한다. 기존 `reference`·`report`의 갱신은 configured Curator의 후보가 제안 대상과 일치하고 Evidence·Security·Validator·revision Gate 및 자동 갱신 Receipt를 통과하면 자동 적용할 수 있다. 그 외 `update_existing`처럼 승인이 필요한 제안은 Review Queue handoff 결과를 반환한다. Curator는 대화형 승인 선택지를 만들지 않는다. 제안은 `suggested_bundle_type`을 힌트로 제공하되 Curator가
 원문을 검토해 `no_bundle` 또는 전체 Bundle 타입(`policy`, `guide`, `runbook`, `manual`, `decision`,
 `spec`, `reference`, `report`) 중 적절한 결과를 선택한다. 시점 기준 현황·평가·주기 보고는 `report`,
 제품·시스템 사용 절차는 `manual`, 반복 운영·장애 대응 절차는 `runbook`으로 구분한다. Business Rulebook은
@@ -59,7 +58,7 @@ Evidence를 기존 Bundle과 비교하거나 신규 Draft를 작성한다.
 Evidence 정제 결과와 Curation Queue 소비는 RB-EVD-003·023을 적용한다. Queue 재처리 시에는 같은 Evidence의 미완료 Review 카드를 먼저 재사용하고, 카드가 없을 때만 새 UUID 카드를 만든다. Curator가 Review 카드를 만들면 해당 카드가
 검토 handoff를 표현한다. Review 카드는 Evidence ID·상대
 경로·checksum·제목·수집 목적·intended use의 안전한 snapshot을 보존하며, 실제 Evidence 링크를 기준으로 검토한다. 신규 Draft 승인 또는
-`no_bundle` 결정으로 작업을 소비하면 카드를 숨김 archive로 이동해 기본 목록에서는 제거하되 결정 receipt는 보존한다. `update_existing` 승인 카드는
+`no_bundle` 결정으로 작업을 소비하면 카드를 숨김 archive로 이동해 기본 목록에서는 제거하되 결정 receipt는 보존한다. 자동 갱신 대상이 아닌 `update_existing` 승인 카드는
 전용 적용 전까지 `approved`로 유지하고, 적용 직전 checksum·대상 revision을 다시 확인한다. 적용되면 최초 생성 Review를 유지한 채
 `extensions.curation.review_receipts`에 보완 이력을 누적하고 카드를 archive한다.
 Evidence 원문은 카드에 복사하지 않는다. stale 카드는 RB-CUR-004에 따라 archive하고 다시 큐잉한다. Adapter 실패는

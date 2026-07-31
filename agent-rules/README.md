@@ -59,6 +59,7 @@ inbox-capture
 | Current | Action and Profile | Required Gate | Next |
 | --- | --- | --- | --- |
 | 없음 | `capture_conversation` · Inbox Capture | 필수 입력, 안전 경로, idempotency, 모든 수집 주체의 공통 민감정보 사전 점검 | `pending` |
+| `pending` | Inbox 업무성 분류 | `non_business_confirmed`인 경우에만 분류기·규칙 버전·사유를 남겨 격리. 애매하거나 분류 불가는 폐기 금지 | 격리 일괄 검토 또는 Inbox Inspection |
 | `pending` | `inspect_inbox` · Inbox Inspection | 메타데이터, 경로, checksum, Inbox Sensitive Data Review 상태 | 승인 가능 또는 보류 |
 | `pending` + `sensitivity_review: required` | `review_inbox_sensitivity` · Inbox Inspection | 식별된 사람의 완료·비해당 결정 | 승인 검사 가능 |
 | `needs_review` 또는 판단 불가 Gate | Inbox 예외 계약 작업 (`inbox_reconciliation`) | Inbox ID·checksum·현재 단계·요청 조치만 기록, 원문은 복사하지 않음. `list_inbox_review_queue`는 이 작업의 조회 뷰다. | 사용자 결정 또는 안전한 후속 입력 대기 |

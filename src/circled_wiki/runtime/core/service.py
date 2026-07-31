@@ -31,6 +31,7 @@ from .curation_reviews import (
 )
 from .curation_queue import list_curation_queue, refresh_curation_queue
 from .inbox_review_queue import list_inbox_review_queue
+from .inbox_disposals import decide_inbox_disposal, list_inbox_disposals, quarantine_inbox_item
 from .curation_contract import validate_curation_output
 from .config_audit import audit_hardcoded_install_values
 from .search import search_knowledge
@@ -223,6 +224,15 @@ class KnowledgeService:
 
     def list_inbox_review_queue(self) -> List[Dict[str, object]]:
         return list_inbox_review_queue(self.knowledge_root)
+
+    def quarantine_inbox_item(self, intake_id: str, *, classifier: str, rule_version: str, reason: str) -> Dict[str, object]:
+        return quarantine_inbox_item(self.knowledge_root, intake_id, classifier=classifier, rule_version=rule_version, reason=reason)
+
+    def list_inbox_disposals(self) -> List[Dict[str, object]]:
+        return list_inbox_disposals(self.knowledge_root)
+
+    def decide_inbox_disposal(self, intake_id: str, *, decision: str, actor: str) -> Dict[str, object]:
+        return decide_inbox_disposal(self.knowledge_root, intake_id, decision=decision, actor=actor)
 
     def accept_inbox(self, intake_id: str, actor: str) -> Dict[str, object]:
         return accept_conversation_intake(self.knowledge_root, intake_id, actor)

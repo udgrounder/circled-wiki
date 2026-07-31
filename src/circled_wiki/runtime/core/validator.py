@@ -413,6 +413,29 @@ def _validate_curation(
                     result.profile_errors.append("extensions.curation.review_receipts.applied_revision must be a positive integer")
                 if not isinstance(receipt.get("decision_note", ""), str):
                     result.profile_errors.append("extensions.curation.review_receipts.decision_note must be a string")
+    automatic_updates = curation.get("automatic_update_receipts")
+    if automatic_updates is not None:
+        if not isinstance(automatic_updates, list) or not automatic_updates:
+            result.profile_errors.append("extensions.curation.automatic_update_receipts must be a non-empty array")
+        else:
+            for receipt in automatic_updates:
+                if not isinstance(receipt, dict):
+                    result.profile_errors.append("extensions.curation.automatic_update_receipts items must be objects")
+                    continue
+                if not _evidence_uri(organization_id).match(str(receipt.get("evidence_id", ""))):
+                    result.profile_errors.append("extensions.curation.automatic_update_receipts.evidence_id must be a valid Evidence URI")
+                checksum = receipt.get("evidence_checksum")
+                if not isinstance(checksum, str) or not re.fullmatch(r"sha256:[0-9a-f]{64}", checksum):
+                    result.profile_errors.append("extensions.curation.automatic_update_receipts.evidence_checksum must be a sha256 checksum")
+                for field in ("expected_knowledge_revision", "applied_revision"):
+                    value = receipt.get(field)
+                    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+                        result.profile_errors.append(f"extensions.curation.automatic_update_receipts.{field} must be a positive integer")
+                for field in ("curation_receipt", "security_receipt", "applied_by"):
+                    if not _is_nonempty_string(receipt.get(field)):
+                        result.profile_errors.append(f"extensions.curation.automatic_update_receipts.{field} must be non-empty")
+                if not _is_timestamp(receipt.get("applied_at")):
+                    result.profile_errors.append("extensions.curation.automatic_update_receipts.applied_at must be ISO 8601")
     history = curation.get("review_history")
     if history is not None:
         if not isinstance(history, list) or not history:

@@ -220,6 +220,25 @@ def complete_inbox_review(
     return True
 
 
+def suspend_inbox_review(knowledge_root: Path, *, intake_id: str, source_checksum: str) -> bool:
+    """Archive an unresolved Inbox review while its source awaits disposal review."""
+    review = get_inbox_review(knowledge_root, intake_id)
+    if review is None:
+        return False
+    if review.get("source_checksum") != source_checksum:
+        raise ValueError("active inbox review belongs to a different source checksum")
+    source = review.pop("queue_path")
+    review.pop("queue_id", None)
+    review.update({"status": "quarantined", "quarantined_at": _now()})
+    review["current"] = {"stage": "disposal_review", "status": "quarantined"}
+    _append_step(review, stage="disposal_review", status="quarantined", outcome="quarantined")
+    archive = _archive_root(knowledge_root) / source.name
+    archive.parent.mkdir(parents=True, exist_ok=True)
+    archive.write_text(render_markdown(review), encoding="utf-8")
+    source.unlink(missing_ok=True)
+    return True
+
+
 def _append_step(data: Dict[str, object], *, stage: str, status: str, outcome: str) -> None:
     steps = data.get("step_receipts")
     if not isinstance(steps, list):

@@ -26,6 +26,9 @@ TOOLS = [
     {"name": "inspect_inbox", "description": "Read-only validation of pending conversation, document, and file Inbox items against the inspection gate.", "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer", "minimum": 1, "maximum": 1000, "default": 100}}}},
     {"name": "record_inbox_pii_scan", "description": "Record a checksum-bound PII Scan Receipt on an Inbox item before immutable Evidence creation.", "inputSchema": {"type": "object", "required": ["intake_id", "scanner", "scanner_version", "result", "reviewed_by", "receipt"], "properties": {"intake_id": {"type": "string"}, "scanner": {"type": "string"}, "scanner_version": {"type": "string"}, "result": {"type": "string", "enum": ["passed", "masked", "needs_review"]}, "reviewed_by": {"type": "string"}, "receipt": {"type": "string"}, "scanned_at": {"type": "string", "format": "date-time"}}}},
     {"name": "list_inbox_review_queue", "description": "List exceptional Inbox items awaiting a human decision or automatic reprocessing.", "inputSchema": {"type": "object", "properties": {}}},
+    {"name": "quarantine_inbox_item", "description": "Move a classifier-confirmed non-business Inbox item to reversible quarantine. It is excluded from Evidence and Curation until a later batch decision.", "inputSchema": {"type": "object", "required": ["intake_id", "classifier", "rule_version", "reason"], "properties": {"intake_id": {"type": "string"}, "classifier": {"type": "string"}, "rule_version": {"type": "string"}, "reason": {"type": "string"}}}},
+    {"name": "list_inbox_disposals", "description": "List quarantined Inbox items that await a batch recover-or-dispose decision without returning source content.", "inputSchema": {"type": "object", "properties": {}}},
+    {"name": "decide_inbox_disposal", "description": "Recover one quarantined Inbox item or dispose its original while retaining a minimal decision receipt.", "inputSchema": {"type": "object", "required": ["intake_id", "decision", "actor"], "properties": {"intake_id": {"type": "string"}, "decision": {"type": "string", "enum": ["recover", "dispose"]}, "actor": {"type": "string"}}}},
     {"name": "review_inbox_sensitivity", "description": "Record an identified human sensitivity-review decision before Inbox acceptance.", "inputSchema": {"type": "object", "required": ["intake_id", "actor", "decision"], "properties": {"intake_id": {"type": "string"}, "actor": {"type": "string"}, "decision": {"type": "string", "enum": ["completed", "not_applicable"]}}}},
     {"name": "accept_inbox", "description": "Record an identified inspector acceptance for one pending Inbox item that passes all gates.", "inputSchema": {"type": "object", "required": ["intake_id", "actor"], "properties": {"intake_id": {"type": "string"}, "actor": {"type": "string"}}}},
     {"name": "accept_ready_inbox", "description": "In one bounded traversal, accept every pending Inbox item that already passes all inspection gates. It never resolves sensitivity or PII review items.", "inputSchema": {"type": "object", "required": ["actor"], "properties": {"actor": {"type": "string"}, "limit": {"type": "integer", "minimum": 1, "maximum": 1000, "default": 100}}}},
@@ -70,7 +73,7 @@ TOOLS = [
 ]
 
 READ_ONLY_TOOLS = {
-    "search_knowledge", "read_bundle", "prepare_context", "propose_update", "propose_pending", "inspect_inbox", "list_inbox_review_queue", "list_curation_candidates", "list_curation_reviews", "list_curation_queue",
+    "search_knowledge", "read_bundle", "prepare_context", "propose_update", "propose_pending", "inspect_inbox", "list_inbox_review_queue", "list_inbox_disposals", "list_curation_candidates", "list_curation_reviews", "list_curation_queue",
     "validate_result", "find_workflow", "audit_knowledge", "list_knowledge_inventory", "audit_hardcoded_install_values", "curation_backlog_metrics",
     "validate_claim_support", "measure_runbook_effectiveness", "get_task",
 }
@@ -154,6 +157,14 @@ def handle_request(
             )
             elif name == "inspect_inbox": content = service.inspect_inbox(arguments.get("limit", 100))
             elif name == "list_inbox_review_queue": content = service.list_inbox_review_queue()
+            elif name == "quarantine_inbox_item": content = service.quarantine_inbox_item(
+                arguments["intake_id"], classifier=arguments["classifier"],
+                rule_version=arguments["rule_version"], reason=arguments["reason"],
+            )
+            elif name == "list_inbox_disposals": content = service.list_inbox_disposals()
+            elif name == "decide_inbox_disposal": content = service.decide_inbox_disposal(
+                arguments["intake_id"], decision=arguments["decision"], actor=arguments["actor"],
+            )
             elif name == "record_inbox_pii_scan": content = service.record_inbox_pii_scan(
                 arguments["intake_id"], scanner=arguments["scanner"],
                 scanner_version=arguments["scanner_version"], result=arguments["result"],

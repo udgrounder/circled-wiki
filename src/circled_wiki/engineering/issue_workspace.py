@@ -465,6 +465,11 @@ def _find_operational_issue(project_root: Path, issue_ref: str) -> Path:
         project_root / "workspace" / "issues",
         project_root / ".circled-wiki" / "issues",
     )
+    supplied_path = (project_root / issue_ref).resolve()
+    if any(root.resolve() in supplied_path.parents for root in roots):
+        if supplied_path.is_file() and supplied_path.name.startswith("issue-") and supplied_path.suffix == ".md":
+            return supplied_path
+        raise ValueError("issue_ref path must identify one operational Issue below workspace/issues")
     matches = [
         path
         for root in roots

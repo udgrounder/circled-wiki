@@ -523,6 +523,104 @@ class CurationMaterializationTests(unittest.TestCase):
                 errors,
             )
 
+    def test_configured_curation_automatically_updates_existing_reference(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, evidence_id = self._evidence(directory)
+            self._install_curation_contract(root)
+            target = create_bundle(
+                root, domain="marketing", slug="existing-reference", title="Existing reference",
+                bundle_type="reference", summary="Before update.", evidence_id=evidence_id,
+            )
+            source = root / "inbox" / "manual" / "reference-update.txt"
+            source.parent.mkdir(parents=True, exist_ok=True)
+            source.write_text("new reference source", encoding="utf-8")
+            checksum = "sha256:" + hashlib.sha256(source.read_bytes()).hexdigest()
+            scan = build_pii_scan_receipt(
+                checksum, scanner="test", scanner_version="1", result="passed",
+                reviewed_by="security", receipt="test://pii-update",
+            )
+            update_evidence_id = ingest_evidence(
+                root, source, "manual", why_collected="update", intended_use=["marketing"],
+                pii_scan_receipt=scan,
+            ).evidence_id
+            config = root.parent / ".circled-wiki" / "config.yaml"
+            config.parent.mkdir(exist_ok=True)
+            config.write_text(
+                "schema_version: 1\ncuration:\n"
+                "  enabled: true\n  provider: test\n  model: reference\n  command: adapter\n",
+                encoding="utf-8",
+            )
+            output = {
+                "action": "reference", "domain": "marketing", "bundle_type": "reference",
+                "title": "Updated reference", "summary": "After update.", "body": "# Updated reference",
+                "evidence_ids": [update_evidence_id], "existing_bundle_candidates": [target.frontmatter["id"]],
+                "tags": ["updated", "reference"],
+            }
+            completed = type("Completed", (), {"stdout": json.dumps(output)})()
+            proposal = {
+                "recommended_action": "update_existing", "blocking_conditions": [],
+                "candidate_bundles": [{"id": target.frontmatter["id"]}],
+            }
+
+            with patch("circled_wiki.core.curation.propose_update", return_value=proposal):
+                with patch("circled_wiki.core.curation.subprocess.run", return_value=completed):
+                    result = reconcile_curation(root, limit=1)
+
+            self.assertEqual(result["outcomes"][0]["outcome"], "published")
+            self.assertEqual(result["after"]["items"], [])
+            updated = find_document_by_id(root, target.frontmatter["id"])
+            self.assertEqual(updated.frontmatter["title"], "Updated reference")
+            self.assertEqual(updated.frontmatter["extensions"]["knowledge_revision"], 2)
+            receipt = updated.frontmatter["extensions"]["curation"]["automatic_update_receipts"][-1]
+            self.assertEqual(receipt["evidence_checksum"], find_document_by_id(root, update_evidence_id).frontmatter["checksum"])
+            self.assertTrue(validate_document(updated.path, root).is_valid)
+            self.assertEqual(list_curation_reviews(root), [])
+
+    def test_configured_curation_automatically_updates_existing_report(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, evidence_id = self._evidence(directory)
+            target = create_bundle(
+                root, domain="marketing", slug="existing-report", title="Existing report",
+                bundle_type="report", summary="Before update.", evidence_id=evidence_id,
+            )
+            source = root / "inbox" / "manual" / "report-update.txt"
+            source.parent.mkdir(parents=True, exist_ok=True)
+            source.write_text("new report source", encoding="utf-8")
+            checksum = "sha256:" + hashlib.sha256(source.read_bytes()).hexdigest()
+            update_evidence_id = ingest_evidence(
+                root, source, "manual", why_collected="update", intended_use=["marketing"],
+                pii_scan_receipt=build_pii_scan_receipt(
+                    checksum, scanner="test", scanner_version="1", result="passed",
+                    reviewed_by="security", receipt="test://pii-report-update",
+                ),
+            ).evidence_id
+            config = root.parent / ".circled-wiki" / "config.yaml"
+            config.parent.mkdir(exist_ok=True)
+            config.write_text(
+                "schema_version: 1\ncuration:\n"
+                "  enabled: true\n  provider: test\n  model: report\n  command: adapter\n",
+                encoding="utf-8",
+            )
+            output = {
+                "action": "report", "domain": "marketing", "bundle_type": "report",
+                "title": "Updated report", "summary": "After update.", "body": "# Updated report",
+                "evidence_ids": [update_evidence_id], "existing_bundle_candidates": [target.frontmatter["id"]],
+                "tags": ["updated", "report"],
+            }
+            completed = type("Completed", (), {"stdout": json.dumps(output)})()
+            proposal = {"recommended_action": "update_existing", "blocking_conditions": [], "candidate_bundles": [{"id": target.frontmatter["id"]}]}
+
+            with patch("circled_wiki.core.curation.propose_update", return_value=proposal):
+                with patch("circled_wiki.core.curation.subprocess.run", return_value=completed):
+                    result = run_configured_curation(root, update_evidence_id)
+
+            self.assertEqual(result["action"], "updated")
+            updated = find_document_by_id(root, target.frontmatter["id"])
+            self.assertEqual(updated.frontmatter["title"], "Updated report")
+            self.assertEqual(updated.frontmatter["extensions"]["knowledge_revision"], 2)
+            self.assertTrue(validate_document(updated.path, root).is_valid)
+            self.assertEqual(list_curation_queue(root), [])
+
     def test_configured_curation_batch_reports_bounded_needs_review_outcomes(self):
         with tempfile.TemporaryDirectory() as directory:
             root, evidence_id = self._evidence(directory)

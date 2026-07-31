@@ -82,7 +82,7 @@ find_workflow
 
 ### Knowledge Change
 
-- 시스템 생성 대화·Outcome 텍스트는 `capture_conversation -> knowledge/inbox/<provider>/`까지만 동기 처리한다. 이후 `inspect_inbox -> review_inbox_sensitivity -> accept_inbox -> ingest_accepted -> propose_pending`을 단계별로 수행한다.
+- 시스템 생성 대화·Outcome 텍스트는 `capture_conversation -> knowledge/inbox/<provider>/`까지만 동기 처리한다. Inbox 처리 규약의 첫 단계는 업무성 분류다. 분류기가 `non_business_confirmed`로 확정한 항목만 `quarantine_inbox_item`으로 격리하여 Evidence·Curation 대상에서 제외하고, `list_inbox_disposals -> decide_inbox_disposal`의 일괄 검토에서만 복구 또는 폐기를 확정한다. 이 단계는 분류기·규칙 버전·사유를 기록하지만 업무성을 추정하지 않는다. 애매하거나 분류할 수 없는 항목은 폐기하지 않고 기존 `inspect_inbox -> review_inbox_sensitivity -> accept_inbox -> ingest_accepted -> propose_pending` 흐름을 그대로 따른다.
 - **RB-ROUTE-008** 지식 변경은 `ingest_evidence -> propose_update -> create_draft_bundle | apply_bundle_revision` 흐름을 사용한다.
 - **RB-ROUTE-009** Task Outcome은 공식 Bundle을 직접 변경하지 않는다.
 - **RB-ROUTE-010** 사용자·지정 Batch·Hermes가 수집한 원본은 `knowledge/inbox/` 아래에서만 ingest한다.
@@ -91,7 +91,7 @@ find_workflow
 - **RB-ROUTE-013** Agent는 `.circled-wiki/AGENT_ROUTER.md` Routing Table에서 현재 작업 Profile을 선택하고 해당 `agent-rules/` 파일의 Check·Gate·금지 사항만 추가 적용한다.
 - **RB-ROUTE-014** 대상 프로젝트를 운영하는 Agent는 요청 처리 전 선택한 Profile을 적용한다. CLI 실패·Validator 오류·예상과 다른 결과가 발생하면 해당 건이 정상적인 입력·권한·Gate 결과인지, 기존 업무 지침의 부재·모호성인지, Runtime·도구 결함인지 먼저 구분한다. 개선이 필요한 지침 부재·모호성 또는 Runtime·도구 결함으로 판단한 경우에만 민감정보를 제외한 `record-system-issue`를 남긴다. 일시적 입력 오류와 이미 안내된 Gate 거부는 현재 요청의 실패·다음 행동만 반환하며 이슈로 축적하지 않는다. 판단 근거가 부족하면 결함·지침 부재를 추정하지 않고 현재 요청의 사실과 안전한 다음 행동을 보고한다. 이슈 기록은 자동 수정 권한이 아니며, 기록 또는 복구가 실패하면 완료를 주장하지 않고 원인을 보고한다.
 - **RB-ROUTE-015** `agent-rules/contracts/index.yaml`에 등록된 영역별 단계 계약은 현재 Frontmatter와 Queue의 상태를 기준으로 안전한 선행 단계를 재수행할 수 있다. 계약은 승인·민감성 판단·PII 처리 결정을 추정하거나 대체하지 않으며, 해당 결정이 없으면 기존 Queue와 상태를 유지하고 안전한 다음 행동만 반환한다.
-- **RB-ROUTE-016** Curation 계약은 configured Curator의 분석 결과를 `no_bundle_recorded`, `review_handoff`, 자동 Gate를 통과한 `published`, Gate 실패로 남은 `draft_created`, 재시도 가능한 `queued` 중 하나로 기록한다. 각 outcome은 Queue 완료 또는 유지 여부를 함께 검증한다. 의미 변경 승인, `runbook`·`manual` 승격과 승인된 `update_existing` revision 적용은 Curation 재조정 outcome이 아니며, 각각 기존 Review·Owner·checksum·revision Gate를 별도 호출로 통과해야 한다. 계약 재조정이 이를 대신하지 않는다.
+- **RB-ROUTE-016** Curation 계약은 configured Curator의 분석 결과를 `no_bundle_recorded`, `review_handoff`, 자동 Gate를 통과한 `published`, Gate 실패로 남은 `draft_created`, 재시도 가능한 `queued` 중 하나로 기록한다. 각 outcome은 Queue 완료 또는 유지 여부를 함께 검증한다. `reference`·`report`의 자동 갱신은 Evidence·보안·Validator·대상 revision Gate와 자동 갱신 Receipt를 통과했을 때 `published` outcome으로 기록한다. 그 밖의 의미 변경 승인, `runbook`·`manual` 승격과 `policy`·`guide`·`decision`·`spec`의 `update_existing` revision 적용은 기존 Review·Owner·checksum·revision Gate를 별도 호출로 통과해야 한다. 계약 재조정이 이를 대신하지 않는다.
 
 ## 3. Knowledge Invariants
 
@@ -265,7 +265,7 @@ accepted Evidence
 - **RB-CUR-001** `runbook`과 `manual` 신규 Bundle 정제 제안은 Evidence checksum, 생성 actor와 제안 내용을 가진 `curation_review` 카드로 먼저 기록한다. `policy`, `guide`, `decision`, `spec`, `reference`, `report` Draft는 Evidence·PII Gate를 통과하면 직접 생성할 수 있다.
 - **RB-CUR-002** `runbook`과 `manual` Draft는 Review 카드가 승인되고 RB-CUR-003 검증 기록이 있을 때만 생성할 수 있다. 기본 Owner 설정은 후보를 배정할 수 있을 뿐, 검토·승인을 자동으로 기록하지 않는다.
 - **RB-CUR-003** Review 검증은 사용자 또는 허용된 검증 Agent가 별도 검증 시도로 기록한다. 생성 actor와의 동일성은 금지 조건이 아니나, 생성 직후 동일 실행 시도의 자동 검증은 허용하지 않는다. 검증 기록에는 주체·시각·검증 시도 ID·현재 Evidence checksum·결과를 남긴다.
-- **RB-CUR-004** Review가 필요한 유형에서 카드가 없으면 Draft 생성·revision·Promotion을 중단한다. Curation Queue 재처리는 동일 Evidence의 미완료 Review 카드를 먼저 찾아 재사용하고, 카드가 없을 때만 새 UUID 카드를 생성한다. Review 카드가 생성되면 Curator는 현재 요청 대화에서 승인 선택지를 묻지 않고 `knowledge/curation-reviews/`의 비동기 Review Queue handoff로 종료한다. 승인 또는 `update_existing` 적용 직전에는 현재 Evidence checksum과 대상 Bundle revision을 다시 확인하며, 달라지면 stale 처리한다. 기존 Bundle 갱신은 승인된 `update_existing` Review의 전용 적용 경로로만 수행한다. stale 카드는 숨김 archive로 보존하고 해당 Evidence를 Curation Queue에 다시 등록해 현재 상태 기준 제안을 새로 만든다.
+- **RB-CUR-004** Review가 필요한 유형에서 카드가 없으면 Draft 생성·revision·Promotion을 중단한다. Curation Queue 재처리는 동일 Evidence의 미완료 Review 카드를 먼저 찾아 재사용하고, 카드가 없을 때만 새 UUID 카드를 생성한다. Review 카드가 생성되면 Curator는 현재 요청 대화에서 승인 선택지를 묻지 않고 `knowledge/curation-reviews/`의 비동기 Review Queue handoff로 종료한다. 승인 또는 `update_existing` 적용 직전에는 현재 Evidence checksum과 대상 Bundle revision을 다시 확인하며, 달라지면 stale 처리한다. 기존 Bundle 갱신은 `reference`·`report`만 configured Curator가 제안한 대상과 정확히 일치할 때 자동 적용할 수 있고, 그 외에는 승인된 `update_existing` Review 전용 경로로만 수행한다. 자동 갱신도 Evidence checksum, Security Receipt, 대상 revision, 전체 Validator와 적용 Receipt를 필수로 한다. stale 카드는 숨김 archive로 보존하고 해당 Evidence를 Curation Queue에 다시 등록해 현재 상태 기준 제안을 새로 만든다.
 - **RB-CUR-005** `draft -> active` 상태 전환은 전용 Promotion Gate만 수행한다. 일반 Bundle 생성·revision API와 직접 Frontmatter 변경은 active 전환 수단이 아니다.
 - **RB-CUR-006** 모든 active Bundle에는 승격 actor·시각, Security Receipt, 현재 Evidence checksum과 PII Scan Receipt를 검증 가능한 provenance로 남긴다. `runbook`과 `manual`에는 생성 전 Review ID와 RB-CUR-003의 별도 검증 기록이 필수다. 최초 생성 Review와 이후 보완 Review는 `extensions.curation.review_receipts`에 Review ID·검증 시도 ID·검증 주체·시각·Evidence checksum·적용 revision·결정 메모로 누적 보존하며 최초 생성 Review를 덮어쓰지 않는다. `policy`, `guide`, `decision`, `spec`, `reference`, `report`는 Evidence·PII·참조 무결성·전체 Validator Gate를 통과하면 자동으로 `active`로 승격할 수 있으며, provenance에 자동 승격임을 기록한다.
 - **RB-CUR-007** 가상·테스트 Evidence도 같은 Gate를 적용한다. 테스트 목적이라는 이유로 Review, 별도 검증 시도 기록, 보안 검증 또는 Validator를 생략할 수 없다.

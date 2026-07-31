@@ -25,7 +25,7 @@
 
 ### Inbox
 
-`inbox.yaml`은 Inbox의 검사·수용·Evidence 변환 재조정을 표현한다.
+`inbox.yaml`은 Inbox의 업무성 분류, 검사·수용·Evidence 변환 재조정을 표현한다. 업무성 분류는 첫 단계이며, `non_business_confirmed`만 원문 보존 격리와 일괄 폐기 검토로 보낸다. 애매하거나 분류할 수 없는 항목은 폐기하지 않고 기존 검사 단계로 전달한다.
 
 | 속성 | 의미 |
 | --- | --- |

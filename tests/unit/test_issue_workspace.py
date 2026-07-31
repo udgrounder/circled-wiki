@@ -79,6 +79,18 @@ class IssueWorkspaceTests(unittest.TestCase):
             self.assertEqual(metadata["source_project_ref"], "team-wiki")
             self.assertEqual(len(metadata["source_git_revision"]), 40)
 
+    def test_intake_accepts_an_operational_issue_relative_path(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = self._source_repo(root)
+
+            result = intake_operational_issue(
+                root / "product" / "workspace", source, project_ref="team-wiki",
+                issue_ref="workspace/issues/issue-runtime-1.md", requested_by="user-1", moved_by="agent-1",
+            )
+
+            self.assertTrue(Path(result["path"]).is_file())
+
     def test_intake_rejects_uncommitted_changes_without_moving_source(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

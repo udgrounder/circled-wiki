@@ -108,7 +108,7 @@ def main() -> int:
     intake = commands.add_parser("intake-operational-issue")
     intake.add_argument("--source-project", required=True)
     intake.add_argument("--project-ref", required=True)
-    intake.add_argument("--issue", required=True)
+    intake.add_argument("--issue", required=True, help="Issue ID or workspace/issues-relative Issue path")
     intake.add_argument("--requested-by", required=True)
     intake.add_argument("--moved-by", required=True)
 

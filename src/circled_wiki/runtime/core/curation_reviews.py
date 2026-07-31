@@ -20,6 +20,7 @@ from .validator import validate_document
 
 
 REVIEW_STATUSES = {"pending", "approved", "no_bundle", "needs_changes", "needs_review", "stale", "applied", "archived"}
+AUTOMATIC_UPDATE_TYPES = frozenset({"reference", "report"})
 
 
 def list_curation_reviews(knowledge_root: Path, *, include_resolved: bool = False) -> List[Dict[str, object]]:
@@ -325,6 +326,75 @@ def apply_approved_curation_update(
     return {
         "review_id": review_id, "status": "applied", "bundle_id": target_id,
         "knowledge_revision": updated.frontmatter["extensions"]["knowledge_revision"],
+    }
+
+
+def apply_automatic_curation_update(
+    knowledge_root: Path, evidence_id: str, output: CurationOutput, *, actor: str,
+    curation_receipt: str, security_receipt: str,
+) -> Dict[str, object]:
+    """Apply a narrow, receipt-bound update for an existing reference or report.
+
+    This path never changes identity, classification, ownership, workflow, rule
+    metadata, or approval metadata.  All other Bundle types remain on the
+    review-card path.
+    """
+    if not actor.strip() or not curation_receipt.strip() or not security_receipt.strip():
+        raise ValueError("actor, curation_receipt, and security_receipt must be non-empty")
+    if output.action not in AUTOMATIC_UPDATE_TYPES:
+        raise ValueError("automatic update is limited to reference and report Bundles")
+    if output.evidence_ids != (evidence_id,):
+        raise ValueError("automatic update requires exactly its Evidence")
+    if curation_body_safety_errors(output.body):
+        raise ValueError("curation output safety check failed")
+    evidence = find_document_by_id(knowledge_root, evidence_id)
+    if evidence is None or evidence.frontmatter.get("type") != "evidence":
+        raise ValueError("evidence_id must refer to an existing Evidence Record")
+    if not validate_document(evidence.path, knowledge_root).is_valid:
+        raise ValueError("Evidence must pass Validator before automatic update")
+    target_id, expected_revision = _target_bundle(knowledge_root, output)
+    target = find_document_by_id(knowledge_root, str(target_id or ""))
+    if target is None or not isinstance(expected_revision, int):
+        raise ValueError("automatic update requires an existing revisioned Bundle")
+    if target.frontmatter.get("type") != output.action:
+        raise ValueError("automatic update Bundle type does not match the target Bundle")
+    if not validate_document(target.path, knowledge_root).is_valid:
+        raise ValueError("target Bundle must pass Validator before automatic update")
+
+    proposed = deepcopy(target.frontmatter)
+    # Deliberately keep type, status, owners, workflow, rulebook,
+    # approvals and all unrelated extensions from the validated existing Bundle.
+    proposed["title"] = output.title
+    proposed["summary"] = output.summary
+    proposed["tags"] = list(output.tags)
+    proposed["evidence"] = list(dict.fromkeys([
+        *[str(item) for item in target.frontmatter.get("evidence", [])], evidence_id,
+    ]))
+    extensions = dict(proposed.get("extensions", {}))
+    curation = dict(extensions.get("curation", {}))
+    receipts = list(curation.get("automatic_update_receipts", []))
+    receipts.append({
+        "evidence_id": evidence_id,
+        "evidence_checksum": str(evidence.frontmatter["checksum"]),
+        "expected_knowledge_revision": expected_revision,
+        "applied_revision": expected_revision + 1,
+        "curation_receipt": curation_receipt.strip(),
+        "security_receipt": security_receipt.strip(),
+        "applied_by": actor.strip(),
+        "applied_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    })
+    curation["automatic_update_receipts"] = receipts
+    extensions["curation"] = curation
+    proposed["extensions"] = extensions
+    updated = _apply_bundle_revision(
+        knowledge_root, bundle_id=str(target_id), expected_revision=expected_revision,
+        proposed_frontmatter=proposed, body=output.body, actor=actor,
+        allow_active_curation_revision=True,
+    )
+    return {
+        "action": "updated", "bundle_id": str(target_id),
+        "knowledge_revision": updated.frontmatter["extensions"]["knowledge_revision"],
+        "promotion_mode": "automatic_limited_update",
     }
 
 

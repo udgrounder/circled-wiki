@@ -20,7 +20,10 @@ from .pii import pii_scan_receipt_errors
 from .repository import create_bundle, find_document_by_id, iter_documents
 from .validator import validate_document
 from .curation_safety import curation_body_safety_errors
-from .curation_reviews import decide_curation_review, generate_curation_review
+from .curation_reviews import (
+    AUTOMATIC_UPDATE_TYPES, apply_automatic_curation_update,
+    decide_curation_review, generate_curation_review,
+)
 from .curation_queue import complete_curation_work, list_curation_queue, record_curation_blocker
 from .inbox_contracts import curation_blocker_policy
 from .bundle_types import PRE_CREATION_REVIEW_TYPES, curation_taxonomy
@@ -168,6 +171,14 @@ def run_configured_curation(
                     "action": "no_bundle", "evidence_id": evidence_id,
                     "review_id": review["review_id"], "decision": decision,
                 }
+            if _is_eligible_automatic_update(knowledge_root, output, proposal):
+                updated = apply_automatic_curation_update(
+                    knowledge_root, evidence_id, output, actor=settings.operator_agent,
+                    curation_receipt=receipt,
+                    security_receipt=_automatic_security_receipt(config, evidence),
+                )
+                complete_curation_work(knowledge_root, evidence_id)
+                return updated
             if output.action != "no_bundle" and output.bundle_type not in PRE_CREATION_REVIEW_TYPES:
                 materialized = materialize_curation_candidate(
                     knowledge_root, evidence_id, output,
@@ -262,7 +273,7 @@ def run_configured_curation_batch(
     counts = {
         "draft_created": 0, "draft_reused": 0, "no_bundle": 0,
         "review_created": 0, "review_reused": 0, "blocked": 0,
-        "failed": 0, "needs_review": 0, "auto_promoted": 0,
+        "failed": 0, "needs_review": 0, "auto_promoted": 0, "auto_updated": 0,
         "auto_promotion_blocked": 0,
     }
     queued_ids = {str(item["evidence_id"]) for item in list_curation_queue(knowledge_root)}
@@ -285,7 +296,9 @@ def run_configured_curation_batch(
         action = str(result.get("action", "needs_review"))
         reason = str(result.get("reason", ""))
         promotion = result.get("promotion")
-        if isinstance(promotion, dict) and promotion.get("status") == "active":
+        if action == "updated" and result.get("promotion_mode") == "automatic_limited_update":
+            counts["auto_updated"] += 1
+        elif isinstance(promotion, dict) and promotion.get("status") == "active":
             counts["auto_promoted"] += 1
         elif isinstance(promotion, dict) and promotion.get("status") == "draft":
             counts["auto_promotion_blocked"] += 1
@@ -342,6 +355,23 @@ def _automatic_security_receipt(config, evidence) -> str:
         f"automatic-gate://{config.provider}/{config.model}/{config.profile_version}"
         f"/{checksum}"
     )
+
+
+def _is_eligible_automatic_update(
+    knowledge_root: Path, output: CurationOutput, proposal: Dict[str, object],
+) -> bool:
+    """Keep automatic mutations to existing low-structural-risk Bundle types."""
+    if output.action not in AUTOMATIC_UPDATE_TYPES or not output.existing_bundle_candidates:
+        return False
+    candidates = proposal.get("candidate_bundles", [])
+    proposed_ids = {
+        item.get("id") for item in candidates if isinstance(item, dict) and isinstance(item.get("id"), str)
+    }
+    target_id = output.existing_bundle_candidates[0]
+    if target_id not in proposed_ids:
+        return False
+    target = find_document_by_id(knowledge_root, target_id)
+    return target is not None and target.frontmatter.get("type") == output.action
 
 
 def _auto_promote_materialized_candidate(
