@@ -29,6 +29,7 @@ RUNTIME_ASSET_PREFIX = f"{CONTROL_PLANE}/runtime/circled_wiki/"
 OPERATING_RULES_REFERENCE = f"{CONTROL_PLANE}/OPERATING_RULES.md"
 AGENT_ROUTER_REFERENCE = f"{CONTROL_PLANE}/AGENT_ROUTER.md"
 RUNTIME_PROFILE_ALLOWLIST = (
+    "contracts.yaml",
     "README.md",
     "evidence-ingest.md",
     "inbox-capture.md",

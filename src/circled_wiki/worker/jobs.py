@@ -5,13 +5,18 @@ from datetime import datetime
 from pathlib import Path
 import re
 import shutil
-from typing import Dict, List
+from typing import Dict, List, Optional, Set
 from uuid import uuid4
 
 from circled_wiki.core.curator import propose_update
 from circled_wiki.core.frontmatter import FrontmatterError, parse_markdown
-from circled_wiki.core.ingest import ingest_evidence, read_conversation_intake
-from circled_wiki.core.inbox_review_queue import complete_inbox_review, review_context
+from circled_wiki.core.ingest import accept_ready_inbox, ingest_evidence, read_conversation_intake
+from circled_wiki.core.inbox_contracts import CONTRACT_NAME, load_inbox_contract
+from circled_wiki.core.inbox_review_queue import (
+    complete_inbox_review,
+    has_blocking_inbox_review,
+    review_context,
+)
 from circled_wiki.core.repository import iter_documents
 from circled_wiki.core.curation_queue import list_curation_queue
 from circled_wiki.core.service import KnowledgeService
@@ -182,7 +187,9 @@ def _link_workflow_outcome(
     return True
 
 
-def ingest_accepted_inbox(knowledge_root: Path, limit: int = 100) -> Dict[str, object]:
+def ingest_accepted_inbox(
+    knowledge_root: Path, limit: int = 100, *, intake_ids: Optional[Set[str]] = None,
+) -> Dict[str, object]:
     """Convert accepted Inbox items to Evidence without running curation."""
     if isinstance(limit, bool) or not isinstance(limit, int) or limit < 1 or limit > 1000:
         raise ValueError("limit must be an integer between 1 and 1000")
@@ -199,7 +206,18 @@ def ingest_accepted_inbox(knowledge_root: Path, limit: int = 100) -> Dict[str, o
             data, content = read_conversation_intake(path)
         except (FrontmatterError, OSError, ValueError):
             continue
+        if intake_ids is not None and str(data.get("id")) not in intake_ids:
+            continue
         if data.get("status") != "accepted":
+            continue
+        if has_blocking_inbox_review(
+            knowledge_root, str(data["id"]), str(data["checksum"])
+        ):
+            failed.append({
+                "intake_id": str(data["id"]),
+                "path": path.relative_to(knowledge_root).as_posix(),
+                "error": "inbox review must be resolved before Evidence ingestion",
+            })
             continue
         is_file = data.get("content_type") == "file"
         sensitive_categories: tuple[str, ...] = ()
@@ -288,4 +306,95 @@ def ingest_accepted_inbox(knowledge_root: Path, limit: int = 100) -> Dict[str, o
         "failed_count": len(failed),
         "items": ingested,
         "failures": failed,
+    }
+
+
+def _reconciliation_snapshot(knowledge_root: Path, limit: int) -> List[Dict[str, str]]:
+    """Fix one bounded set of valid pending/accepted items for a reconciliation run."""
+    snapshot: List[Dict[str, str]] = []
+    for path in sorted((knowledge_root.resolve() / "inbox").glob("*/*.md")):
+        if len(snapshot) >= limit:
+            break
+        try:
+            data, _ = read_conversation_intake(path)
+        except (FrontmatterError, OSError, ValueError):
+            continue
+        status = str(data.get("status", ""))
+        if status not in {"pending", "accepted"}:
+            continue
+        snapshot.append({"intake_id": str(data["id"]), "status": status})
+    return snapshot
+
+
+def _reconciliation_after_state(knowledge_root: Path, intake_ids: Set[str]) -> List[Dict[str, str]]:
+    """Report remaining Inbox state for the fixed run set without inferring outcomes."""
+    remaining: List[Dict[str, str]] = []
+    for path in sorted((knowledge_root.resolve() / "inbox").glob("*/*.md")):
+        try:
+            data, _ = read_conversation_intake(path)
+        except (FrontmatterError, OSError, ValueError):
+            continue
+        intake_id = str(data.get("id", ""))
+        if intake_id in intake_ids:
+            remaining.append({"intake_id": intake_id, "status": str(data.get("status", ""))})
+    return remaining
+
+
+def reconcile_inbox(knowledge_root: Path, actor: str, limit: int = 100) -> Dict[str, object]:
+    """Advance Inbox items through contract-authorized, non-judgmental stages.
+
+    The contract is deliberately a dispatcher, not an approval substitute.  It
+    can accept already-ready items and ingest accepted items, but leaves human
+    sensitivity/PII decisions and blocking review work in their existing queue.
+    """
+    if not isinstance(actor, str) or not actor.strip():
+        raise ValueError("actor must be non-empty")
+    if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 1000:
+        raise ValueError("limit must be an integer between 1 and 1000")
+    contract = load_inbox_contract(knowledge_root)
+    before = _reconciliation_snapshot(knowledge_root, limit)
+    intake_ids = {item["intake_id"] for item in before}
+    stages = contract["contract"]["stages"]
+    pending_action = stages["pending"]["action"]
+    accepted_action = stages["accepted"]["action"]
+    if pending_action != "accept_ready_inbox" or accepted_action != "ingest_accepted":
+        raise ValueError("Inbox reconciliation contract action is unsupported")
+    accepted = accept_ready_inbox(knowledge_root, actor, limit=limit, intake_ids=intake_ids)
+    ingested = ingest_accepted_inbox(knowledge_root, limit=limit, intake_ids=intake_ids)
+    blocked = [
+        {
+            "intake_id": item["intake_id"],
+            "stage": "pending",
+            "next_action": stages["pending"]["on_blocked"],
+            "reasons": [item["reason"]],
+        }
+        for item in accepted["skipped"]
+    ]
+    blocked.extend(
+        {
+            "intake_id": failure["intake_id"],
+            "stage": "accepted",
+            "next_action": stages["accepted"]["on_blocked"],
+            "reasons": [failure["error"]],
+        }
+        for failure in ingested["failures"]
+        if failure["error"] == "inbox review must be resolved before Evidence ingestion"
+    )
+    evidence_ids = {str(item["intake_id"]): str(item["evidence_id"]) for item in ingested["items"]}
+    after = _reconciliation_after_state(knowledge_root, intake_ids)
+    after.extend(
+        {"intake_id": intake_id, "status": "evidence", "evidence_id": evidence_id}
+        for intake_id, evidence_id in sorted(evidence_ids.items())
+    )
+    return {
+        "contract": {
+            "name": CONTRACT_NAME,
+            "version": contract["version"],
+            "path": contract["path"].relative_to(knowledge_root.resolve().parent).as_posix(),
+        },
+        "before": {"item_count": len(before), "items": before},
+        "accepted": accepted,
+        "ingested": ingested,
+        "blocked": blocked,
+        "after": {"items": sorted(after, key=lambda item: item["intake_id"])},
     }

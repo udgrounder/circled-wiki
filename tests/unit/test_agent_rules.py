@@ -191,6 +191,13 @@ class AgentRuleProfileTests(unittest.TestCase):
         self.assertIn("Ingest는 Inbox 원문을 최신 지원 포맷", operating)
         self.assertIn("자동 보정하지 않고 Validator 오류", operating)
 
+    def test_contract_reconciliation_preserves_inbox_stage_gates(self):
+        operating = (ROOT / "OPERATING_RULES.md").read_text(encoding="utf-8")
+
+        self.assertIn("reconcile_inbox", operating)
+        self.assertIn("검사·수용·Evidence 변환 Gate와 상태 기록", operating)
+        self.assertIn("민감성·PII·승인 판단을 건너뛰거나 추정하지 않는다", operating)
+
     def test_runtime_repository_boundary_keeps_product_and_installation_mutations_separate(self):
         operating = (ROOT / "OPERATING_RULES.md").read_text(encoding="utf-8")
 

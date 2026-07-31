@@ -86,10 +86,11 @@ find_workflow
 - **RB-ROUTE-008** 지식 변경은 `ingest_evidence -> propose_update -> create_draft_bundle | apply_bundle_revision` 흐름을 사용한다.
 - **RB-ROUTE-009** Task Outcome은 공식 Bundle을 직접 변경하지 않는다.
 - **RB-ROUTE-010** 사용자·지정 Batch·Hermes가 수집한 원본은 `knowledge/inbox/` 아래에서만 ingest한다.
-- **RB-ROUTE-011** Inbox 수집은 전체 저장소 테스트나 Bundle 정제를 실행하지 않는다. `inspect_inbox`는 읽기 전용, `review_inbox_sensitivity`는 식별된 사람의 민감성 결정, `accept_inbox`는 검사 Gate, `ingest_accepted`는 Evidence 변환만 담당하며 `propose_pending`이 정제를 별도로 수행한다.
+- **RB-ROUTE-011** Inbox 수집은 전체 저장소 테스트나 Bundle 정제를 실행하지 않는다. `inspect_inbox`는 읽기 전용, `review_inbox_sensitivity`는 식별된 사람의 민감성 결정, `accept_inbox`는 검사 Gate, `ingest_accepted`는 Evidence 변환만 담당하며 `propose_pending`이 정제를 별도로 수행한다. `reconcile_inbox`는 `agent-rules/contracts.yaml`에 따라 이 순서의 검사·수용·Evidence 변환 Gate와 상태 기록을 유지하는 범위에서만 안전한 선행 단계를 자동 재수행할 수 있다. 민감성·PII·승인 판단을 건너뛰거나 추정하지 않는다.
 - **RB-ROUTE-012** Inbox 입력은 `knowledge/inbox/<provider>/`에 소스별로 분리하며 시스템 수집기는 provider 폴더를 자동 생성한다.
 - **RB-ROUTE-013** Agent는 `.circled-wiki/AGENT_ROUTER.md` Routing Table에서 현재 작업 Profile을 선택하고 해당 `agent-rules/` 파일의 Check·Gate·금지 사항만 추가 적용한다.
 - **RB-ROUTE-014** 대상 프로젝트를 운영하는 Agent는 요청 처리 전 선택한 Profile을 적용하고, CLI 실패·Validator 오류·예상과 다른 결과·사용자 문제 제기·기존 공식 절차로 처리할 수 없는 작업 절차의 부재 또는 모호성 때문에 사용자 의사 판단이 필요한 상황을 발견하면 민감정보를 제외한 `record-system-issue` 기록을 남긴다. 이슈 기록은 자동 수정 권한이 아니며, 기록 또는 복구가 실패하면 완료를 주장하지 않고 원인을 보고한다.
+- **RB-ROUTE-015** `agent-rules/contracts.yaml`의 단계 계약은 현재 Inbox Frontmatter와 Review Queue의 상태를 기준으로 안전한 선행 단계를 재수행할 수 있다. 계약은 승인·민감성 판단·PII 처리 결정을 추정하거나 대체하지 않으며, 해당 결정이 없으면 기존 Queue와 상태를 유지하고 안전한 다음 행동만 반환한다.
 
 ## 3. Knowledge Invariants
 

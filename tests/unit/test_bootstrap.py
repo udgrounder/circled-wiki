@@ -501,6 +501,28 @@ class BootstrapKnowledgeRootTests(unittest.TestCase):
                 payload["next_action"],
             )
 
+    def test_preflight_rejects_missing_inbox_reconciliation_contract(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "team-knowledge"
+            bootstrap_circled_wiki(target, ROOT, apply=True)
+            (target / ".circled-wiki" / "agent-rules" / "contracts.yaml").unlink()
+            launcher = target / ".circled-wiki" / "bin" / "circled-wiki.py"
+
+            result = subprocess.run(
+                [sys.executable, str(launcher), "operational-preflight"],
+                cwd=target,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            payload = json.loads(result.stdout)
+
+            self.assertEqual(result.returncode, 1)
+            self.assertIn(
+                "Inbox reconciliation contract: Inbox reconciliation contract is missing",
+                payload["control_plane"]["reference_errors"],
+            )
+
     def test_existing_agent_entrypoint_without_operating_rules_gets_an_append_only_reference(self):
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory) / "team-knowledge"

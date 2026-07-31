@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 import subprocess
+import shutil
 from pathlib import Path
 
 from circled_wiki.core.ingest import (
@@ -12,6 +13,7 @@ from circled_wiki.worker.jobs import (
     MaintenanceReport,
     ingest_accepted_inbox,
     inspect_inbox,
+    reconcile_inbox,
     run_curation_batch,
     run_maintenance,
 )
@@ -19,6 +21,41 @@ from circled_wiki.core.publisher import PublishError, _require_sensitive_data_re
 
 
 class WorkerJobTests(unittest.TestCase):
+    def test_reconcile_inbox_advances_only_contract_safe_stages(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "knowledge"
+            contract = root.parent / "agent-rules" / "contracts.yaml"
+            contract.parent.mkdir(parents=True)
+            shutil.copyfile(
+                Path(__file__).resolve().parents[2] / "agent-rules" / "contracts.yaml",
+                contract,
+            )
+            ready = capture_conversation(
+                root, "safe source", "test", title="Ready", why_collected="test",
+                intended_use=["test"], idempotency_key="reconcile-ready",
+                sensitivity_review="completed",
+            )
+            blocked = capture_conversation(
+                root, "review source", "test", title="Blocked", why_collected="test",
+                intended_use=["test"], idempotency_key="reconcile-blocked",
+                sensitivity_review="required",
+            )
+
+            result = reconcile_inbox(root, "contract-worker")
+
+            self.assertEqual(result["contract"]["name"], "inbox_reconciliation")
+            self.assertEqual(result["before"]["item_count"], 2)
+            self.assertEqual(result["accepted"]["accepted_count"], 1)
+            self.assertEqual(result["ingested"]["ingested_count"], 1)
+            self.assertEqual(result["blocked"][0]["intake_id"], blocked.intake_id)
+            self.assertEqual(result["blocked"][0]["next_action"], "inbox_review_queue")
+            self.assertEqual(
+                next(item for item in result["after"]["items"] if item["intake_id"] == ready.intake_id)["status"],
+                "evidence",
+            )
+            self.assertFalse(ready.inbox_path.exists())
+            self.assertTrue(blocked.inbox_path.exists())
+
     def test_accept_ready_inbox_accepts_only_items_that_already_pass_gates(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "knowledge"

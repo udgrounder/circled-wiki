@@ -6,6 +6,8 @@ import os
 from pathlib import Path
 from typing import Dict, List, Sequence, Set
 
+from .inbox_contracts import load_inbox_contract
+
 
 MANIFEST_PATH = ".circled-wiki/manifest.json"
 RUNTIME_PREFIX = ".circled-wiki/runtime/circled_wiki/"
@@ -171,6 +173,10 @@ def inspect_control_plane_readiness(
                 reference_errors.append(
                     f".circled-wiki/AGENT_ROUTER.md: missing reference to {reference}"
                 )
+    try:
+        load_inbox_contract(project / "knowledge")
+    except ValueError as error:
+        reference_errors.append(f"Inbox reconciliation contract: {error}")
 
     launcher = project / ".circled-wiki" / "bin" / "circled-wiki.py"
     launcher_executable = launcher.is_file() and os.access(launcher, os.X_OK)

@@ -256,6 +256,9 @@ def main() -> int:
     accept_ready_inbox = subparsers.add_parser("accept-ready-inbox")
     accept_ready_inbox.add_argument("--actor", required=True)
     accept_ready_inbox.add_argument("--limit", type=int, default=100)
+    reconcile_inbox = subparsers.add_parser("reconcile-inbox")
+    reconcile_inbox.add_argument("--actor", required=True)
+    reconcile_inbox.add_argument("--limit", type=int, default=100)
     review_inbox = subparsers.add_parser("review-inbox-sensitivity")
     review_inbox.add_argument("--intake", required=True)
     review_inbox.add_argument("--actor", required=True)
@@ -710,6 +713,9 @@ def main() -> int:
         return 0
     if args.command == "accept-ready-inbox":
         print(json.dumps(service.accept_ready_inbox(args.actor, args.limit), ensure_ascii=False, indent=2))
+        return 0
+    if args.command == "reconcile-inbox":
+        print(json.dumps(service.reconcile_inbox(args.actor, args.limit), ensure_ascii=False, indent=2))
         return 0
     if args.command == "review-inbox-sensitivity":
         print(json.dumps(

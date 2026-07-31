@@ -127,6 +127,10 @@ PYTHONPATH=src python3 -m circled_wiki.cli ingest-accepted --limit 100
 PYTHONPATH=src python3 -m circled_wiki.cli propose-pending --limit 100
 ```
 
+`reconcile-inbox --actor <operator> --limit 100`은 실행 시작 시 최대 100개의 `pending`·`accepted` Inbox 항목을
+고정하고 `agent-rules/contracts.yaml`에 따라 검사 통과한 항목만 자동 승인·Evidence 변환까지 진행한다. 결과는
+`before`, 실행 action, `blocked` 항목으로 구분한다. 민감성·PII 판단 또는 미해결 Review Queue는 자동으로 해소하지 않고 유지한다.
+
 변환된 Embedded Evidence는 Frontmatter와 원문을 한 `.md` 파일에 저장한다. 신규 Embedded Evidence의
 Frontmatter 뒤 전체 본문이 보존 원문이자 checksum 검증 대상이다. 기존 `ORIGINAL_CONTENT` 마커 형식은 읽기
 호환만 유지한다. PDF·이미지·스프레드시트와 외부에서 받은 기존

@@ -1,0 +1,25 @@
+version: 1
+contracts:
+  inbox_reconciliation:
+    description: >-
+      Reconcile Inbox items toward Evidence using only existing inspection and
+      ingest gates. Human sensitivity and PII review decisions are never inferred.
+    stages:
+      pending:
+        profile: inbox-inspection
+        action: accept_ready_inbox
+        next_stage: accepted
+        requires:
+          - required_metadata
+          - provider_folder
+          - content_checksum
+          - sensitivity_review_resolved
+        on_blocked: inbox_review_queue
+      accepted:
+        profile: evidence-ingest
+        action: ingest_accepted
+        next_stage: evidence
+        requires:
+          - accepted_inspection
+          - pii_review_not_blocking
+        on_blocked: inbox_review_queue

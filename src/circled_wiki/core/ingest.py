@@ -285,6 +285,7 @@ def accept_conversation_intake(
 
 def accept_ready_inbox(
     knowledge_root: Path, actor: str, *, limit: int = 100,
+    intake_ids: Optional[set[str]] = None,
 ) -> Dict[str, object]:
     """Accept every pending Inbox item that already passes the inspection Gate.
 
@@ -305,6 +306,8 @@ def accept_ready_inbox(
             document = parse_markdown(path)
             data, _ = read_conversation_intake(path)
         except (FrontmatterError, OSError, ValueError):
+            continue
+        if intake_ids is not None and str(data.get("id")) not in intake_ids:
             continue
         if data.get("status") != "pending":
             continue
