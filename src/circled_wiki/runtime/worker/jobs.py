@@ -9,6 +9,7 @@ from typing import Dict, List, Optional, Set
 from uuid import uuid4
 
 from circled_wiki.core.curator import propose_update
+from circled_wiki.config.settings import load_settings
 from circled_wiki.core.frontmatter import FrontmatterError, parse_markdown
 from circled_wiki.core.ingest import accept_ready_inbox, ingest_evidence, read_conversation_intake
 from circled_wiki.core.inbox_contracts import (
@@ -115,6 +116,14 @@ def reconcile_curation(knowledge_root: Path, limit: int = 100) -> Dict[str, obje
     if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 1000:
         raise ValueError("limit must be an integer between 1 and 1000")
     contract = load_curation_contract(knowledge_root)
+    if not load_settings(knowledge_root.resolve().parent).curation.enabled and list_curation_queue(knowledge_root):
+        return {
+            "contract": {"name": CURATION_CONTRACT_NAME, "version": contract["version"],
+                         "path": contract["path"].relative_to(knowledge_root.resolve().parent).as_posix()},
+            "status": "configuration_required",
+            "reason": "adapter_disabled",
+            "next_action": "configure_curation_adapter",
+        }
     refresh_curation_queue(knowledge_root)
     stages = contract["contract"]["stages"]
     queued_stage = stages["queued"]

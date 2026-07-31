@@ -383,17 +383,10 @@ class CurationMaterializationTests(unittest.TestCase):
 
             result = reconcile_curation(root, limit=1)
 
-            self.assertEqual(result["actions"]["counts"]["needs_review"], 1)
-            self.assertEqual(result["outcomes"][0]["outcome"], "retryable_block")
-            self.assertEqual(result["outcomes"][0]["queue_disposition"], "retain")
-            self.assertEqual(result["blocked"], [{
-                "evidence_id": evidence_id,
-                "stage": "queued",
-                "next_action": "configure_curation_adapter",
-                "reason_category": "configuration",
-                "reason": "adapter_disabled",
-            }])
-            self.assertEqual(result["after"]["items"][0]["evidence_id"], evidence_id)
+            self.assertEqual(result["status"], "configuration_required")
+            self.assertEqual(result["reason"], "adapter_disabled")
+            self.assertEqual(result["next_action"], "configure_curation_adapter")
+            self.assertEqual(list_curation_queue(root)[0]["evidence_id"], evidence_id)
 
     def test_reconcile_curation_never_applies_an_approved_update(self):
         with tempfile.TemporaryDirectory() as directory:
