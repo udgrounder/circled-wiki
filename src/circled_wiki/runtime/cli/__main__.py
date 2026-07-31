@@ -248,6 +248,16 @@ def main() -> int:
     inspect_inbox = subparsers.add_parser("inspect-inbox")
     inspect_inbox.add_argument("--limit", type=int, default=100)
     subparsers.add_parser("list-inbox-review-queue")
+    quarantine_inbox = subparsers.add_parser("quarantine-inbox-item")
+    quarantine_inbox.add_argument("--intake", required=True)
+    quarantine_inbox.add_argument("--classifier", required=True)
+    quarantine_inbox.add_argument("--rule-version", required=True)
+    quarantine_inbox.add_argument("--reason", required=True)
+    subparsers.add_parser("list-inbox-disposals")
+    decide_disposal = subparsers.add_parser("decide-inbox-disposal")
+    decide_disposal.add_argument("--intake", required=True)
+    decide_disposal.add_argument("--decision", required=True, choices=("recover", "dispose"))
+    decide_disposal.add_argument("--actor", required=True)
     accept_inbox = subparsers.add_parser("accept-inbox")
     accept_inbox.add_argument("--intake", required=True)
     accept_inbox.add_argument("--actor", required=True)
@@ -630,6 +640,20 @@ def main() -> int:
         return 0
     if args.command == "list-inbox-review-queue":
         print(json.dumps(service.list_inbox_review_queue(), ensure_ascii=False, indent=2))
+        return 0
+    if args.command == "quarantine-inbox-item":
+        print(json.dumps(service.quarantine_inbox_item(
+            args.intake, classifier=args.classifier,
+            rule_version=args.rule_version, reason=args.reason,
+        ), ensure_ascii=False, indent=2))
+        return 0
+    if args.command == "list-inbox-disposals":
+        print(json.dumps(service.list_inbox_disposals(), ensure_ascii=False, indent=2))
+        return 0
+    if args.command == "decide-inbox-disposal":
+        print(json.dumps(service.decide_inbox_disposal(
+            args.intake, decision=args.decision, actor=args.actor,
+        ), ensure_ascii=False, indent=2))
         return 0
     if args.command == "accept-inbox":
         print(json.dumps(service.accept_inbox(args.intake, args.actor), ensure_ascii=False, indent=2))

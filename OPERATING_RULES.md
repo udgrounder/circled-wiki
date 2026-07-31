@@ -82,7 +82,7 @@ find_workflow
 
 ### Knowledge Change
 
-- 시스템 생성 대화·Outcome 텍스트는 `capture_conversation -> knowledge/inbox/<provider>/`까지만 동기 처리한다. Inbox 처리 규약의 첫 단계는 업무성 분류다. 분류기가 `non_business_confirmed`로 확정한 항목만 `quarantine_inbox_item`으로 격리하여 Evidence·Curation 대상에서 제외하고, `list_inbox_disposals -> decide_inbox_disposal`의 일괄 검토에서만 복구 또는 폐기를 확정한다. 이 단계는 분류기·규칙 버전·사유를 기록하지만 업무성을 추정하지 않는다. 애매하거나 분류할 수 없는 항목은 폐기하지 않고 기존 `inspect_inbox -> review_inbox_sensitivity -> accept_inbox -> ingest_accepted -> propose_pending` 흐름을 그대로 따른다.
+- 시스템 생성 대화·Outcome 텍스트는 `capture_conversation -> knowledge/inbox/<provider>/`까지만 동기 처리한다. Inbox 처리 규약의 첫 단계는 업무성 분류다. 별도 분류 입력에서 `non_business_confirmed`로 확정한 항목만 분류기·규칙 버전·사유를 남겨 `quarantine_inbox_item`으로 격리하여 Evidence·Curation 대상에서 제외하고, `list_inbox_disposals -> decide_inbox_disposal`의 일괄 검토에서만 복구 또는 폐기를 확정한다. 애매하거나 분류할 수 없는 항목은 분류 Receipt·격리·폐기 없이 기존 `inspect_inbox -> review_inbox_sensitivity -> accept_inbox -> ingest_accepted -> propose_pending` 일반 흐름을 그대로 따른다.
 - **RB-ROUTE-008** 지식 변경은 `ingest_evidence -> propose_update -> create_draft_bundle | apply_bundle_revision` 흐름을 사용한다.
 - **RB-ROUTE-009** Task Outcome은 공식 Bundle을 직접 변경하지 않는다.
 - **RB-ROUTE-010** 사용자·지정 Batch·Hermes가 수집한 원본은 `knowledge/inbox/` 아래에서만 ingest한다.

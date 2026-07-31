@@ -2,7 +2,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from circled_wiki.core.ingest import capture_conversation, iter_active_inbox_items
+from circled_wiki.core.frontmatter import parse_markdown, render_markdown
+from circled_wiki.core.ingest import accept_conversation_intake, capture_conversation, iter_active_inbox_items
 from circled_wiki.core.inbox_disposals import (
     decide_inbox_disposal, list_inbox_disposals, quarantine_inbox_item,
 )
@@ -67,3 +68,23 @@ class InboxDisposalTests(unittest.TestCase):
             active = list(iter_active_inbox_items(root))
 
             self.assertEqual(active, [captured.inbox_path])
+
+    def test_unclassified_item_uses_the_normal_inspection_flow(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "knowledge"
+            captured = capture_conversation(
+                root, "classification test", "slack", title="Ambiguous chat",
+                why_collected="collector test", intended_use=["test"],
+                idempotency_key="classification-1", sensitivity_review="completed",
+            )
+            document = parse_markdown(captured.inbox_path)
+            data = dict(document.frontmatter)
+            data["business_relevance"] = {"classification": "unclassified"}
+            captured.inbox_path.write_text(
+                render_markdown(data, document.body), encoding="utf-8"
+            )
+
+            self.assertEqual(
+                accept_conversation_intake(root, captured.intake_id, "inspector")["status"],
+                "accepted",
+            )

@@ -4,10 +4,10 @@ metadata:
   name: inbox_reconciliation
   version: 1
   description: >-
-    First classify business relevance: only non_business_confirmed items enter
-    reversible disposal quarantine; ambiguous items continue to inspection.
-    Reconcile remaining Inbox items toward Evidence using existing inspection and
-    ingest gates. Human sensitivity and PII review decisions are never inferred.
+    Reconcile normal Inbox items toward Evidence. non_business_confirmed
+    disposition is handled outside this contract through reversible quarantine;
+    ambiguous or unclassified items remain in the normal inspection flow.
+    Human sensitivity and PII decisions are never inferred.
 spec:
   stages:
     pending:

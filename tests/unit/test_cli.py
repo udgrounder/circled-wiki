@@ -123,5 +123,20 @@ class CliTests(unittest.TestCase):
         self.assertIn("inside knowledge/inbox/", output.getvalue())
         self.assertIn("capture-file", output.getvalue())
 
+    def test_quarantine_and_disposal_commands_use_service(self):
+        intake_id = "inbox://acme/slack/11111111-1111-1111-1111-111111111111"
+        output = io.StringIO()
+        with patch("sys.argv", [
+            "circled-wiki", "quarantine-inbox-item", "--intake", intake_id,
+            "--classifier", "slack-filter", "--rule-version", "v1", "--reason", "non-business",
+        ]):
+            with patch("circled_wiki.cli.__main__.KnowledgeService") as service_class:
+                service_class.return_value.quarantine_inbox_item.return_value = {"status": "pending_disposal_review"}
+                with patch("sys.stdout", output):
+                    self.assertEqual(run_cli(), 0)
+        service_class.return_value.quarantine_inbox_item.assert_called_once_with(
+            intake_id, classifier="slack-filter", rule_version="v1", reason="non-business",
+        )
+
 if __name__ == "__main__":
     unittest.main()
