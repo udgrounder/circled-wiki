@@ -1,0 +1,31 @@
+{
+  "receipt_type": "release",
+  "release_id": "v1-8ae6bfb624bb",
+  "source_revision": "eb3b9aeef31e9c05ffe85550aad9f2343dec0f04",
+  "runtime_checksum": "sha256:568c0addbd5a3bb2579519a8dc239d1dfd981866a5ac78e8b26184bfbb0b3d18",
+  "router_checksum": "sha256:c4c2870672fc7d35bcb389ab02d455fc6001b94bfb1f0f64c9d8214f28349e42",
+  "runtime_profiles": [
+    "evidence-ingest.md",
+    "inbox-capture.md",
+    "inbox-inspection.md",
+    "knowledge-curation.md",
+    "knowledge-query.md",
+    "publication.md",
+    "runtime-upgrade-verification.md",
+    "system-observation.md",
+    "workflow-execution.md"
+  ],
+  "included_issue_ids": [],
+  "validation": {
+    "unit": "passed",
+    "integration": "passed",
+    "repository_validator": "passed"
+  },
+  "verified_by": "codex",
+  "verified_at": "2026-07-31T05:23:52.177891+00:00",
+  "source_commit_check": {
+    "revision": "eb3b9aeef31e9c05ffe85550aad9f2343dec0f04",
+    "subject": "배포 구조 변경",
+    "worktree_clean": true
+  }
+}
