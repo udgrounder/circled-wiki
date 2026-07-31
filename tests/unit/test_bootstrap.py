@@ -167,6 +167,9 @@ class BootstrapKnowledgeRootTests(unittest.TestCase):
             manifest = (target / MANIFEST_PATH).read_text(encoding="utf-8")
             self.assertNotIn('"workspace/', manifest)
             manifest_payload = json.loads(manifest)
+            history = target / ".circled-wiki" / "history" / "releases" / f"{manifest_payload['os_release']}.json"
+            self.assertTrue(history.is_file())
+            self.assertEqual(json.loads(history.read_text(encoding="utf-8"))["assets"], manifest_payload["assets"])
             self.assertIn("system-observation.md", manifest_payload["runtime_profiles"])
             self.assertNotIn("repository-engineering.md", manifest_payload["runtime_profiles"])
             self.assertEqual(

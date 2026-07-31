@@ -76,6 +76,23 @@ class AgentRuleProfileTests(unittest.TestCase):
         self.assertNotIn("repository-engineering.md", runtime_profiles)
         self.assertNotIn("bootstrap-circled-wiki.md", runtime_profiles)
 
+    def test_runtime_guidance_does_not_require_removed_operational_preflight(self):
+        runtime_guides = (
+            ROOT / ".circled-wiki" / "AGENT_BOOTSTRAP.md",
+            ROOT / ".circled-wiki" / "AUTONOMOUS_AGENT_STARTUP.md",
+            ROOT / "OPERATING_RULES.md",
+            ROOT / "agent-rules" / "contracts" / "README.md",
+        )
+        for guide in runtime_guides:
+            self.assertNotIn(
+                "circled-wiki.py operational-preflight",
+                guide.read_text(encoding="utf-8"),
+                guide,
+            )
+
+        operating = (ROOT / "OPERATING_RULES.md").read_text(encoding="utf-8")
+        self.assertIn("config·namespace 검증", operating)
+
     def test_pipeline_delegation_is_preferred_without_transferring_gates(self):
         profiles = (ROOT / "agent-rules" / "README.md").read_text(encoding="utf-8")
         bootstrap = (ROOT / ".circled-wiki" / "AGENT_BOOTSTRAP.md").read_text(

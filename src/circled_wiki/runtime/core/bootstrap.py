@@ -5,7 +5,7 @@ import json
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from circled_wiki.config.settings import (
     DEFAULT_OPERATOR_AGENT,
@@ -96,6 +96,12 @@ def _release_id(assets: Dict[str, str]) -> str:
         digest.update(checksum.encode("utf-8"))
         digest.update(b"\0")
     return f"v1-{digest.hexdigest()[:12]}"
+
+
+def _release_history_payload(release: str, assets: Dict[str, str], profiles: List[str], router: Optional[str]) -> Dict[str, object]:
+    return {"schema_version": 1, "os_release": release, "assets": assets,
+            "runtime_profiles": profiles, "router_checksum": router,
+            "pending_proposals": []}
 
 
 def _agent_entrypoint_reference_block() -> str:
@@ -547,7 +553,8 @@ def bootstrap_circled_wiki(
     known_non_assets = {MANIFEST_PATH, f"{CONTROL_PLANE}/config.yaml"}
     known_paths = set(previous) | set(assets) | known_non_assets
     for path in (sorted(control_root.rglob("*")) if control_root.is_dir() else []):
-        if path.is_file() and path.relative_to(target).as_posix() not in known_paths:
+        relative_path = path.relative_to(target).as_posix()
+        if path.is_file() and not relative_path.startswith(f"{CONTROL_PLANE}/history/releases/") and relative_path not in known_paths:
             upgrade_issues.append({
                 "path": path.relative_to(target).as_posix(),
                 "classification": "unrecorded_control_plane_asset",
@@ -562,6 +569,16 @@ def bootstrap_circled_wiki(
         and not path.endswith("/README.md")
     )
     router_checksum = next_assets.get(f"{CONTROL_PLANE}/AGENT_ROUTER.md")
+    history_payload = _release_history_payload(release, next_assets, runtime_profiles, router_checksum)
+    history_path = target / CONTROL_PLANE / "history" / "releases" / f"{release}.json"
+    history_bytes = (json.dumps(history_payload, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+    if history_path.exists() and history_path.read_bytes() != history_bytes:
+        upgrade_issues.append({"path": history_path.relative_to(target).as_posix(),
+                               "classification": "release_history_conflict",
+                               "resolution": "compare the immutable installed release manifest before deployment"})
+    elif not history_path.exists():
+        actions.append({"path": history_path.relative_to(target).as_posix(), "action": "record_release_history"})
+        writes.append((history_path, history_bytes))
     previous_release = manifest.get("os_release")
     manifest_needs_update = (
         not manifest_exists
@@ -685,6 +702,7 @@ def bootstrap_circled_wiki(
             "os_release": release,
             "runtime_profiles": runtime_profiles,
             "router_checksum": router_checksum,
+            "release_history": history_path.relative_to(target).as_posix(),
             "pending_proposals": pending_proposals,
             "agent_entrypoint_action": agent_entrypoint_action,
             "claude_entrypoint_action": claude_entrypoint_action,

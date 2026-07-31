@@ -19,7 +19,6 @@ Runtime 배포 원본은 `OPERATING_RULES.md`, `.circled-wiki/AGENT_ROUTER.md`�
 
 ```sh
 python3 .circled-wiki/bin/circled-wiki.py validate
-python3 .circled-wiki/bin/circled-wiki.py operational-preflight
 python3 .circled-wiki/bin/circled-wiki.py search --query "검색어"
 python3 .circled-wiki/bin/circled-wiki.py find-workflow --request "사용자 요청"
 python3 .circled-wiki/bin/circled-wiki.py reconcile-inbox --actor <operator> --limit 100
@@ -30,9 +29,9 @@ Launcher는 현재 작업 디렉터리에 관계없이 이 프로젝트 root와 
 `PyYAML`이 필요하다. Runtime과 운영 규칙은 OS 관리 자산이므로 직접 수정하지 않고, 변경은 OS upgrade 또는
 `.circled-wiki/proposals/` 제안본을 통해 검토한다.
 
-`operational-preflight`는 canonical Runtime checksum뿐 아니라 manifest의 미해결 Control Plane proposal과
-Agent 진입점·Router·canonical launcher 참조도 검사한다. 하나라도 미해결이면 `ready=false`이며, 조회 외 mutation은
-proposal 검토·반영 또는 안전한 upgrade가 끝날 때까지 시작하지 않는다.
+Runtime은 전체 Control Plane 자산을 검사하는 `operational-preflight`를 제공하거나 실행하지 않는다. 배포 자산의
+checksum·proposal·backup은 Product Agent의 upgrade dry-run과 manifest·Receipt 대조에서 확인한다. 일상 운영은
+선택한 Profile의 입력·권한·Evidence·revision Gate와 필요한 경우 `validate`만 적용한다.
 
 설치별 조직 ID, 운영 Agent와 선택적 Graphify 경계는 `.circled-wiki/config.yaml`에서 확인한다. 이 파일은 설치 시
 생성되고 이후 upgrade에서 덮어쓰지 않는 설치 로컬 설정이다.
@@ -41,7 +40,8 @@ proposal 검토·반영 또는 안전한 upgrade가 끝날 때까지 시작하�
 
 1. 지식 질문은 `knowledge-query` Profile을 선택하고 `search`, `read-bundle`로 근거를 조회한다. 직접 `find`,
    `grep`, `rg` 탐색은 공식 경로가 실패하거나 결과가 불충분할 때 작업을 계속하기 위한 최후 수단으로 허용하며,
-   먼저 `system-observation` Profile의 `record-system-issue`로 문제를 남긴 뒤 fallback 사유와 사용한 범위를 기록한다.
+   fallback 결과를 개별 분류해 지침 부재·모호성 또는 Runtime 결함으로 판단된 경우에만 `system-observation`
+   Profile의 `record-system-issue`로 남긴다. fallback 사유와 사용한 범위는 결과에 기록한다.
 2. 단계가 있는 업무는 `workflow-execution` Profile을 선택하고 `find-workflow`부터 시작한다. Workflow가 모호하거나
    필수 입력이 부족하면 실행하지 않고 사용자에게 필요한 내용만 질문한다.
 3. 대화·문서·URL·파일 수집은 `inbox-capture` Profile로 `knowledge/inbox/<provider>/`에만 적재한다. 모든 수집
@@ -54,13 +54,14 @@ proposal 검토·반영 또는 안전한 upgrade가 끝날 때까지 시작하�
    승인과 revision 적용은 자동 처리하지 않는다.
 4. 수정·발행·외부 전송·승인이 필요한 작업은 `OPERATING_RULES.md`의 권한과 Approval 규칙을 따른다. Agent는
    승인자를 대신하지 않는다.
-5. CLI 실패, Validator 오류, 예상과 다른 결과, 사용자·Agent·운영자·자동화의 운영 문제 또는 개선 요청을 발견하면
-   `system-observation` Profile을 선택하고 `workspace/issues/`에 `record-system-issue`로 기록한다. 사용자 제기는
-   `--reported-from user`, Agent가 발견한 문제는 `--reported-from agent`를 사용한다. 이슈는 개선 입력이며 자동 수정
-   권한이 아니다. 이슈 기록 또는 복구가 실패하면 완료를 주장하지 않고 원인을 보고한다.
-6. Codex·Claude 등 외부 Agent CLI가 시작·실행에 실패해도 Inbox·Evidence를 직접 우회 수정하지 않는다. 먼저
-   `operational-preflight`로 로컬 Runtime 준비 상태를 확인하고, 실패 사실을 Issue로 남긴 뒤, 사용자가 허용한
-   안전한 로컬 CLI 또는 재시도 경로로 같은 Profile의 Gate를 다시 적용한다.
+5. CLI 실패, Validator 오류, 예상과 다른 결과는 정상 입력·권한·이미 안내된 Gate 결과인지, 업무 지침 부재·모호성인지,
+   Runtime·도구 결함인지 먼저 개별 분류한다. 후자 둘로 판단한 경우에만 `system-observation` Profile을 선택해
+   `workspace/issues/`에 `record-system-issue`로 기록한다. 사용자 제기는 `--reported-from user`, Agent가 발견한
+   문제는 `--reported-from agent`를 사용한다. 이슈는 개선 입력이며 자동 수정 권한이 아니다. 근거가 부족하면 결함을
+   추정하지 않고 현재 사실과 안전한 다음 행동만 보고한다.
+6. Codex·Claude 등 외부 Agent CLI가 시작·실행에 실패해도 Inbox·Evidence를 직접 우회 수정하지 않는다. 해당 명령의
+   입력·권한·선택한 Profile Gate와 필요한 `validate` 결과를 확인한 뒤, 사용자가 허용한 안전한 로컬 CLI 또는 재시도
+   경로로 같은 Profile의 Gate를 다시 적용한다. 지침 부재·모호성 또는 Runtime 결함으로 판단된 경우에만 이슈를 기록한다.
 7. `capture-conversation`이 exit code 3과 `idempotency_checksum_conflict`를 반환하면 이는 원문 변경 보호다.
    응답의 `existing_intake_id`를 `inspect-inbox`로 확인한다. 기존 항목을 덮어쓰지 않으며, 변경된 원문이 의도된
    새 revision이라는 근거가 있을 때만 새 idempotency key로 다시 수집한다.

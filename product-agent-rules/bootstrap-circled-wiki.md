@@ -34,7 +34,7 @@
 ## Output
 
 - 설치·upgrade 계획과 적용 보고서
-- release, backup, 보존·proposal·설치/upgrade Issue 상태
+- current manifest와 설치본 `.circled-wiki/history/releases/<release>.json` asset map, backup, 보존·proposal·설치/upgrade Issue 상태
 - 후속 Runtime 검증 요청
 
 ## Failure State

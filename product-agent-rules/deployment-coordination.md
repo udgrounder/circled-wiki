@@ -22,6 +22,7 @@
 - 이전/새 release, backup, applied·preserved·proposed action
 - post-upgrade Runtime 검증 요청
 - 대상의 실제 manifest asset map이 승인된 release manifest와 일치하는지
+- 대상의 `.circled-wiki/history/releases/<release>.json`이 승인된 release manifest와 일치하는지
 
 ## Gates
 

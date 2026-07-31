@@ -14,7 +14,7 @@
 | `api_version` | YAML 헤더와 `spec` 형식의 버전 | Runtime loader가 지원하는 값과 정확히 일치해야 한다. |
 | `kind` | 문서 종류 (`reconciliation_contract_registry` 또는 `reconciliation_contract`) | 파일의 역할을 구분하며 다른 kind로 대체할 수 없다. |
 | `metadata.name` | 안정적인 계약·Registry 식별자 | Registry key와 계약 파일의 이름이 일치해야 한다. |
-| `metadata.version` | 해당 계약의 의미 버전 | 지원되지 않는 버전은 추정하지 않고 Preflight·실행에서 거부한다. |
+| `metadata.version` | 해당 계약의 의미 버전 | 지원되지 않는 버전은 추정하지 않고 Runtime 검증·실행에서 거부한다. |
 | `metadata.description` | 사람이 읽는 목적 설명 | 실행 권한을 부여하지 않는다. |
 | `spec` | Runtime이 해석하는 실행 정의 | 허용된 Profile·action·상태 전이와 정확히 일치해야 한다. |
 
