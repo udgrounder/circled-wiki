@@ -123,44 +123,5 @@ class CliTests(unittest.TestCase):
         self.assertIn("inside knowledge/inbox/", output.getvalue())
         self.assertIn("capture-file", output.getvalue())
 
-    def test_operational_preflight_blocks_changed_organization_namespace(self):
-        with tempfile.TemporaryDirectory() as directory:
-            project = Path(directory)
-            for relative in (
-                ".circled-wiki/OPERATING_RULES.md",
-                ".circled-wiki/AGENT_BOOTSTRAP.md",
-                ".circled-wiki/AUTONOMOUS_AGENT_STARTUP.md",
-                ".circled-wiki/bin/circled-wiki.py",
-                ".circled-wiki/runtime/circled_wiki/__init__.py",
-                ".circled-wiki/agent-rules/knowledge-query.md",
-            ):
-                path = project / relative
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text("managed asset\n", encoding="utf-8")
-            (project / ".circled-wiki" / "config.yaml").write_text(
-                render_settings(organization_id="beta", organization_name="Beta"),
-                encoding="utf-8",
-            )
-            inbox = project / "knowledge" / "inbox" / "manual" / "existing.md"
-            inbox.parent.mkdir(parents=True)
-            inbox.write_text(
-                "---\ntype: inbox_item\nid: inbox://acme/manual/existing\n---\n",
-                encoding="utf-8",
-            )
-            output = io.StringIO()
-
-            with patch("sys.argv", ["circled-wiki", "operational-preflight"]):
-                with patch("circled_wiki.cli.__main__.project_root", return_value=project):
-                    with patch("sys.stdout", output):
-                        status = run_cli()
-
-        payload = json.loads(output.getvalue())
-        self.assertEqual(status, 1)
-        self.assertFalse(payload["ready"])
-        self.assertFalse(payload["organization_namespace"]["compatible"])
-        self.assertEqual(payload["organization_namespace"]["observed_ids"], ["acme"])
-        self.assertIn("restore the immutable organization.id", payload["next_action"])
-
-
 if __name__ == "__main__":
     unittest.main()

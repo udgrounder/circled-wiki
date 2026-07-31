@@ -41,7 +41,7 @@
 
 수집 파일을 만들지 않고 입력 오류 또는 충돌을 반환한다. checksum 충돌은 기존 Intake ID·경로·checksum만 포함한
 구조화된 복구 응답으로 반환하며, 원문은 출력하지 않는다. Agent는 기존 Inbox Item을 검사하고 변경된 원문이 의도된
-새 revision일 때만 새 idempotency key를 사용한다. 충돌·CLI 실패는 `system-observation` Profile로 Issue를 남긴다.
+새 revision일 때만 새 idempotency key를 사용한다. 충돌·CLI 실패가 입력·idempotency Gate의 정상 결과인지, 지침 부재·모호성 또는 Runtime 결함인지 개별 판단하고 후자로 판단한 경우에만 `system-observation` Profile로 Issue를 남긴다.
 
 ## Prohibited
 

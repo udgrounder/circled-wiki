@@ -4,7 +4,6 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
-import shutil
 import sys
 import unicodedata
 
@@ -90,7 +89,6 @@ def main() -> int:
     migrate_ids = subparsers.add_parser("migrate-document-ids")
     migrate_ids.add_argument("--apply", action="store_true", help="write the validated legacy-ID migration")
     subparsers.add_parser("inspect-legacy-evidence-backlinks")
-    subparsers.add_parser("operational-preflight")
     system_issue = subparsers.add_parser("record-system-issue")
     system_issue.add_argument("--title", required=True)
     system_issue.add_argument("--summary", required=True)
@@ -505,83 +503,6 @@ def main() -> int:
     if args.command == "inspect-legacy-evidence-backlinks":
         print(json.dumps(service.inspect_legacy_evidence_backlinks(), ensure_ascii=False, indent=2))
         return 0
-    if args.command == "operational-preflight":
-        project = project_root()
-        required_assets = (
-            ".circled-wiki/manifest.json",
-            ".circled-wiki/OPERATING_RULES.md",
-            ".circled-wiki/AGENT_BOOTSTRAP.md",
-            ".circled-wiki/AGENT_ROUTER.md",
-            ".circled-wiki/AUTONOMOUS_AGENT_STARTUP.md",
-            ".circled-wiki/config.yaml",
-            ".circled-wiki/bin/circled-wiki.py",
-            ".circled-wiki/runtime/circled_wiki/__init__.py",
-        )
-        missing = [asset for asset in required_assets if not (project / asset).is_file()]
-        profiles = sorted(
-            path.name for path in (project / ".circled-wiki" / "agent-rules").glob("*.md")
-            if path.name != "README.md"
-        )
-        from circled_wiki.config.settings import load_settings
-        from circled_wiki.core.namespace import inspect_organization_namespace
-        from circled_wiki.core.preflight import (
-            inspect_control_plane_readiness,
-            inspect_runtime_provenance,
-        )
-        settings = load_settings(project)
-        namespace = inspect_organization_namespace(root, settings.organization_id)
-        runtime = inspect_runtime_provenance(project)
-        control_plane = inspect_control_plane_readiness(project, profiles)
-        graph_path = project / settings.graphify.graph_path
-        graph_command = shutil.which(settings.graphify.command)
-        graphify_ready = (
-            not settings.graphify.enabled
-            or (graph_command is not None and graph_path.is_file())
-        )
-        base_ready = bool(
-            not missing
-            and profiles
-            and namespace["compatible"]
-            and runtime["compatible"]
-            and control_plane["compatible"]
-        )
-        result = {
-            "ready": base_ready and graphify_ready,
-            "project_root": project.name,
-            "missing_assets": missing,
-            "profiles": profiles,
-            "organization_id": settings.organization_id,
-            "organization_name": settings.organization_name,
-            "operator_agent": settings.operator_agent,
-            "organization_namespace": namespace,
-            "runtime": runtime,
-            "control_plane": control_plane,
-            "graphify": {
-                "enabled": settings.graphify.enabled,
-                "ready": graphify_ready,
-                "command": settings.graphify.command,
-                "command_found": graph_command is not None,
-                "graph_path": settings.graphify.graph_path,
-                "graph_found": graph_path.is_file(),
-            },
-            "next_action": (
-                "select a profile and run the required stage command"
-                if base_ready and graphify_ready
-                else "install/build Graphify separately or disable it in .circled-wiki/config.yaml"
-                if base_ready and settings.graphify.enabled
-                else "restore the immutable organization.id before operating it"
-                if not namespace["compatible"]
-                else "repair or upgrade the canonical Circled Wiki runtime before operating it"
-                if not runtime["compatible"]
-                else "review and resolve pending Control Plane proposals before mutation"
-                if control_plane["pending_proposals"]
-                else "repair Control Plane startup, Router, or launcher references before operating it"
-                if not control_plane["compatible"]
-                else "repair or upgrade Circled Wiki before operating it"
-            ),
-        }
-        print(json.dumps(result, ensure_ascii=False, indent=2))
-        return 0 if result["ready"] else 1
     if args.command == "ingest-evidence":
         pii_values = (
             args.pii_scanner, args.pii_scanner_version, args.pii_result,

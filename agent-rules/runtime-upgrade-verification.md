@@ -13,23 +13,21 @@ Deployment Operator가 upgrade를 완료한 뒤 실제 설치본의 독립 검�
 
 ## Allowed Actions
 
-- `operational-preflight`, `validate`와 관련 재현 시나리오 실행
-- canonical Runtime checksum, config·namespace 보존 확인
+- `validate`와 관련 재현 시나리오 실행
+- 기대 release, Deployment Receipt, config·namespace 보존 확인
 - `knowledge/`, `workspace/` sentinel과 file tree 보존 확인
 - Verification Receipt와 운영 Issue 검증 이력 기록
 
 ## Checks
 
-- 실행 release, Runtime 후보, manifest checksum과 미해결 Control Plane proposal
-- Agent 진입점, Runtime Router와 canonical launcher 참조
+- 실행 release와 Deployment Receipt, 적용·보존·proposal 결과
 - config semantic checksum, organization ID와 사용자 Plane 보존
 - 관련 증상의 재현 여부
 
 ## Gates
 
 - 기대 release와 실제 release 일치
-- Runtime drift·후보 중복 없음
-- 미해결 Control Plane proposal과 깨진 운영 참조 없음
+- Deployment Receipt의 적용·보존·proposal 결과가 승인된 배포 계획과 일치
 - config, `knowledge/`, `workspace/`의 예상하지 않은 변경 없음
 - 재현 시나리오 통과
 - 구현자와 검증 actor가 다름

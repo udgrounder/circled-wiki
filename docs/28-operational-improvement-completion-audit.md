@@ -27,7 +27,7 @@
 ## Test-installation evidence
 
 The isolated installation at `/Users/kjkim/Work/Projects/test/cpt-wiki` was upgraded with synthetic data only. Its
-latest applied release was `v1-953d6044327a`; `operational-preflight` reported a single canonical Runtime with no
+latest applied release was `v1-953d6044327a`; deployment verification reported a single canonical Runtime with no
 missing, mismatched, or unexpected managed asset, and `validate` reported `validated=20 invalid=0`. A synthetic SNS
 Inbox item was independently reviewed, converted to Evidence, PII-receipted, and materialized as a `draft/pending`
 Guide with an Evidence backlink. It remains unapproved: normal search does not surface the Draft Bundle. A synthetic

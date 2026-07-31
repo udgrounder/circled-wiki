@@ -20,7 +20,7 @@ place. It blocks unsafe use, creates a corrected replacement when appropriate, a
 
 ## Procedure
 
-1. Run `operational-preflight` and `validate`; stop on runtime or namespace drift.
+1. Run `validate`; stop on namespace or knowledge validation errors.
 2. Produce a read-only inventory of affected Evidence IDs, paths, checksums, PII receipts, visibility, source
    references, and referring Bundles. Do not add, remove, or modify Evidence fields.
 3. Stop automatic publication of affected Bundles and record a system issue without copying sensitive content into

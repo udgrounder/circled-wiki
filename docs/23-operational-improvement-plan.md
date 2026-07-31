@@ -67,7 +67,7 @@ PII Scan 완료 증빙은 단순 boolean이 아니라 최소 다음 정보를 �
 - source/runtime 중복 및 drift 여부
 - pending proposal과 충돌 자산 수
 
-managed Runtime checksum이 manifest와 다르거나 실행 후보가 둘 이상이면 `operational-preflight`는 `ready=false`를 반환한다.
+managed Runtime checksum이 manifest와 다르거나 실행 후보가 둘 이상이면 배포 검증은 실패한다.
 
 ## 4. 운영 피드백 수명주기
 
@@ -112,7 +112,7 @@ managed Runtime checksum이 manifest와 다르거나 실행 후보가 둘 이상
 1. 운영자는 먼저 `bootstrap-circled-wiki --target <운영-root>`의 계획을 검토한다.
 2. 계획에 `preserve_and_propose`가 있으면 사람의 병합 결정 전에는 적용하지 않는다.
 3. 적용 시 기존 `.circled-wiki/`는 `.circled-wiki-backups/`에 백업되어야 한다.
-4. upgrade 후 `operational-preflight`, `validate`, 관련 재현 시나리오를 실행한다.
+4. upgrade 후 Deployment Receipt 대조, `validate`, 관련 재현 시나리오를 실행한다.
 5. 독립 검증 결과를 운영 이슈에 기록하고, 검증 전에는 `resolved`로 전환하지 않는다.
 
 ## 5. 변경 경계
@@ -238,7 +238,7 @@ Slack·Notion·Hermes cron처럼 저장소 밖에서 실행되는 자동화도 �
 - [ ] **P0-02 Canonical Runtime과 실행 provenance**
   - [x] release, 실행 모듈 경로, managed Runtime checksum 보고
   - [x] Runtime 변조·누락·미등록 파일과 중복 source/runtime 후보의 Preflight 차단
-  - [x] mutation 전 `operational-preflight` 규칙 추가
+  - [x] 설치 Runtime 무결성 검사 도입 (후속 운영 절차에서 제거됨)
   - [x] 운영 모델을 순수 설치본 또는 공식 운영 fork 중 하나로 ADR 확정
     - [x] 운영 책임자 결정: 공식 Circled Wiki 설치·upgrade 배포본
     - [x] ADR 문서와 release/upgrade rollback 조건 반영
@@ -552,7 +552,7 @@ Slack·Notion·Hermes cron처럼 저장소 밖에서 실행되는 자동화도 �
 4. config schema migration 계획과 기존 설정 checksum·의미적 diff를 검토한다.
 5. Control Plane backup 성공 후에만 upgrade를 적용한다.
 6. upgrade 후 config와 기존 Knowledge URI가 불변인지 확인한다.
-7. `operational-preflight`가 release·checksum·drift·proposal·설정·자동화 health를 확인하고 `ready=true`를 반환한다.
+7. 배포 검증은 승인된 manifest·Receipt·backup·적용 결과를 대조한다.
 8. Validator와 false attestation audit가 통과한다.
 9. 해당 이슈의 재현 시나리오와 한국어 질의 회귀 테스트가 운영본에서 통과한다.
 10. 독립 검증자가 이슈의 `verified` 전환 근거를 기록한다.

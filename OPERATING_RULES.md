@@ -89,7 +89,7 @@ find_workflow
 - **RB-ROUTE-011** Inbox 수집은 전체 저장소 테스트나 Bundle 정제를 실행하지 않는다. `inspect_inbox`는 읽기 전용, `review_inbox_sensitivity`는 식별된 사람의 민감성 결정, `accept_inbox`는 검사 Gate, `ingest_accepted`는 Evidence 변환만 담당하며 `propose_pending`이 정제를 별도로 수행한다. `reconcile_inbox`는 `agent-rules/contracts/index.yaml`에 등록된 Inbox 계약에 따라 이 순서의 검사·수용·Evidence 변환 Gate와 상태 기록을 유지하는 범위에서만 안전한 선행 단계를 자동 재수행할 수 있다. 민감성·PII·승인 판단을 건너뛰거나 추정하지 않는다.
 - **RB-ROUTE-012** Inbox 입력은 `knowledge/inbox/<provider>/`에 소스별로 분리하며 시스템 수집기는 provider 폴더를 자동 생성한다.
 - **RB-ROUTE-013** Agent는 `.circled-wiki/AGENT_ROUTER.md` Routing Table에서 현재 작업 Profile을 선택하고 해당 `agent-rules/` 파일의 Check·Gate·금지 사항만 추가 적용한다.
-- **RB-ROUTE-014** 대상 프로젝트를 운영하는 Agent는 요청 처리 전 선택한 Profile을 적용하고, CLI 실패·Validator 오류·예상과 다른 결과·사용자 문제 제기·기존 공식 절차로 처리할 수 없는 작업 절차의 부재 또는 모호성 때문에 사용자 의사 판단이 필요한 상황을 발견하면 민감정보를 제외한 `record-system-issue` 기록을 남긴다. 이슈 기록은 자동 수정 권한이 아니며, 기록 또는 복구가 실패하면 완료를 주장하지 않고 원인을 보고한다.
+- **RB-ROUTE-014** 대상 프로젝트를 운영하는 Agent는 요청 처리 전 선택한 Profile을 적용한다. CLI 실패·Validator 오류·예상과 다른 결과가 발생하면 해당 건이 정상적인 입력·권한·Gate 결과인지, 기존 업무 지침의 부재·모호성인지, Runtime·도구 결함인지 먼저 구분한다. 개선이 필요한 지침 부재·모호성 또는 Runtime·도구 결함으로 판단한 경우에만 민감정보를 제외한 `record-system-issue`를 남긴다. 일시적 입력 오류와 이미 안내된 Gate 거부는 현재 요청의 실패·다음 행동만 반환하며 이슈로 축적하지 않는다. 판단 근거가 부족하면 결함·지침 부재를 추정하지 않고 현재 요청의 사실과 안전한 다음 행동을 보고한다. 이슈 기록은 자동 수정 권한이 아니며, 기록 또는 복구가 실패하면 완료를 주장하지 않고 원인을 보고한다.
 - **RB-ROUTE-015** `agent-rules/contracts/index.yaml`에 등록된 영역별 단계 계약은 현재 Frontmatter와 Queue의 상태를 기준으로 안전한 선행 단계를 재수행할 수 있다. 계약은 승인·민감성 판단·PII 처리 결정을 추정하거나 대체하지 않으며, 해당 결정이 없으면 기존 Queue와 상태를 유지하고 안전한 다음 행동만 반환한다.
 - **RB-ROUTE-016** Curation 계약은 configured Curator의 분석 결과를 `no_bundle_recorded`, `review_handoff`, 자동 Gate를 통과한 `published`, Gate 실패로 남은 `draft_created`, 재시도 가능한 `queued` 중 하나로 기록한다. 각 outcome은 Queue 완료 또는 유지 여부를 함께 검증한다. 의미 변경 승인, `runbook`·`manual` 승격과 승인된 `update_existing` revision 적용은 Curation 재조정 outcome이 아니며, 각각 기존 Review·Owner·checksum·revision Gate를 별도 호출로 통과해야 한다. 계약 재조정이 이를 대신하지 않는다.
 
@@ -120,7 +120,7 @@ find_workflow
 - **RB-KNW-021** `workspace/issues/`는 사용자·Agent·운영자·자동화가 제기한 운영 문제와 개선 제안을 기록하는 사용자 소유 피드백 영역이다. 기록은 출처·사실·영향·재현 문맥·가설을 구분하고 민감정보를 포함하지 않으며, 이슈 기록만으로 OS·정책·Runbook을 자동 변경하거나 발행하지 않는다. 지정된 System Maintainer는 `open -> triaged -> mitigated -> verified -> resolved` 또는 `wont_fix` 상태 전환과 검증 근거를 기록할 수 있으며, `resolved`는 독립 검증 뒤에만 사용한다. Runtime Agent는 운영 중 legacy `.circled-wiki/issues/`를 읽기와 기존 상태 갱신 전용으로 취급하며 일반 upgrade가 이동하지 않는다. 다만 Product Agent는 사용자가 특정 Issue의 수집 또는 migration을 명시적으로 요청하고 Git Gate를 통과한 경우에만 Product Workspace 또는 canonical `workspace/issues/`로 이동할 수 있다.
 - **RB-KNW-025** `workspace/`는 Issue, 사용자 작업, 자율형 Agent 기록과 설치별 백업을 위한 Working Plane이다. 공식 Knowledge가 아니며 manifest 관리 자산, release package 또는 Control Plane backup에 포함하지 않는다. 최초 설치는 빈 root만 생성하고 이후 upgrade·rollback은 내부 파일·폴더를 생성·수정·이동·삭제하지 않는다.
 - **RB-KNW-022** 운영 이슈나 개선 사항을 Circled Wiki 코드·규칙·템플릿에 반영할 때 조직명, Organization ID, Owner, Agent 이름, 경로, Git 대상, Integration 식별자처럼 특정 설치·프로젝트에만 유효한 값을 하드코딩하지 않는다. 필요한 값은 검증된 설치 로컬 `.circled-wiki/config.yaml`에서 읽고, 선택 항목이 없으면 제품이 정의한 조직 중립적 안전 기본값을 사용한다. 관리되는 Inbox·Evidence·Bundle ID가 생성된 뒤 `organization.id`는 불변이며 config와 기존 namespace가 다르면 Preflight와 모든 ID 생성 작업을 차단한다. 유효하지 않은 값은 추정하지 않고 해당 작업을 차단하며, upgrade는 기존 설정을 덮어쓰지 않는다. Secret과 PII는 설정 기본값이나 `config.yaml`에 저장하지 않는다.
-- **RB-KNW-023** 운영 Agent는 mutation 전에 `operational-preflight`에서 manifest release, 실행 모듈 경로와 managed Runtime checksum 일치를 확인한다. 실행 모듈이 설치된 canonical Runtime 밖에 있거나, source/runtime 후보가 중복되거나, Runtime 자산의 누락·변조·미등록 파일이 있으면 `ready=false`로 처리한다. manifest에 미해결 Control Plane proposal이 있거나 Agent 진입점·Router·canonical launcher 참조가 불완전해도 `ready=false`이며, 검토된 proposal 반영 또는 안전한 upgrade 전까지 mutation을 실행하지 않는다.
+- **RB-KNW-023** 최초 설치의 수락은 Bootstrap 적용 보고서와 설치별 설정 검증으로 처리한다. release 생성은 Product Release Preparation의 source·manifest 검증으로, 배포·rollback은 승인된 manifest·Release Receipt·backup·적용 결과의 대조로 처리한다. 일상 운영 mutation은 선택한 Profile의 입력·권한·Evidence·revision Gate로 보호한다. Runtime은 전체 Control Plane asset을 검사하는 preflight 절차를 제공하거나 실행하지 않는다.
 
 ## 4. Evidence Invariants
 
@@ -287,16 +287,7 @@ accepted Evidence
 | Validator 실패 | 발행 금지 및 수정·검토 |
 | 권한 없음 | 우회 금지 및 Escalation |
 
-## 11. Repository Verification
-
-Repository Engineering 변경 후 실행한다.
-
-```sh
-PYTHONPATH=src python3 -m circled_wiki.cli validate
-PYTHONPATH=src python3 -m unittest discover -s tests -q
-```
-
-## 12. Reference Traceability
+## 11. Reference Traceability
 
 아래 Reference는 전역 운영 규약 작성·감사·변경 영향 분석용이다. Runtime Agent는 운영 중 이 문서들을 로드하지 않는다.
 

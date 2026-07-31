@@ -548,8 +548,7 @@ PYTHONPATH=src python3 -m circled_wiki.cli bootstrap-circled-wiki \
 새 설치 설정에는 `workflow.default_owners: []`와 `publication.allowed_paths: [knowledge]`가 명시된다. 기존
 설정에 이 선택 항목이 없으면 같은 안전 기본값을 사용한다. 기본 Owner가 비어 있으므로 Bundle을 `active`로
 발행하기 전에는 설치별 Owner를 설정하거나 문서에 명시해야 하며, 발행 경로는 설정으로 `knowledge/` 밖까지 넓힐
-수 없다. 관리되는 Inbox·Evidence·Bundle ID가 생성된 뒤 `organization.id`를 변경하면
-`operational-preflight`와 새 ID를 생성하는 수집·정제 작업이 차단된다.
+수 없다. 관리되는 Inbox·Evidence·Bundle ID가 생성된 뒤 `organization.id`를 변경하면 새 ID를 생성하는 수집·정제 작업이 차단된다.
 
 계획을 검토한 뒤에만 `--apply`를 붙인다. 운영 템플릿·스키마·시스템 정책은 모두 `.circled-wiki/` 아래에
 설치한다. 업그레이드는 `knowledge/` 아래의 기존 문서·Evidence·Bundle을 읽어 OS 소유로 등록하거나 이동, 삭제,
@@ -576,11 +575,7 @@ PYTHONPATH=src python3 -m circled_wiki.cli bootstrap-circled-wiki \
 ### 대상 폴더에서 독립 실행
 
 설치된 대상은 원본 개발 저장소 없이 자체 Runtime을 포함한다. 대상 프로젝트 root에서 다음 명령을 실행한다.
-`operational-preflight`는 설치 release ID, 실제 실행 모듈 경로, manifest checksum과 Runtime 자산 drift를 함께
-보고한다. 설치 Runtime 밖에서 실행되거나 `src/circled_wiki`와 설치 Runtime이 중복되거나 checksum이 다르면
-`ready=false`이며, 복구 또는 검토된 upgrade 전에는 mutation 명령을 실행하지 않는다. Upgrade가 사용자 수정
-Control Plane을 보존하고 proposal을 만들면 manifest의 `pending_proposals`에 기록한다. 미해결 proposal이 있거나
-Agent 진입점·Router·canonical launcher 참조가 깨져 있어도 preflight는 `ready=false`로 mutation을 차단한다.
+Upgrade가 사용자 수정 Control Plane을 보존하고 proposal을 만들면 manifest의 `pending_proposals`에 기록한다.
 검토자가 proposal 내용을 대상 파일에 반영한 뒤 bootstrap을 다시 적용하면 현재 release checksum을 채택하고
 해결된 proposal을 manifest 대기 목록에서 제거한다.
 
@@ -613,7 +608,7 @@ python3 .circled-wiki/bin/circled-wiki.py initialize-operational-workspace --app
 
 Graphify는 Circled Wiki와 별도 설치하는 파생 관계 인덱스다. Bootstrap은 패키지나 자격증명을 설치하지 않고
 `.circled-wiki/GRAPHIFY.md`와 Agent 사용 경계만 제공한다. 설치 시 Graphify를 활성화해도 graph 파일이 없으면
-`operational-preflight`가 `graphify.ready: false`로 보고한다. Agent는 Graphify로 후보를 찾을 수 있지만 최종 답변은
+Graphify가 활성화됐지만 준비되지 않으면 Agent는 Graphify로 후보를 찾을 수 있지만 최종 답변은
 항상 Knowledge MCP의 공식 Bundle과 Evidence로 재검증해야 한다.
 
 ### 운영 이슈와 사용자 피드백

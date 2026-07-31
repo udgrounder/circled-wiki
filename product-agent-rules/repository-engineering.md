@@ -33,6 +33,15 @@
 - 운영 Issue 기반 변경이면 사용자 review receipt와 Triage 결과 존재
 - 재현 테스트 또는 재현 불가 사유 존재
 
+## Repository Verification
+
+Repository Engineering 변경 후 source repository에서 아래를 실행한다.
+
+```sh
+PYTHONPATH=src python3 -m circled_wiki.cli validate
+PYTHONPATH=src python3 -m unittest discover -s tests -q
+```
+
 ## Output
 
 - 변경 파일과 검증 결과

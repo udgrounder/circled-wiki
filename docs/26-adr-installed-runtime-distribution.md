@@ -10,7 +10,7 @@ Data Plane이다.
 
 ## Consequences
 
-- upgrade 전 `operational-preflight`, manifest/runtime checksum, namespace/config semantic checksum을 확인한다.
+- upgrade 전 승인된 manifest·Release Receipt, namespace/config semantic checksum을 확인한다.
 - upgrade는 `.circled-wiki-backups/`에 Control Plane snapshot을 만든 뒤에만 적용한다.
 - config migration 또는 runtime validation 실패 시 새 Runtime을 시작하지 않고 직전 Control Plane snapshot으로 복구한다.
 - `knowledge/` Data Plane, 원본 Evidence, 운영 이슈, `.runtime/` 상태는 Control Plane rollback으로 삭제·덮어쓰지 않는다.
