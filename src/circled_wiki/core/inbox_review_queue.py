@@ -12,14 +12,16 @@ REVIEW_ACTIONS = {
     "sensitivity_review_required": "complete_sensitivity_review",
     "pii_needs_review": "decide_safe_handling",
 }
+CONTRACT_NAME = "inbox_reconciliation"
+CONTRACT_VERSION = 1
 
 
 def _queue_root(knowledge_root: Path) -> Path:
-    return knowledge_root.resolve().parent / "workspace" / "task" / "inbox-review-queue"
+    return knowledge_root.resolve().parent / "workspace" / "task" / CONTRACT_NAME
 
 
 def _archive_root(knowledge_root: Path) -> Path:
-    return knowledge_root.resolve().parent / "workspace" / "task" / ".archive" / "inbox-review-queue"
+    return knowledge_root.resolve().parent / "workspace" / "task" / ".archive" / CONTRACT_NAME
 
 
 def _item_path(knowledge_root: Path, intake_id: str) -> Path:
@@ -59,10 +61,25 @@ def enqueue_inbox_review(
         data = parse_markdown(path).frontmatter
         if data.get("source_checksum") != source_checksum:
             raise ValueError("active inbox review belongs to a different source checksum")
+        data.update({
+            "type": "contract_task",
+            "contract": {"name": CONTRACT_NAME, "version": CONTRACT_VERSION},
+            "subject": {
+                "intake_id": intake_id,
+                "inbox_path": relative_inbox,
+                "source_checksum": source_checksum,
+            },
+        })
         requirements = _requirements(data)
     else:
         data = {
-            "type": "inbox_review_queue",
+            "type": "contract_task",
+            "contract": {"name": CONTRACT_NAME, "version": CONTRACT_VERSION},
+            "subject": {
+                "intake_id": intake_id,
+                "inbox_path": relative_inbox,
+                "source_checksum": source_checksum,
+            },
             "intake_id": intake_id,
             "inbox_path": relative_inbox,
             "source_checksum": source_checksum,
@@ -75,12 +92,18 @@ def enqueue_inbox_review(
             "requested_action": REVIEW_ACTIONS[reason_code],
             "status": "awaiting_user",
         })
+    status = "awaiting_user"
     data.update({
         "current_stage": current_stage,
-        "status": "awaiting_user",
+        "status": status,
         "requirements": requirements,
         "updated_at": _now(),
+        "current": {
+            "stage": current_stage, "status": status,
+            "next_action": REVIEW_ACTIONS[reason_code],
+        },
     })
+    _append_step(data, stage=current_stage, status=status, outcome=reason_code)
     path.write_text(render_markdown(data), encoding="utf-8")
     return {"queue_id": path.stem, "queue_path": path, "status": "awaiting_user"}
 
@@ -131,6 +154,15 @@ def resolve_inbox_review_requirement(
         item.get("status") == "resolved" for item in requirements
     ) else "awaiting_user"
     review["updated_at"] = _now()
+    review["current"] = {
+        "stage": str(review.get("current_stage", "inbox_review")),
+        "status": str(review["status"]),
+        "next_action": "reprocess_inbox" if review["status"] == "reprocessing" else REVIEW_ACTIONS[reason_code],
+    }
+    _append_step(
+        review, stage=str(review.get("current_stage", "inbox_review")),
+        status=str(review["status"]), outcome=decision,
+    )
     path = review.pop("queue_path")
     review.pop("queue_id", None)
     path.write_text(render_markdown(review), encoding="utf-8")
@@ -170,6 +202,8 @@ def complete_inbox_review(
     source = review.pop("queue_path")
     review.pop("queue_id", None)
     review.update({"status": "resolved", "evidence_id": evidence_id, "resolved_at": _now()})
+    review["current"] = {"stage": "evidence", "status": "completed"}
+    _append_step(review, stage="evidence", status="completed", outcome="evidence_created")
     archive = _archive_root(knowledge_root) / source.name
     archive.parent.mkdir(parents=True, exist_ok=True)
     temporary = archive.with_suffix(".tmp")
@@ -177,6 +211,19 @@ def complete_inbox_review(
     temporary.replace(archive)
     source.unlink(missing_ok=True)
     return True
+
+
+def _append_step(data: Dict[str, object], *, stage: str, status: str, outcome: str) -> None:
+    steps = data.get("step_receipts")
+    if not isinstance(steps, list):
+        steps = []
+    steps.append({
+        "stage": stage,
+        "status": status,
+        "outcome": outcome,
+        "recorded_at": _now(),
+    })
+    data["step_receipts"] = steps
 
 
 def list_inbox_review_queue(knowledge_root: Path) -> List[Dict[str, object]]:

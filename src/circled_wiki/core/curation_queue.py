@@ -1,6 +1,7 @@
-"""Minimal, rebuildable curation work items stored outside immutable Evidence."""
+"""Contract-scoped, rebuildable Curation task records outside immutable Evidence."""
 
 from contextlib import contextmanager
+from datetime import datetime, timezone
 import fcntl
 from pathlib import Path
 import threading
@@ -12,13 +13,15 @@ from .frontmatter import parse_markdown, render_markdown
 
 _QUEUE_LOCKS: Dict[Path, threading.RLock] = {}
 _QUEUE_LOCKS_GUARD = threading.Lock()
+CONTRACT_NAME = "curation_reconciliation"
+CONTRACT_VERSION = 1
 
 
 @contextmanager
 def curation_queue_transaction(knowledge_root: Path):
     """Serialize queue reconciliation and terminal queue mutations across processes."""
     knowledge_root = knowledge_root.resolve()
-    lock_path = knowledge_root.parent / ".runtime" / "locks" / "curation-queue.lock"
+    lock_path = knowledge_root.parent / ".runtime" / "locks" / "curation-reconciliation.lock"
     with _QUEUE_LOCKS_GUARD:
         thread_lock = _QUEUE_LOCKS.setdefault(lock_path, threading.RLock())
     with thread_lock:
@@ -56,16 +59,41 @@ def _enqueue_curation_work_unlocked(
     if relative is None:
         relative = evidence_path.resolve().relative_to(knowledge_root.resolve())
     target = _item_path(knowledge_root, evidence_id)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    payload = {"evidence_id": evidence_id, "evidence_path": relative.as_posix()}
-    temporary = target.with_name(f".{target.name}.{uuid4()}.tmp")
-    temporary.write_text(render_markdown(payload), encoding="utf-8")
-    temporary.replace(target)
+    payload: Dict[str, object]
+    if target.is_file():
+        payload = parse_markdown(target).frontmatter
+    else:
+        archived = _archive_path(knowledge_root, evidence_id)
+        if archived.is_file():
+            payload = parse_markdown(archived).frontmatter
+            archived.unlink()
+        else:
+            payload = {}
+    if payload and payload.get("evidence_id") not in {None, evidence_id}:
+        # The task filename is derived from the canonical UUID.  A mismatched
+        # payload is corrupted state, so refresh replaces it with the current
+        # immutable Evidence binding instead of trusting the stale contents.
+        payload = {}
+    previous = payload.get("current") if isinstance(payload.get("current"), dict) else {}
+    payload.update({
+        "type": "contract_task",
+        "contract": {"name": CONTRACT_NAME, "version": CONTRACT_VERSION},
+        "evidence_id": evidence_id,
+        "evidence_path": relative.as_posix(),
+        "current": {
+            "stage": "queued",
+            "status": "pending",
+            "next_action": "run_configured_curation_batch",
+        },
+    })
+    if previous.get("status") != "pending":
+        _append_step(payload, stage="queued", status="pending", outcome="queued")
+    _write_task(target, payload)
     return target
 
 
 def complete_curation_work(knowledge_root: Path, evidence_id: str) -> bool:
-    """Remove a work item only after a Bundle or Review card was created."""
+    """Close the active task only after an actual result artifact was created."""
     knowledge_root = knowledge_root.resolve()
     with curation_queue_transaction(knowledge_root):
         return _complete_curation_work_unlocked(knowledge_root, evidence_id)
@@ -76,9 +104,43 @@ def _complete_curation_work_unlocked(
 ) -> bool:
     """Remove one queue item while the caller holds the queue transaction lock."""
     target = _item_path(knowledge_root, evidence_id)
-    existed = target.exists()
+    if not target.is_file():
+        return False
+    payload = parse_markdown(target).frontmatter
+    payload["current"] = {"stage": "result_created", "status": "completed"}
+    payload.pop("last_blocker", None)
+    _append_step(payload, stage="result_created", status="completed")
+    archive = _archive_path(knowledge_root, evidence_id)
+    _write_task(archive, payload)
     target.unlink(missing_ok=True)
-    return existed
+    return True
+
+
+def record_curation_contract_outcome(
+    knowledge_root: Path, evidence_id: str, *, outcome: str, next_stage: str,
+    artifact: Optional[Dict[str, object]] = None,
+) -> bool:
+    """Record a contract outcome only after its referenced result exists.
+
+    This updates the contract task record; it never creates a Bundle, Review
+    card, or no-bundle decision. Those artifacts are produced by Curation first.
+    """
+    knowledge_root = knowledge_root.resolve()
+    with curation_queue_transaction(knowledge_root):
+        target = _archive_path(knowledge_root, evidence_id)
+        if not target.is_file():
+            return False
+        payload = parse_markdown(target).frontmatter
+        payload["current"] = {
+            "stage": next_stage,
+            "status": "completed",
+            "outcome": outcome,
+        }
+        if artifact:
+            payload["result_artifact"] = artifact
+        _append_step(payload, stage=next_stage, status="completed", outcome=outcome)
+        _write_task(target, payload)
+        return True
 
 
 def record_curation_blocker(
@@ -92,12 +154,16 @@ def record_curation_blocker(
         target = _enqueue_curation_work_unlocked(knowledge_root, evidence_id, evidence_path)
         data = parse_markdown(target).frontmatter
         data["last_blocker"] = {"reason": reason.strip(), "next_action": next_action.strip()}
-        target.write_text(render_markdown(data), encoding="utf-8")
+        data["current"] = {
+            "stage": "queued", "status": "pending", "next_action": next_action.strip(),
+        }
+        _append_step(data, stage="queued", status="pending", outcome="retryable_block", reason=reason.strip())
+        _write_task(target, data)
         return target
 
 
 def list_curation_queue(knowledge_root: Path, *, include_resolved: bool = False) -> List[Dict[str, object]]:
-    """List pending work-item files; file existence is the only queue status."""
+    """List pending Curation contract tasks; the Queue is a derived view."""
     del include_resolved  # Compatibility: completed items no longer exist.
     knowledge_root = knowledge_root.resolve()
     root = _queue_root(knowledge_root)
@@ -109,6 +175,9 @@ def list_curation_queue(knowledge_root: Path, *, include_resolved: bool = False)
         evidence_id = data.get("evidence_id")
         evidence_path = data.get("evidence_path")
         if not isinstance(evidence_id, str) or not isinstance(evidence_path, str):
+            continue
+        current = data.get("current")
+        if not isinstance(current, dict) or current.get("status") != "pending":
             continue
         rows.append({
             "evidence_id": evidence_id,
@@ -177,7 +246,7 @@ def _refresh_curation_queue_unlocked(
             and isinstance(blocker.get("next_action"), str)
             and blocker["next_action"].strip()
         )
-        if not isinstance(data, dict) or any(data.get(key) != value for key, value in base.items()) or set(data) - {"evidence_id", "evidence_path", "last_blocker"}:
+        if not isinstance(data, dict) or any(data.get(key) != value for key, value in base.items()) or not _valid_task_record(data):
             _enqueue_curation_work_unlocked(
                 knowledge_root, evidence_id, path, Path(relative)
             )
@@ -233,7 +302,56 @@ def _completed_evidence_ids(knowledge_root: Path) -> set[str]:
 
 
 def _queue_root(knowledge_root: Path) -> Path:
-    return knowledge_root.parent / "workspace" / "task" / "curation-queue"
+    return knowledge_root.parent / "workspace" / "task" / CONTRACT_NAME
+
+
+def _archive_root(knowledge_root: Path) -> Path:
+    return knowledge_root.parent / "workspace" / "task" / ".archive" / CONTRACT_NAME
+
+
+def _archive_path(knowledge_root: Path, evidence_id: str) -> Path:
+    return _archive_root(knowledge_root) / _item_path(knowledge_root, evidence_id).name
+
+
+def _append_step(
+    payload: Dict[str, object], *, stage: str, status: str, outcome: Optional[str] = None,
+    reason: Optional[str] = None,
+) -> None:
+    steps = payload.get("step_receipts")
+    if not isinstance(steps, list):
+        steps = []
+    receipt: Dict[str, object] = {
+        "stage": stage,
+        "status": status,
+        "recorded_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    }
+    if outcome is not None:
+        receipt["outcome"] = outcome
+    if reason is not None:
+        receipt["reason"] = reason
+    steps.append(receipt)
+    payload["step_receipts"] = steps
+
+
+def _write_task(path: Path, payload: Dict[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.{uuid4()}.tmp")
+    temporary.write_text(render_markdown(payload), encoding="utf-8")
+    temporary.replace(path)
+
+
+def _valid_task_record(data: Dict[str, object]) -> bool:
+    contract = data.get("contract")
+    current = data.get("current")
+    return (
+        data.get("type") == "contract_task"
+        and isinstance(contract, dict)
+        and contract == {"name": CONTRACT_NAME, "version": CONTRACT_VERSION}
+        and isinstance(current, dict)
+        and current.get("stage") == "queued"
+        and current.get("status") == "pending"
+        and isinstance(data.get("step_receipts"), list)
+    )
 
 
 def _item_path(knowledge_root: Path, evidence_id: str) -> Path:

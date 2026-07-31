@@ -151,7 +151,8 @@ checksum: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcde
 ```
 
 Evidence는 생성 시 확정한 불변 기록이며 상태 전이를 갖지 않는다. 후속 처리 대기는
-`workspace/task/curation-queue/<source_uuid>.md`, 검토 상태는 Review 카드, 정제 결과는 Bundle에서 관리한다.
+`workspace/task/curation_reconciliation/<source_uuid>.md`의 계약 작업 기록에서 관리하고, 검토 상태는 Review 카드,
+정제 결과는 Bundle에서 관리한다.
 
 ### 6.3 Curation
 

@@ -75,7 +75,7 @@ inbox-capture
 | 동일 idempotency key의 checksum 변경 | Capture 중단, 구조화된 기존 Inbox Item 참조를 확인하고 충돌 보고 |
 | checksum 불일치 | Inbox 유지, 승인 금지 |
 | `sensitivity_review: required` | 승인 금지, 검토 완료 후 재검사 |
-| PII 또는 민감도 판단에 사람 결정 필요 | `workspace/task/inbox-review-queue/`에 예외 작업을 생성하고 Evidence 변환을 중단. 해결 뒤 재처리되어 Evidence와 Curation Queue가 함께 생성될 때만 Queue를 archive |
+| PII 또는 민감도 판단에 사람 결정 필요 | `workspace/task/inbox_reconciliation/`에 예외 계약 작업을 생성하고 Evidence 변환을 중단. 해결 뒤 재처리되어 Evidence와 Curation 계약 작업이 함께 생성될 때만 작업을 archive |
 | Evidence 변환 중 민감정보 감지 | RB-EVD-021·RB-SEC-010에 따라 안전한 파생 입력 또는 사람 검토로 분기 |
 | Evidence PII Scan 결과 처리 | RB-EVD-020·RB-SEC-005 적용 |
 | provider와 폴더 불일치 | Inbox 유지, 자동 이동·수정 금지 |

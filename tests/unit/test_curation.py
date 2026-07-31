@@ -316,6 +316,10 @@ class CurationMaterializationTests(unittest.TestCase):
             self.assertEqual(result["outcomes"][0]["queue_disposition"], "complete")
             self.assertEqual(result["after"]["items"], [])
             self.assertEqual(list_curation_queue(root), [])
+            archived = next((root.parent / "workspace" / "task" / ".archive" / "curation_reconciliation").glob("*.md"))
+            task = parse_markdown(archived).frontmatter
+            self.assertEqual(task["current"]["outcome"], "no_bundle")
+            self.assertEqual(task["result_artifact"]["kind"], "review_id")
 
     def test_reconcile_curation_hands_manual_result_to_review_queue(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -345,6 +349,10 @@ class CurationMaterializationTests(unittest.TestCase):
             self.assertEqual(result["outcomes"][0]["outcome"], "review_handoff")
             self.assertEqual(len(list_curation_reviews(root)), 1)
             self.assertEqual(list_curation_candidates(root), [])
+            archived = next((root.parent / "workspace" / "task" / ".archive" / "curation_reconciliation").glob("*.md"))
+            task = parse_markdown(archived).frontmatter
+            self.assertEqual(task["current"]["outcome"], "review_handoff")
+            self.assertEqual(task["result_artifact"]["kind"], "path")
 
     def test_reconcile_curation_keeps_disabled_adapter_work_in_queue(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -757,10 +765,14 @@ class CurationMaterializationTests(unittest.TestCase):
             queue_path = root.parent / refreshed["path"]
             self.assertTrue(queue_path.is_dir())
             queue_item = root.parent / queue[0]["queue_path"]
-            self.assertEqual(
-                parse_markdown(queue_item).frontmatter,
-                {"evidence_id": evidence_id, "evidence_path": queue[0]["path"]},
-            )
+            task = parse_markdown(queue_item).frontmatter
+            self.assertEqual(task["type"], "contract_task")
+            self.assertEqual(task["contract"], {"name": "curation_reconciliation", "version": 1})
+            self.assertEqual(task["evidence_id"], evidence_id)
+            self.assertEqual(task["evidence_path"], queue[0]["path"])
+            self.assertEqual(task["current"]["stage"], "queued")
+            self.assertEqual(task["current"]["status"], "pending")
+            self.assertTrue(task["step_receipts"])
 
             queue_item.unlink()
             repaired = refresh_curation_queue(root)
@@ -768,16 +780,15 @@ class CurationMaterializationTests(unittest.TestCase):
             self.assertEqual(list_curation_queue(root)[0]["evidence_id"], evidence_id)
 
             queue_item.write_text("---\nevidence_id: wrong\n---\n", encoding="utf-8")
-            malformed = root.parent / "workspace" / "task" / "curation-queue" / "malformed.md"
+            malformed = root.parent / "workspace" / "task" / "curation_reconciliation" / "malformed.md"
             malformed.write_text("not frontmatter\n", encoding="utf-8")
             repaired = refresh_curation_queue(root)
             self.assertEqual(repaired["repaired_count"], 1)
             self.assertEqual(repaired["removed_count"], 1)
             self.assertFalse(malformed.exists())
-            self.assertEqual(
-                parse_markdown(queue_item).frontmatter,
-                {"evidence_id": evidence_id, "evidence_path": queue[0]["path"]},
-            )
+            repaired_task = parse_markdown(queue_item).frontmatter
+            self.assertEqual(repaired_task["contract"]["name"], "curation_reconciliation")
+            self.assertEqual(repaired_task["current"]["status"], "pending")
 
             result = materialize_curation_candidate(
                 root, evidence_id, self._output(evidence_id),
@@ -785,6 +796,8 @@ class CurationMaterializationTests(unittest.TestCase):
             )
             self.assertEqual(result["action"], "created")
             self.assertEqual(list_curation_queue(root), [])
+            archived = root.parent / "workspace" / "task" / ".archive" / "curation_reconciliation"
+            self.assertEqual(len(list(archived.glob("*.md"))), 1)
 
     def test_queue_repair_keeps_restricted_evidence_pending(self):
         with tempfile.TemporaryDirectory() as directory:

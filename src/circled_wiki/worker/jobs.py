@@ -23,7 +23,11 @@ from circled_wiki.core.inbox_review_queue import (
     review_context,
 )
 from circled_wiki.core.repository import iter_documents
-from circled_wiki.core.curation_queue import list_curation_queue
+from circled_wiki.core.curation_queue import (
+    list_curation_queue,
+    record_curation_contract_outcome,
+    refresh_curation_queue,
+)
 from circled_wiki.core.service import KnowledgeService
 from circled_wiki.core.sensitive_data import redact_sensitive_data
 from circled_wiki.core.workflow import TaskStore
@@ -110,6 +114,7 @@ def reconcile_curation(knowledge_root: Path, limit: int = 100) -> Dict[str, obje
     if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 1000:
         raise ValueError("limit must be an integer between 1 and 1000")
     contract = load_curation_contract(knowledge_root)
+    refresh_curation_queue(knowledge_root)
     stages = contract["contract"]["stages"]
     queued_stage = stages["queued"]
     if queued_stage["action"] != "run_configured_curation_batch":
@@ -127,8 +132,15 @@ def reconcile_curation(knowledge_root: Path, limit: int = 100) -> Dict[str, obje
         result = item.get("result")
         outcome_name = _curation_outcome_name(result)
         outcome = queued_stage["outcomes"][outcome_name]
+        evidence_id = item.get("evidence_id")
+        if outcome["queue_disposition"] == "complete" and isinstance(evidence_id, str):
+            record_curation_contract_outcome(
+                knowledge_root, evidence_id, outcome=outcome_name,
+                next_stage=str(outcome["next_stage"]),
+                artifact=_curation_result_artifact(result),
+            )
         outcomes.append({
-            "evidence_id": item.get("evidence_id"),
+            "evidence_id": evidence_id,
             "outcome": outcome_name,
             **outcome,
         })
@@ -183,6 +195,20 @@ def _curation_outcome_name(result: object) -> str:
         if promotion.get("status") == "draft":
             return "draft_created"
     return "retryable_block"
+
+
+def _curation_result_artifact(result: object) -> Optional[Dict[str, object]]:
+    """Return only the stable reference to an already-created Curation result."""
+    if not isinstance(result, dict):
+        return None
+    for key in ("path", "review_id", "bundle_id"):
+        value = result.get(key)
+        if isinstance(value, str) and value:
+            return {"kind": key, "reference": value}
+    promotion = result.get("promotion")
+    if isinstance(promotion, dict) and isinstance(promotion.get("bundle_id"), str):
+        return {"kind": "bundle_id", "reference": promotion["bundle_id"]}
+    return None
 
 
 def inspect_inbox(knowledge_root: Path, limit: int = 100) -> Dict[str, object]:

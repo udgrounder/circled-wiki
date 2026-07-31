@@ -51,6 +51,16 @@
 자동 행동·승인·revision 적용 권한을 추가할 수 없다. `approved_update` 적용은 Curation 재조정의 outcome이
 아니며, 기존의 checksum·revision 재검사 적용 경로로만 처리한다.
 
+## 계약 작업 기록과 결과물
+
+`workspace/task/<contract-name>/<subject-uuid>.md`는 계약을 실행할 입력의 현재 단계와 원문 없는 단계 Receipt를
+보관하는 작업 기록이다. Queue는 별도 폴더가 아니라 해당 계약 작업 중 `pending` 상태를 조회한 결과다. 완료된
+작업 기록은 `workspace/task/.archive/<contract-name>/`으로 이동한다.
+
+작업 기록이 Review 카드·Bundle·결정 Receipt를 만들어내는 것은 아니다. 해당 결과물은 Curator·Reviewer·Publication
+단계가 실제 Gate를 통과해 성공했을 때에만 생성된다. 그 뒤 계약 작업 기록은 결과물의 안전한 참조와 다음 상태를
+기록한다.
+
 ## 정본과 변경 원칙
 
 - `OPERATING_RULES.md`는 승인·보안·의미 변경 Gate와 금지 사항의 정본이다. 특히 Curation은

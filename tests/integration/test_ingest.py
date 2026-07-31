@@ -43,6 +43,11 @@ class IngestEvidenceTests(unittest.TestCase):
             self.assertEqual(len(queue), 1)
             self.assertEqual(queue[0]["current_stage"], "sensitivity_review")
             self.assertEqual(queue[0]["requirements"][0]["reason_code"], "sensitivity_review_required")
+            task = parse_markdown(knowledge_root.parent / "workspace" / "task" / "inbox_reconciliation" / f"{queue[0]['queue_id']}.md")
+            self.assertEqual(task.frontmatter["type"], "contract_task")
+            self.assertEqual(task.frontmatter["contract"], {"name": "inbox_reconciliation", "version": 1})
+            self.assertEqual(task.frontmatter["current"]["status"], "awaiting_user")
+            self.assertTrue(task.frontmatter["step_receipts"])
 
             complete_inbox_sensitivity_review(
                 knowledge_root, captured.intake_id, "human-reviewer", "completed"
@@ -85,8 +90,11 @@ class IngestEvidenceTests(unittest.TestCase):
 
             self.assertEqual(result["ingested_count"], 1)
             self.assertEqual(list_inbox_review_queue(knowledge_root), [])
-            archived = list((knowledge_root.parent / "workspace" / "task" / ".archive" / "inbox-review-queue").glob("*.md"))
+            archived = list((knowledge_root.parent / "workspace" / "task" / ".archive" / "inbox_reconciliation").glob("*.md"))
             self.assertEqual(len(archived), 1)
+            archived_task = parse_markdown(archived[0])
+            self.assertEqual(archived_task.frontmatter["type"], "contract_task")
+            self.assertEqual(archived_task.frontmatter["current"], {"stage": "evidence", "status": "completed"})
             evidence = parse_markdown(knowledge_root.parent / result["items"][0]["evidence_path"])
             self.assertEqual(evidence.frontmatter["extensions"]["pii_scan"]["result"], "masked")
             self.assertEqual(evidence.frontmatter["extensions"]["inbox_review"]["reason_codes"], ["pii_needs_review"])
@@ -139,7 +147,7 @@ class IngestEvidenceTests(unittest.TestCase):
 
             self.assertEqual(list((knowledge_root / "evidence").rglob("*.md")), [])
             self.assertEqual(
-                list((knowledge_root.parent / "workspace" / "task" / "curation-queue").glob("*.md")),
+                list((knowledge_root.parent / "workspace" / "task" / "curation_reconciliation").glob("*.md")),
                 [],
             )
 

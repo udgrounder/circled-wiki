@@ -404,7 +404,7 @@ Evidence Record는 `why_collected`와 non-empty `intended_use` 배열을 필수�
 - Evidence 파일 경로는 `knowledge/evidence/{source}/{yyyy}/{mm}/{dd}/{name}_{source_uuid}.{ext}` 패턴을 권장한다.
 - Evidence는 `extensions.capture_context`에 수집 이유와 적용 업무를 기록한다.
 - Bundle 생성·revision·발행은 Evidence를 읽고 URI로 참조만 한다. 생성된 Evidence는 변경하지 않으며, curation 완료 여부는 Bundle의 canonical `evidence` 참조와 Curation Review 카드의 결정 receipt에서 파생한다.
-- Evidence 확정과 `workspace/task/curation-queue/<source_uuid>.md` 생성은 함께 성공하거나 함께 실패한다. 큐 항목에는 `evidence_id`와 Vault 루트 기준 `evidence_path`만 기록하며, 파일 존재가 미처리 상태를 뜻한다. Bundle 또는 Review 카드가 검증되면 큐 항목을 제거하고, 실패하면 유지한다.
+- Evidence 확정과 `workspace/task/curation_reconciliation/<source_uuid>.md` 계약 작업 기록 생성은 함께 성공하거나 함께 실패한다. 작업 기록은 계약·Evidence 식별자·현재 단계와 원문 없는 단계 Receipt를 가지며, `queued/pending` 상태가 Curation Queue를 뜻한다. Bundle 또는 Review 카드가 실제로 검증된 뒤에만 결과 참조를 기록하고 계약 archive로 이동하며, 실패하면 같은 작업 기록을 유지한다.
 - Evidence PII Scan Receipt는 후보 원문의 checksum에 결합해 Evidence 최초 생성 시 함께 기록한다. 생성된 Evidence에 Scan 상태나 Receipt를 사후 추가·수정하는 API를 제공하지 않는다.
 
 주의:
