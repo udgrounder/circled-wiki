@@ -29,9 +29,8 @@ Launcher는 현재 작업 디렉터리에 관계없이 이 프로젝트 root와 
 `PyYAML`이 필요하다. Runtime과 운영 규칙은 OS 관리 자산이므로 직접 수정하지 않고, 변경은 OS upgrade 또는
 `.circled-wiki/proposals/` 제안본을 통해 검토한다.
 
-Runtime은 전체 Control Plane 자산을 검사하는 `operational-preflight`를 제공하거나 실행하지 않는다. 배포 자산의
-checksum·proposal·backup은 Product Agent의 upgrade dry-run과 manifest·Receipt 대조에서 확인한다. 일상 운영은
-선택한 Profile의 입력·권한·Evidence·revision Gate와 필요한 경우 `validate`만 적용한다.
+배포 자산의 checksum·proposal·backup은 Product Agent의 upgrade dry-run과 manifest·Receipt 대조에서 확인한다.
+일상 운영은 선택한 Profile의 입력·권한·Evidence·revision Gate와 필요한 경우 `validate`만 적용한다.
 
 설치별 조직 ID, 운영 Agent와 선택적 Graphify 경계는 `.circled-wiki/config.yaml`에서 확인한다. 이 파일은 설치 시
 생성되고 이후 upgrade에서 덮어쓰지 않는 설치 로컬 설정이다.
