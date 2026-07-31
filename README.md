@@ -17,6 +17,8 @@ circled-wiki/
 ├── AGENTS.md
 ├── PRODUCT_ENGINEERING_RULES.md
 ├── product-agent-rules/
+├── src/circled_wiki/runtime/      # 설치 Wiki에 배포되는 구현
+├── src/circled_wiki/engineering/ # source repository 전용 제품 개발 도구
 ├── OPERATING_RULES.md
 ├── agent-rules/
 ├── README.md
@@ -34,7 +36,7 @@ circled-wiki/
 - 설치본 Runtime Agent의 배포 원본은 `OPERATING_RULES.md`, `.circled-wiki/AGENT_ROUTER.md`와
   `agent-rules/`이며 Product Profile을 설치본에 배포하지 않는다.
 - `workspace/`는 제품 작업·운영 Issue 개선 이력을 위한 Working Plane이며 공식 지식이 아니다.
-- 구현체는 `src/circled_wiki/`에 두며 Core, CLI, MCP, worker의 책임을 분리한다.
+- 배포 구현은 `src/circled_wiki/runtime/`에 두며 Core, CLI, MCP, worker의 책임을 분리한다. 릴리즈·운영 Issue·배포 Receipt를 다루는 source repository 전용 도구는 `src/circled_wiki/engineering/`에 두고 설치본에 배포하지 않는다.
 - 저장소 문서, 설정, 예시는 절대 경로 대신 프로젝트 루트 상대 경로를 사용한다.
 - `knowledge/bundles/`와 Evidence Record, `.circled-wiki/templates/`, `.circled-wiki/schemas/`, `.circled-wiki/policies/`의 관리 문서는 YAML Frontmatter가 있는 OKF 구조를 유지한다.
 - 용어의 규범적 의미는 `OPERATING_RULES.md`의 Terminology Contract를 따른다.
@@ -662,14 +664,14 @@ Product Workspace의 수집·검토·Triage·Archive와 Receipt 기록은 source
 설치본 `.circled-wiki/bin/circled-wiki.py`에는 이 Product Agent 명령을 배포하지 않는다.
 
 ```sh
-PYTHONPATH=src python3 -m circled_wiki.product_cli intake-operational-issue \
+PYTHONPATH=src python3 -m circled_wiki.engineering.cli intake-operational-issue \
   --source-project <운영-프로젝트-root> \
   --project-ref <safe-project-ref> \
   --issue issue-<id> \
   --requested-by <user> \
   --moved-by <agent>
 
-PYTHONPATH=src python3 -m circled_wiki.product_cli review-workspace-issue \
+PYTHONPATH=src python3 -m circled_wiki.engineering.cli review-workspace-issue \
   --item issues/inbox/<project-ref>/issue-<id>.md \
   --reviewed-by <user> \
   --decision accepted \

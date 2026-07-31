@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 from circled_wiki.core.bootstrap import bootstrap_circled_wiki
-from circled_wiki.core.issue_workspace import (
+from circled_wiki.engineering.issue_workspace import (
     archive_workspace_issue,
     intake_operational_issue,
     link_workspace_issue_resolution,
@@ -13,7 +13,7 @@ from circled_wiki.core.issue_workspace import (
     triage_workspace_issue,
 )
 from circled_wiki.core.observations import record_system_issue
-from circled_wiki.core.receipts import (
+from circled_wiki.engineering.receipts import (
     record_deployment_receipt,
     record_release_receipt,
     record_verification_receipt,
@@ -44,7 +44,7 @@ class IssueImprovementEndToEndTests(unittest.TestCase):
             "# END circled-wiki:generated-artifacts\n",
             encoding="utf-8",
         )
-        runtime = source / "src" / "circled_wiki"
+        runtime = source / "src" / "circled_wiki" / "runtime"
         runtime.mkdir(parents=True)
         (runtime / "__init__.py").write_text("__version__ = 'test'\n", encoding="utf-8")
         return source

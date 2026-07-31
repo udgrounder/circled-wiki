@@ -17,8 +17,8 @@ testpaths = ["tests"]
 pythonpath = ["src"]
 
 [project.scripts]
-circled-wiki = "circled_wiki.cli.__main__:main"
-circled-wiki-product = "circled_wiki.product_cli:run_product_cli"
+circled-wiki = "circled_wiki.runtime.cli.__main__:main"
+circled-wiki-product = "circled_wiki.engineering.cli:run_product_cli"
 
 [tool.setuptools.packages.find]
 where = ["src"]

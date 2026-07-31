@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from circled_wiki.core.receipts import (
+from circled_wiki.engineering.receipts import (
     record_deployment_receipt,
     record_release_receipt,
     record_verification_receipt,
@@ -99,6 +99,27 @@ class ReceiptTests(unittest.TestCase):
                     backup_ref="backup/v1",
                     actions={"applied": ["workspace/issues/x.md"], "preserved": [], "proposed": []},
                 )
+
+    def test_release_receipt_records_a_verified_source_commit_check(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            receipt = record_release_receipt(
+                root / "workspace" / "receipts",
+                manifest_path=self._manifest(root),
+                source_revision="a" * 40,
+                included_issue_ids=[],
+                validation={
+                    "unit": "passed", "integration": "passed", "repository_validator": "passed",
+                },
+                verified_by="reviewer",
+                source_commit_check={
+                    "revision": "a" * 40,
+                    "subject": "release source", "worktree_clean": True,
+                },
+            )
+
+            self.assertEqual(receipt["source_commit_check"]["revision"], "a" * 40)
+            self.assertTrue(receipt["source_commit_check"]["worktree_clean"])
 
     def test_verification_blocks_self_verification_and_failed_preservation(self):
         with tempfile.TemporaryDirectory() as directory:

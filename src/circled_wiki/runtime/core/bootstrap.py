@@ -347,17 +347,12 @@ def _source_assets(source_root: Path) -> Dict[str, bytes]:
         source = source_root / CONTROL_PLANE / filename
         if source.is_file():
             assets[f"{CONTROL_PLANE}/{filename}"] = source.read_bytes()
-    runtime_source = source_root / "src" / "circled_wiki"
+    runtime_source = source_root / "src" / "circled_wiki" / "runtime"
     if not runtime_source.is_dir():
         runtime_source = source_root / CONTROL_PLANE / "runtime" / "circled_wiki"
+    if not runtime_source.is_dir():
+        raise ValueError("deployable Circled Wiki Runtime source is missing")
     for source in sorted(runtime_source.rglob("*.py")):
-        if source.relative_to(runtime_source).as_posix() in {
-            "core/issue_workspace.py",
-            "product_cli.py",
-        }:
-            # Operational Issue intake is Product Agent authority and is never
-            # shipped inside an installed Wiki runtime.
-            continue
         assets[
             f"{CONTROL_PLANE}/runtime/circled_wiki/"
             + source.relative_to(runtime_source).as_posix()

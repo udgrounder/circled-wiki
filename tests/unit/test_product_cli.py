@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from circled_wiki.product_cli import main, run_product_cli
+from circled_wiki.engineering.cli import main, run_product_cli, verify_release_source
 
 
 class ProductCliTests(unittest.TestCase):
@@ -13,7 +13,7 @@ class ProductCliTests(unittest.TestCase):
         project = Path(__file__).resolve().parents[2]
         metadata = (project / "pyproject.toml").read_text(encoding="utf-8")
         self.assertIn(
-            'circled-wiki-product = "circled_wiki.product_cli:run_product_cli"',
+            'circled-wiki-product = "circled_wiki.engineering.cli:run_product_cli"',
             metadata,
         )
 
@@ -30,7 +30,7 @@ class ProductCliTests(unittest.TestCase):
                     "--requested-by", "user-1", "--moved-by", "agent-1",
                 ],
             ):
-                with patch("circled_wiki.product_cli.intake_operational_issue") as intake:
+                with patch("circled_wiki.engineering.cli.intake_operational_issue") as intake:
                     intake.return_value = {"status": "pending_review"}
                     with patch("sys.stdout", output):
                         status = main()
@@ -81,3 +81,26 @@ class ProductCliTests(unittest.TestCase):
 
         self.assertEqual(status, 2)
         self.assertIn("--preflight-ready", json.loads(output.getvalue())["message"])
+
+    def test_release_source_check_requires_exact_clean_head(self):
+        completed = lambda output: type("Completed", (), {"stdout": output})()
+        with patch(
+            "circled_wiki.engineering.cli.subprocess.run",
+            side_effect=[completed("a" * 40 + "\n"), completed(""), completed("release commit\n")],
+        ) as run:
+            result = verify_release_source("a" * 40, Path("/product"))
+
+        self.assertEqual(
+            result,
+            {"revision": "a" * 40, "subject": "release commit", "worktree_clean": True},
+        )
+        self.assertEqual(run.call_count, 3)
+
+    def test_release_source_check_rejects_dirty_worktree(self):
+        completed = lambda output: type("Completed", (), {"stdout": output})()
+        with patch(
+            "circled_wiki.engineering.cli.subprocess.run",
+            side_effect=[completed("a" * 40 + "\n"), completed(" M source.py\n")],
+        ):
+            with self.assertRaisesRegex(ValueError, "worktree must be clean"):
+                verify_release_source("a" * 40, Path("/product"))

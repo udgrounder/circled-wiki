@@ -7,6 +7,7 @@
 ## Input
 
 - 변경 revision, 포함 Issue와 관련 테스트 결과
+- 포함할 HEAD commit과 이전 release 이후의 commit 목록
 - Runtime·schema·config migration 영향
 - clean source revision 또는 명시적으로 기록된 source snapshot
 
@@ -21,6 +22,8 @@
 - Runtime Router checksum과 Runtime Profile 목록
 - 포함 Issue, 호환성, migration과 rollback 정보
 - source revision, release manifest와 receipt의 asset checksum이 동일한지
+- `git rev-parse HEAD`가 release `source_revision`과 정확히 일치하는지, `git status --porcelain=v1`가 비어 있는지,
+  HEAD commit 제목과 포함 commit 목록이 릴리즈 범위와 일치하는지
 
 ## Gates
 
@@ -30,6 +33,7 @@
 - release manifest와 Release Receipt를 **대상 배포 전에** immutable하게 기록할 것
 - release ID는 제품 release asset map만으로 계산할 것. 대상별 preserve·proposal·backup 결과를 release asset map에 섞지 말 것
 - source revision이 재현 가능할 것. uncommitted 작업 트리는 기본적으로 release 준비를 차단하며, 예외는 revision·diff checksum·승인 사유를 release note에 함께 기록할 것
+- `record-release-receipt`는 Product CLI에서 위 commit Gate를 통과한 HEAD만 기록할 것. revision 불일치·미커밋 변경·Git 확인 실패면 Receipt를 만들지 않는다.
 
 ## Output
 

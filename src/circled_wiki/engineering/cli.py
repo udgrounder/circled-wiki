@@ -3,10 +3,11 @@
 import argparse
 import json
 from pathlib import Path
+import subprocess
 import sys
 from typing import Optional
 
-from circled_wiki.core.issue_workspace import (
+from circled_wiki.engineering.issue_workspace import (
     ARCHIVE_DISPOSITIONS,
     HISTORY_RELATIONS,
     ISSUE_CLASSIFICATIONS,
@@ -17,7 +18,7 @@ from circled_wiki.core.issue_workspace import (
     review_workspace_issue,
     triage_workspace_issue,
 )
-from circled_wiki.core.receipts import (
+from circled_wiki.engineering.receipts import (
     DEPLOYMENT_STATUSES,
     record_deployment_receipt,
     record_release_receipt,
@@ -56,6 +57,36 @@ def _parse_validation(value: str) -> dict[str, str]:
     ):
         raise ValueError("validation must be a JSON string-to-string object")
     return payload
+
+
+def verify_release_source(source_revision: str, repository_root: Optional[Path] = None) -> dict[str, object]:
+    """Require a clean, committed HEAD before a Product CLI release receipt.
+
+    Direct receipt helpers remain usable for fixture and installation tests. The
+    Product release entry point, however, must prove that the receipt describes
+    the exact committed source it is about to release.
+    """
+    root = (repository_root or Path.cwd()).resolve()
+
+    def git(*arguments: str) -> str:
+        try:
+            completed = subprocess.run(
+                ["git", "-C", str(root), *arguments],
+                check=True, capture_output=True, text=True,
+            )
+        except (OSError, subprocess.CalledProcessError) as error:
+            raise ValueError("release source must be a readable Git repository") from error
+        return completed.stdout
+
+    head = git("rev-parse", "HEAD").strip()
+    if source_revision.strip() != head:
+        raise ValueError("release source_revision must exactly match committed HEAD")
+    if git("status", "--porcelain=v1").strip():
+        raise ValueError("release source worktree must be clean")
+    subject = git("show", "-s", "--format=%s", "HEAD").strip()
+    if not subject:
+        raise ValueError("release HEAD commit subject is missing")
+    return {"revision": head, "subject": subject, "worktree_clean": True}
 
 
 def _parse_actions(args: argparse.Namespace) -> dict[str, list[str]]:
@@ -201,6 +232,7 @@ def main() -> int:
             restore_condition=args.restore_condition,
         )
     elif args.command == "record-release-receipt":
+        source_commit_check = verify_release_source(args.source_revision)
         result = record_release_receipt(
             workspace_root / "receipts",
             manifest_path=Path(args.manifest),
@@ -208,6 +240,7 @@ def main() -> int:
             included_issue_ids=args.included_issue,
             validation=_parse_validation(args.validation),
             verified_by=args.verified_by,
+            source_commit_check=source_commit_check,
         )
     elif args.command == "record-deployment-receipt":
         result = record_deployment_receipt(

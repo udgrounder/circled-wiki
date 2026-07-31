@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from circled_wiki.core.frontmatter import parse_markdown
-from circled_wiki.core.issue_workspace import (
+from circled_wiki.engineering.issue_workspace import (
     archive_workspace_issue,
     intake_operational_issue,
     link_workspace_issue_resolution,

@@ -43,6 +43,9 @@ class BootstrapKnowledgeRootTests(unittest.TestCase):
             "# END circled-wiki:generated-artifacts\n",
             encoding="utf-8",
         )
+        runtime = root / "src" / "circled_wiki" / "runtime"
+        runtime.mkdir(parents=True)
+        (runtime / "__init__.py").write_text("__version__ = 'test'\n", encoding="utf-8")
         return root
 
     def test_refuses_to_install_into_the_source_project(self):
@@ -106,13 +109,18 @@ class BootstrapKnowledgeRootTests(unittest.TestCase):
                     / ".circled-wiki"
                     / "runtime"
                     / "circled_wiki"
-                    / "core"
+                    / "product"
                     / "issue_workspace.py"
                 ).exists()
             )
             self.assertFalse(
-                (target / ".circled-wiki" / "runtime" / "circled_wiki" / "product_cli.py").exists()
+                (target / ".circled-wiki" / "runtime" / "circled_wiki" / "product").exists()
             )
+            self.assertFalse(
+                (target / ".circled-wiki" / "runtime" / "circled_wiki" / "engineering").exists()
+            )
+            manifest = json.loads((target / MANIFEST_PATH).read_text(encoding="utf-8"))
+            self.assertFalse(any("/engineering/" in path for path in manifest["assets"]))
             self.assertTrue((target / ".circled-wiki" / "AGENT_BOOTSTRAP.md").is_file())
             self.assertTrue((target / ".circled-wiki" / "AGENT_ROUTER.md").is_file())
             self.assertTrue((target / ".circled-wiki" / "AUTONOMOUS_AGENT_STARTUP.md").is_file())

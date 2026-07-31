@@ -22,6 +22,7 @@ def record_release_receipt(
     included_issue_ids: Iterable[str],
     validation: Dict[str, str],
     verified_by: str,
+    source_commit_check: Optional[Dict[str, object]] = None,
     verified_at: Optional[str] = None,
 ) -> Dict[str, object]:
     """Validate an installed-asset manifest and record one immutable release receipt."""
@@ -56,6 +57,20 @@ def record_release_receipt(
         "verified_by": _non_empty(verified_by, "verified_by"),
         "verified_at": verified_at or datetime.now(timezone.utc).isoformat(),
     }
+    if source_commit_check is not None:
+        if (
+            not isinstance(source_commit_check, dict)
+            or source_commit_check.get("revision") != source_revision
+            or not isinstance(source_commit_check.get("subject"), str)
+            or not source_commit_check["subject"].strip()
+            or source_commit_check.get("worktree_clean") is not True
+        ):
+            raise ValueError("release source commit check is invalid")
+        receipt["source_commit_check"] = {
+            "revision": source_revision,
+            "subject": source_commit_check["subject"].strip(),
+            "worktree_clean": True,
+        }
     path = receipts_root / "releases" / f"{release_id}.json"
     return _write_immutable(path, receipt)
 
