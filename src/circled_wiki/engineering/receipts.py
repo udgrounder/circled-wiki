@@ -24,6 +24,7 @@ _RELEASE_ROOT_ASSETS = frozenset({
     f"{CONTROL_PLANE}/AGENT_ROUTER.md",
     f"{CONTROL_PLANE}/AUTONOMOUS_AGENT_STARTUP.md",
     f"{CONTROL_PLANE}/GRAPHIFY.md",
+    f"{CONTROL_PLANE}/runtime/pyproject.toml",
 })
 _RELEASE_ASSET_PREFIXES = (
     f"{CONTROL_PLANE}/templates/",
@@ -150,7 +151,6 @@ def record_verification_receipt(
     observed_release: str,
     verified_by: str,
     implemented_by: str,
-    preflight_ready: bool,
     validator_passed: bool,
     config_preserved: bool,
     knowledge_preserved: bool,
@@ -169,7 +169,6 @@ def record_verification_receipt(
     if verifier == _non_empty(implemented_by, "implemented_by"):
         raise ValueError("verification requires an independent actor")
     checks = {
-        "preflight_ready": preflight_ready,
         "validator_passed": validator_passed,
         "config_preserved": config_preserved,
         "knowledge_preserved": knowledge_preserved,

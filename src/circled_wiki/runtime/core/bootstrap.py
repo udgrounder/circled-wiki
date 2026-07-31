@@ -358,6 +358,10 @@ def _source_assets(source_root: Path) -> Dict[str, bytes]:
             f"{CONTROL_PLANE}/runtime/circled_wiki/"
             + source.relative_to(runtime_source).as_posix()
         ] = source.read_bytes()
+    runtime_metadata = source_root / CONTROL_PLANE / "runtime" / "pyproject.toml"
+    if not runtime_metadata.is_file():
+        raise ValueError("deployable Circled Wiki Runtime metadata is missing")
+    assets[f"{CONTROL_PLANE}/runtime/pyproject.toml"] = runtime_metadata.read_bytes()
     return assets
 
 

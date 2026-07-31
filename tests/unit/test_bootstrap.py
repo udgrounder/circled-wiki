@@ -46,6 +46,11 @@ class BootstrapKnowledgeRootTests(unittest.TestCase):
         runtime = root / "src" / "circled_wiki" / "runtime"
         runtime.mkdir(parents=True)
         (runtime / "__init__.py").write_text("__version__ = 'test'\n", encoding="utf-8")
+        runtime_metadata = root / ".circled-wiki" / "runtime"
+        runtime_metadata.mkdir(parents=True)
+        (runtime_metadata / "pyproject.toml").write_text(
+            "[project]\nname = 'circled-wiki-runtime'\n", encoding="utf-8"
+        )
         return root
 
     def test_refuses_to_install_into_the_source_project(self):
@@ -103,6 +108,7 @@ class BootstrapKnowledgeRootTests(unittest.TestCase):
             self.assertTrue((target / ".circled-wiki" / "templates" / ".gitignore").is_file())
             self.assertTrue((target / ".circled-wiki" / "bin" / "circled-wiki.py").is_file())
             self.assertTrue((target / ".circled-wiki" / "runtime" / "circled_wiki" / "cli" / "__main__.py").is_file())
+            self.assertTrue((target / ".circled-wiki" / "runtime" / "pyproject.toml").is_file())
             self.assertFalse(
                 (
                     target

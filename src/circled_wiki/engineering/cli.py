@@ -173,7 +173,7 @@ def main() -> int:
     verification.add_argument("--verified-by", required=True)
     verification.add_argument("--implemented-by", required=True)
     for flag in (
-        "preflight-ready", "validator-passed", "config-preserved",
+        "validator-passed", "config-preserved",
         "knowledge-preserved", "workspace-preserved", "reproduction-passed",
     ):
         verification.add_argument(f"--{flag}", action="store_true", required=True)
@@ -260,7 +260,6 @@ def main() -> int:
             observed_release=args.observed_release,
             verified_by=args.verified_by,
             implemented_by=args.implemented_by,
-            preflight_ready=args.preflight_ready,
             validator_passed=args.validator_passed,
             config_preserved=args.config_preserved,
             knowledge_preserved=args.knowledge_preserved,

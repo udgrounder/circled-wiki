@@ -22,7 +22,7 @@
 - manifest, 이전 checksum, Runtime Profile allowlist와 Router
 - manifest의 미해결 Control Plane proposal·미기록 파일 Issue와 Agent 진입점·launcher smoke check
 - `knowledge/`, `workspace/`, config와 root Agent 파일의 보존
-- preflight, validate와 backup 결과
+- launcher smoke check, validate와 backup 결과
 
 ## Gates
 

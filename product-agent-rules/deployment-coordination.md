@@ -7,7 +7,7 @@
 ## Input
 
 - 배포 전에 준비·검증된 release ID, immutable Release Receipt와 release manifest
-- 현재 release, preflight, maintenance window와 rollback 책임자
+- 현재 release, upgrade dry-run, maintenance window와 rollback 책임자
 - 명시된 대상, 승인과 rollback에 쓸 backup reference
 
 ## Allowed Actions

@@ -47,6 +47,11 @@ class IssueImprovementEndToEndTests(unittest.TestCase):
         runtime = source / "src" / "circled_wiki" / "runtime"
         runtime.mkdir(parents=True)
         (runtime / "__init__.py").write_text("__version__ = 'test'\n", encoding="utf-8")
+        runtime_metadata = control / "runtime"
+        runtime_metadata.mkdir()
+        (runtime_metadata / "pyproject.toml").write_text(
+            "[project]\nname = 'circled-wiki-runtime'\n", encoding="utf-8"
+        )
         return source
 
     def _init_git(self, target: Path) -> None:
@@ -168,7 +173,6 @@ class IssueImprovementEndToEndTests(unittest.TestCase):
                 observed_release=upgrade["os_release"],
                 verified_by="runtime-reviewer",
                 implemented_by="product-agent",
-                preflight_ready=True,
                 validator_passed=True,
                 config_preserved=True,
                 knowledge_preserved=True,

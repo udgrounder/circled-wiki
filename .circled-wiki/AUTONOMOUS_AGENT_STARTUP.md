@@ -9,15 +9,14 @@
 2. `.circled-wiki/OPERATING_RULES.md`를 읽는다.
 3. `.circled-wiki/AGENT_ROUTER.md` Routing Table로 요청을 분류하고 해당
    `.circled-wiki/agent-rules/*.md` 하나만 읽는다.
-4. `python3 .circled-wiki/bin/circled-wiki.py operational-preflight`를 실행한다.
-5. 질문 처리에는 Knowledge MCP 또는 portable CLI의 `search`, `read-bundle`, `prepare_context`를 사용한다.
+4. 질문 처리에는 Knowledge MCP 또는 portable CLI의 `search`, `read-bundle`, `prepare_context`를 사용한다.
    직접 `find`, `grep`, `rg` 탐색은 이 공식 경로가 실패하거나 결과가 불충분할 때 작업을 계속하기 위한 최후 수단으로
    허용한다. 먼저 `system-observation` Profile의 `record-system-issue`로 문제를 남기고, fallback 사유와 사용한
    범위를 기록한다.
-6. 운영 변경이 필요한 경우에만 operator MCP를 사용하며, 단계별 Profile과 Gate를 분리한다.
+5. 운영 변경이 필요한 경우에만 operator MCP를 사용하며, 단계별 Profile과 Gate를 분리한다.
 
-Preflight가 실패하면 지식 파일을 직접 우회 수정하지 않는다. 실패 원인을
-`record-system-issue`로 기록하고 Runtime 복구 또는 OS upgrade를 요청한다.
+Runtime 오류가 발생하면 지식 파일을 직접 우회 수정하지 않는다. 개별 사실과 영향에 따라
+`record-system-issue` 필요성을 판단하고, Runtime 복구 또는 OS upgrade를 요청한다.
 
 ## Single-machine Operating Model
 
@@ -43,8 +42,8 @@ Preflight가 실패하면 지식 파일을 직접 우회 수정하지 않는다.
 ## Graphify Boundary
 
 Graphify는 별도 설치하는 선택적 파생 인덱스다. `.circled-wiki/config.yaml`의 `graphify.enabled`가 `true`이고
-설정된 command와 graph 파일이 실제로 존재할 때만 사용한다. 활성화된 Graphify가 준비되지 않으면 preflight를
-통과한 것으로 주장하지 않는다.
+설정된 command와 graph 파일이 실제로 존재할 때만 사용한다. 활성화된 Graphify가 준비되지 않으면
+Graphify 결과를 사용하지 않는다.
 
 - Graphify는 관계 탐색, 후보 문서 발견, 경로 분석에 사용할 수 있다.
 - Graphify 결과만으로 정책·사실·승인 상태를 확정하지 않는다.

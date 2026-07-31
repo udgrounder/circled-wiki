@@ -80,7 +80,7 @@ class ProductCliTests(unittest.TestCase):
                 status = run_product_cli()
 
         self.assertEqual(status, 2)
-        self.assertIn("--preflight-ready", json.loads(output.getvalue())["message"])
+        self.assertIn("--validator-passed", json.loads(output.getvalue())["message"])
 
     def test_release_source_check_requires_exact_clean_head(self):
         completed = lambda output: type("Completed", (), {"stdout": output})()

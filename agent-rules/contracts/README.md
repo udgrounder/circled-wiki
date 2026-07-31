@@ -75,4 +75,4 @@ Card는 제안 본문·근거 스냅샷·검토 결정을 담는 결과물이므
 - Runtime loader의 allowlist와 회귀 테스트는 실제로 지원되는 계약 형식을 검증한다. YAML만 수정해
   새로운 action·outcome·승인 경로를 만들 수 없다.
 
-계약 파일을 추가·변경하면 Router, `OPERATING_RULES.md`, preflight와 회귀 테스트를 함께 갱신한다.
+계약 파일을 추가·변경하면 Router, `OPERATING_RULES.md`, 필요한 launcher smoke check와 회귀 테스트를 함께 갱신한다.
