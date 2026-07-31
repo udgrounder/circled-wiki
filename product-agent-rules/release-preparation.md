@@ -28,7 +28,7 @@
 ## Gates
 
 - 테스트와 Validator 통과
-- Product Profile, `knowledge/`, `workspace/`, 설치 config가 release 자산에 없을 것
+- release asset path는 Runtime package의 명시적 allowlist에만 속할 것. Product Profile, `knowledge/`, `workspace/`, 설치 config와 allowlist 밖의 모든 자산은 거부한다.
 - manifest와 Runtime checksum 일치
 - release manifest와 Release Receipt를 **대상 배포 전에** immutable하게 기록할 것
 - release ID는 제품 release asset map만으로 계산할 것. 대상별 preserve·proposal·backup 결과를 release asset map에 섞지 말 것

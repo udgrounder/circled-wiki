@@ -121,6 +121,46 @@ class ReceiptTests(unittest.TestCase):
             self.assertEqual(receipt["source_commit_check"]["revision"], "a" * 40)
             self.assertTrue(receipt["source_commit_check"]["worktree_clean"])
 
+    def test_release_receipt_rejects_assets_outside_runtime_allowlist(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest_path = self._manifest(root)
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["assets"]["product-agent-rules/release-preparation.md"] = "sha256:product"
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+            with self.assertRaisesRegex(ValueError, "asset outside the allowlist"):
+                record_release_receipt(
+                    root / "workspace" / "receipts",
+                    manifest_path=manifest_path,
+                    source_revision="a" * 40,
+                    included_issue_ids=[],
+                    validation={
+                        "unit": "passed", "integration": "passed", "repository_validator": "passed",
+                    },
+                    verified_by="reviewer",
+                )
+
+    def test_release_receipt_rejects_runtime_profiles_outside_allowlist(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest_path = self._manifest(root)
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["runtime_profiles"].append("release-preparation.md")
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+            with self.assertRaisesRegex(ValueError, "Runtime Profile outside the allowlist"):
+                record_release_receipt(
+                    root / "workspace" / "receipts",
+                    manifest_path=manifest_path,
+                    source_revision="a" * 40,
+                    included_issue_ids=[],
+                    validation={
+                        "unit": "passed", "integration": "passed", "repository_validator": "passed",
+                    },
+                    verified_by="reviewer",
+                )
+
     def test_verification_blocks_self_verification_and_failed_preservation(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

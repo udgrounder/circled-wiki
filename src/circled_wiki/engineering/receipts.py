@@ -3,15 +3,39 @@
 from datetime import datetime, timezone
 import hashlib
 import json
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 from typing import Dict, Iterable, List, Optional
+
+from circled_wiki.runtime.core.bootstrap import (
+    CONTROL_PLANE,
+    RUNTIME_ASSET_PREFIX,
+    RUNTIME_PROFILE_ALLOWLIST,
+)
 
 
 _SAFE_REF = re.compile(r"^[a-z0-9][a-z0-9._/-]*$")
 DEPLOYMENT_STATUSES = (
     "planned", "applied", "failed", "rolled_back", "verification_pending", "verified",
 )
+_RELEASE_ROOT_ASSETS = frozenset({
+    f"{CONTROL_PLANE}/OPERATING_RULES.md",
+    f"{CONTROL_PLANE}/AGENT_BOOTSTRAP.md",
+    f"{CONTROL_PLANE}/AGENT_ROUTER.md",
+    f"{CONTROL_PLANE}/AUTONOMOUS_AGENT_STARTUP.md",
+    f"{CONTROL_PLANE}/GRAPHIFY.md",
+})
+_RELEASE_ASSET_PREFIXES = (
+    f"{CONTROL_PLANE}/templates/",
+    f"{CONTROL_PLANE}/policies/",
+    f"{CONTROL_PLANE}/schemas/",
+    f"{CONTROL_PLANE}/bin/",
+    RUNTIME_ASSET_PREFIX,
+)
+_RUNTIME_PROFILE_PATHS = frozenset(
+    f"{CONTROL_PLANE}/agent-rules/{path}" for path in RUNTIME_PROFILE_ALLOWLIST
+)
+_RUNTIME_PROFILE_NAMES = frozenset(RUNTIME_PROFILE_ALLOWLIST)
 
 
 def record_release_receipt(
@@ -31,13 +55,13 @@ def record_release_receipt(
     profiles = manifest.get("runtime_profiles")
     if not isinstance(profiles, list) or not profiles:
         raise ValueError("release manifest must contain runtime_profiles")
-    prohibited = {"repository-engineering.md", "bootstrap-circled-wiki.md"}
-    if prohibited.intersection(str(item) for item in profiles):
-        raise ValueError("release manifest contains a Product Profile")
+    if not all(isinstance(profile, str) and profile in _RUNTIME_PROFILE_NAMES for profile in profiles):
+        raise ValueError("release manifest contains a Runtime Profile outside the allowlist")
     router_checksum = _required_text(manifest, "router_checksum")
     assets = manifest.get("assets")
     if not isinstance(assets, dict):
         raise ValueError("release manifest assets must be a mapping")
+    _validate_release_assets(assets)
     if assets.get(".circled-wiki/AGENT_ROUTER.md") != router_checksum:
         raise ValueError("release Router checksum does not match the manifest asset")
     required_validation = {"unit", "integration", "repository_validator"}
@@ -212,6 +236,29 @@ def _runtime_checksum(assets: Dict[str, object]) -> str:
             digest.update(str(checksum).encode("utf-8"))
             digest.update(b"\0")
     return "sha256:" + digest.hexdigest()
+
+
+def _validate_release_assets(assets: Dict[str, object]) -> None:
+    """Reject every release asset path not explicitly owned by the Runtime package."""
+    for asset_path, checksum in assets.items():
+        if not isinstance(asset_path, str) or not isinstance(checksum, str) or not checksum:
+            raise ValueError("release manifest assets must map non-empty paths to checksums")
+        path = PurePosixPath(asset_path)
+        normalized = path.as_posix()
+        if (
+            path.is_absolute()
+            or normalized != asset_path
+            or ".." in path.parts
+            or asset_path.endswith("/")
+        ):
+            raise ValueError("release manifest contains an invalid asset path")
+        if (
+            asset_path in _RELEASE_ROOT_ASSETS
+            or asset_path in _RUNTIME_PROFILE_PATHS
+            or any(asset_path.startswith(prefix) for prefix in _RELEASE_ASSET_PREFIXES)
+        ):
+            continue
+        raise ValueError(f"release manifest contains an asset outside the allowlist: {asset_path}")
 
 
 def _write_immutable(path: Path, receipt: Dict[str, object]) -> Dict[str, object]:
