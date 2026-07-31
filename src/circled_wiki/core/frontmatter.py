@@ -14,7 +14,8 @@ class FrontmatterError(ValueError):
 
 def parse_markdown(path: Path) -> MarkdownDocument:
     """Read a Markdown document with an opening and closing `---` delimiter."""
-    text = path.read_text(encoding="utf-8")
+    with path.open(encoding="utf-8", newline="") as document_file:
+        text = document_file.read()
     if not text.startswith("---\n") and not text.startswith("---\r\n"):
         raise FrontmatterError("YAML frontmatter must start at the first line")
 
@@ -35,7 +36,13 @@ def parse_markdown(path: Path) -> MarkdownDocument:
     if not isinstance(data, dict):
         raise FrontmatterError("YAML frontmatter must be a mapping")
     body = "".join(lines[end_index + 1:])
-    if body.startswith("---\n") or body.startswith("---\r\n"):
+    extensions = data.get("extensions")
+    is_embedded_body_original = (
+        isinstance(extensions, dict)
+        and extensions.get("content_mode") == "embedded"
+        and extensions.get("embedded_format_version") == 2
+    )
+    if not is_embedded_body_original and (body.startswith("---\n") or body.startswith("---\r\n")):
         raise FrontmatterError("Markdown document must contain exactly one YAML frontmatter block")
     return MarkdownDocument(path=path, frontmatter=data, body=body)
 

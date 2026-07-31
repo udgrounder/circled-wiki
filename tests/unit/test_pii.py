@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 from circled_wiki.core.frontmatter import parse_markdown, render_markdown
+from circled_wiki.core.evidence import evidence_original_bytes
 from circled_wiki.core.ingest import ingest_evidence
 from circled_wiki.core.pii import build_pii_scan_receipt
 from circled_wiki.core.publisher import PublishError, _require_sensitive_data_review
@@ -89,6 +90,62 @@ class PiiScanReceiptTests(unittest.TestCase):
                     why_collected="PII gate test", intended_use=["security-test"],
                     pii_scanned=True,
                 )
+
+    def test_embedded_evidence_preserves_marker_text_and_pii_receipt(self):
+        with tempfile.TemporaryDirectory() as directory:
+            knowledge_root = Path(directory) / "knowledge"
+            source = knowledge_root / "inbox" / "manual" / "conversation.md"
+            source.parent.mkdir(parents=True)
+            content = (
+                "---\n"
+                "quoted start: <!-- ORIGINAL_CONTENT_START -->\n"
+                "quoted end: <!-- ORIGINAL_CONTENT_END -->\n"
+            )
+            source.write_text(content, encoding="utf-8")
+            checksum = "sha256:" + hashlib.sha256(source.read_bytes()).hexdigest()
+            receipt = build_pii_scan_receipt(
+                checksum, scanner="manual-review", scanner_version="policy-1",
+                result="masked", reviewed_by="security-agent",
+                receipt="review://local/pii-embedded",
+            )
+
+            ingested = ingest_evidence(
+                knowledge_root, source, "manual",
+                why_collected="Embedded PII gate test", intended_use=["security-test"],
+                content_mode="embedded", pii_scan_receipt=receipt,
+            )
+            document = parse_markdown(ingested.manifest_path)
+
+            self.assertEqual(document.body, content)
+            self.assertEqual(evidence_original_bytes(document), content.encode("utf-8"))
+            self.assertEqual(document.frontmatter["extensions"]["checksum_scope"], "document_body")
+            self.assertTrue(document.frontmatter["extensions"]["pii_scanned"])
+            self.assertEqual(document.frontmatter["extensions"]["pii_scan"]["result"], "masked")
+            self.assertTrue(validate_document(ingested.manifest_path, knowledge_root).is_valid)
+
+    def test_unsupported_embedded_format_version_is_rejected_without_rewrite(self):
+        with tempfile.TemporaryDirectory() as directory:
+            knowledge_root = Path(directory) / "knowledge"
+            source = knowledge_root / "inbox" / "manual" / "conversation.md"
+            source.parent.mkdir(parents=True)
+            source.write_text("safe conversation\n", encoding="utf-8")
+
+            ingested = ingest_evidence(
+                knowledge_root, source, "manual",
+                why_collected="format version test", intended_use=["test"],
+                content_mode="embedded",
+            )
+            document = parse_markdown(ingested.manifest_path)
+            document.frontmatter["extensions"]["embedded_format_version"] = 99
+            ingested.manifest_path.write_text(
+                render_markdown(document.frontmatter, document.body), encoding="utf-8"
+            )
+
+            validation = validate_document(ingested.manifest_path, knowledge_root)
+            self.assertIn(
+                "unsupported embedded Evidence format version: 99",
+                validation.profile_errors,
+            )
 
     def test_needs_review_receipt_keeps_source_in_inbox(self):
         with tempfile.TemporaryDirectory() as directory:

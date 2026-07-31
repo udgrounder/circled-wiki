@@ -127,8 +127,9 @@ PYTHONPATH=src python3 -m circled_wiki.cli ingest-accepted --limit 100
 PYTHONPATH=src python3 -m circled_wiki.cli propose-pending --limit 100
 ```
 
-변환된 Embedded Evidence는 Frontmatter와 원문을 한 `.md` 파일에 저장한다. checksum은 파일 전체가 아니라
-`ORIGINAL_CONTENT` 마커 사이의 불변 원문만 검증한다. PDF·이미지·스프레드시트와 외부에서 받은 기존
+변환된 Embedded Evidence는 Frontmatter와 원문을 한 `.md` 파일에 저장한다. 신규 Embedded Evidence의
+Frontmatter 뒤 전체 본문이 보존 원문이자 checksum 검증 대상이다. 기존 `ORIGINAL_CONTENT` 마커 형식은 읽기
+호환만 유지한다. PDF·이미지·스프레드시트와 외부에서 받은 기존
 파일은 기존 Evidence Original+External-file Evidence Manifest 방식을 유지한다. `--sensitivity-review` 기본값은 `required`이며 실제 검토가
 끝난 경우에만 `completed`로 지정한다.
 

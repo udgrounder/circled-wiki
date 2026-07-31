@@ -24,8 +24,7 @@ from .inbox_review_queue import (
 from .namespace import require_stable_organization_id
 from .sensitive_data import redact_sensitive_data
 from .evidence import (
-    ORIGINAL_CONTENT_END,
-    ORIGINAL_CONTENT_START,
+    EMBEDDED_FORMAT_VERSION,
     evidence_original_path,
     render_embedded_body,
 )
@@ -516,11 +515,10 @@ def ingest_evidence(
         if source_path.suffix.lower() != ".md":
             raise ValueError("embedded Evidence source must be a Markdown file")
         try:
-            embedded_source = source_path.read_text(encoding="utf-8")
+            with source_path.open(encoding="utf-8", newline="") as source_file:
+                source_file.read()
         except UnicodeDecodeError as error:
             raise ValueError("embedded Evidence source must be valid UTF-8") from error
-        if ORIGINAL_CONTENT_START in embedded_source or ORIGINAL_CONTENT_END in embedded_source:
-            raise ValueError("embedded Evidence source contains a reserved integrity marker")
     if not isinstance(pii_scanned, bool):
         raise ValueError("pii_scanned must be boolean")
     if pii_scanned:
@@ -648,15 +646,18 @@ def ingest_evidence(
         frontmatter["extensions"]["inbox_review"] = dict(inbox_review)
     if content_mode == "embedded":
         frontmatter["extensions"]["content_mode"] = "embedded"
-        frontmatter["extensions"]["checksum_scope"] = "original_content"
+        frontmatter["extensions"]["checksum_scope"] = "document_body"
+        frontmatter["extensions"]["embedded_format_version"] = EMBEDDED_FORMAT_VERSION
         frontmatter["extensions"]["capture_fidelity"] = capture_fidelity or "verbatim"
         if capture_details:
             frontmatter["extensions"]["conversation_capture"] = capture_details
-        embedded_content = raw_path.read_text(encoding="utf-8")
-        manifest_path.write_text(
-            render_markdown(frontmatter, render_embedded_body(embedded_content)),
-            encoding="utf-8",
-        )
+        with raw_path.open(encoding="utf-8", newline="") as source_file:
+            embedded_content = source_file.read()
+        # Do not pass the original through render_markdown: it trims leading
+        # whitespace, while the complete body is the checksum-covered original.
+        with manifest_path.open("w", encoding="utf-8", newline="") as manifest_file:
+            manifest_file.write(render_markdown(frontmatter))
+            manifest_file.write(render_embedded_body(embedded_content))
         original_path = manifest_path
     else:
         frontmatter["original_file"] = original_name

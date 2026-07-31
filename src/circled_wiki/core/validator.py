@@ -126,8 +126,16 @@ def verify_evidence_original(document: MarkdownDocument) -> Optional[str]:
             return "available Evidence original file is missing"
     elif content_mode == "embedded":
         extensions = data.get("extensions", {})
-        if extensions.get("checksum_scope") != "original_content":
-            return "embedded Evidence checksum_scope must be original_content"
+        format_version = extensions.get("embedded_format_version")
+        if format_version is not None and format_version != 2:
+            return f"unsupported embedded Evidence format version: {format_version}"
+        expected_scope = (
+            "document_body"
+            if format_version == 2
+            else "original_content"
+        )
+        if extensions.get("checksum_scope") != expected_scope:
+            return f"embedded Evidence checksum_scope must be {expected_scope}"
     original = evidence_original_bytes(document)
     if original is None:
         return "available Evidence original content is missing"

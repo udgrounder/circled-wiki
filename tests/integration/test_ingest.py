@@ -454,11 +454,14 @@ class IngestEvidenceTests(unittest.TestCase):
             self.assertNotIn("original_file", evidence.frontmatter)
             self.assertEqual(evidence.frontmatter["extensions"]["content_mode"], "embedded")
             self.assertEqual(
-                evidence.frontmatter["extensions"]["checksum_scope"], "original_content"
+                evidence.frontmatter["extensions"]["checksum_scope"], "document_body"
+            )
+            self.assertEqual(
+                evidence.frontmatter["extensions"]["embedded_format_version"], 2
             )
             self.assertEqual(evidence.frontmatter["extensions"]["capture_fidelity"], "verbatim")
             self.assertFalse(evidence.frontmatter["extensions"]["pii_scanned"])
-            self.assertIn(content, evidence.body)
+            self.assertEqual(evidence.body, content)
             self.assertEqual(validate_repository(knowledge_root)[0].profile_errors, [])
 
             proposal = propose_update(knowledge_root, item["evidence_id"])

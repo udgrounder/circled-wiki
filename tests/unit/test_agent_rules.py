@@ -180,6 +180,24 @@ class AgentRuleProfileTests(unittest.TestCase):
             self.assertIn("OPERATING_RULES.md", content)
             self.assertNotIn("04-evidence-model.md", content)
 
+    def test_embedded_evidence_format_versions_are_defined_in_runtime_rules(self):
+        operating = (ROOT / "OPERATING_RULES.md").read_text(encoding="utf-8")
+
+        self.assertIn("extensions.embedded_format_version", operating)
+        self.assertIn("버전이 없는 기존 문서는 v1", operating)
+        self.assertIn("embedded_format_version: 2", operating)
+        self.assertIn("checksum_scope: document_body", operating)
+        self.assertIn("미지원 버전", operating)
+        self.assertIn("Ingest는 Inbox 원문을 최신 지원 포맷", operating)
+        self.assertIn("자동 보정하지 않고 Validator 오류", operating)
+
+    def test_runtime_repository_boundary_keeps_product_and_installation_mutations_separate(self):
+        operating = (ROOT / "OPERATING_RULES.md").read_text(encoding="utf-8")
+
+        self.assertIn("제품 source repository", operating)
+        self.assertIn("설치본의 `knowledge/`와 `workspace/` 변경", operating)
+        self.assertIn("선택한 Runtime Profile과 해당 Gate", operating)
+
     def test_source_docs_cannot_be_mistaken_for_runtime_rules(self):
         docs_readme = (ROOT / "docs" / "README.md").read_text(encoding="utf-8")
         evidence_model = (ROOT / "docs" / "04-evidence-model.md").read_text(

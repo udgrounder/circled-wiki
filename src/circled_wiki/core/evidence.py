@@ -8,6 +8,7 @@ from .models import MarkdownDocument
 
 ORIGINAL_CONTENT_START = "<!-- ORIGINAL_CONTENT_START -->"
 ORIGINAL_CONTENT_END = "<!-- ORIGINAL_CONTENT_END -->"
+EMBEDDED_FORMAT_VERSION = 2
 
 
 def evidence_content_mode(document: MarkdownDocument) -> str:
@@ -18,7 +19,17 @@ def evidence_content_mode(document: MarkdownDocument) -> str:
 
 
 def embedded_original_text(document: MarkdownDocument) -> Optional[str]:
-    """Return the immutable embedded original, excluding its marker comments."""
+    """Return the immutable embedded original.
+
+    New Embedded Evidence stores the complete Markdown body as its original so a
+    reader sees exactly the checksum-covered source.  Marker-wrapped documents
+    without a format version remain readable for backwards compatibility.
+    """
+    extensions = document.frontmatter.get("extensions")
+    if isinstance(extensions, dict) and "embedded_format_version" in extensions:
+        if extensions.get("embedded_format_version") == EMBEDDED_FORMAT_VERSION:
+            return document.body
+        return None
     start = document.body.find(ORIGINAL_CONTENT_START)
     end = document.body.find(ORIGINAL_CONTENT_END)
     if start < 0 or end < 0 or end < start:
@@ -49,11 +60,5 @@ def evidence_original_path(document: MarkdownDocument) -> Path:
 
 
 def render_embedded_body(content: str) -> str:
-    """Wrap verbatim UTF-8 source content in stable integrity markers."""
-    return (
-        "# Conversation Evidence\n\n"
-        "## Original Conversation\n\n"
-        f"{ORIGINAL_CONTENT_START}{content}{ORIGINAL_CONTENT_END}\n\n"
-        "## Derived Summary\n\n"
-        "Pending curation.\n"
-    )
+    """Return the verbatim Markdown body for new Embedded Evidence."""
+    return content

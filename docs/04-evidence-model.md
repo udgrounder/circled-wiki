@@ -86,8 +86,11 @@ evidence/{provider}/{yyyy}/{mm}/{dd}/{name}_{source_uuid}.md
 - 크기가 10MB를 초과하는 원본은 Git에서 제외하고 별도 원본 저장소에 보존한다. Git에는 `.md` manifest만 추적한다.
 - Git은 파일 크기만으로 ignore할 수 없으므로, ingest와 commit 전 Validator가 10MB 초과 Evidence 원본의 Git 추적을 차단해야 한다.
 
-Embedded Evidence Document는 별도 원본 파일 없이 하나의 Markdown에 Evidence Record와 불변 원문 구역을 둔다.
-`extensions.content_mode: embedded`, `checksum_scope: original_content`를 사용하며 `original_file`은 두지 않는다.
+Embedded Evidence Document는 별도 원본 파일 없이 하나의 Markdown에 Evidence Record와 불변 원문을 둔다.
+신규 문서는 Frontmatter 뒤 전체 본문을 원문으로 보존하며 `extensions.content_mode: embedded`,
+`checksum_scope: document_body`, `embedded_format_version: 2`를 사용하고 `original_file`은 두지 않는다.
+`embedded_format_version`이 없는 기존 문서는 `ORIGINAL_CONTENT` 마커 형식(v1)으로 읽기 호환을 유지하며,
+명시된 미지원 버전은 검증 오류로 처리한다.
 
 ## 7. External-file Evidence Manifest 기본 구조
 
