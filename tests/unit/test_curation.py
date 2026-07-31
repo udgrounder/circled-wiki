@@ -34,6 +34,7 @@ from circled_wiki.core.curation_queue import (
     refresh_curation_queue,
 )
 import circled_wiki.core.curation_queue as curation_queue
+from circled_wiki.worker.jobs import reconcile_curation
 
 
 def _acquire_queue_transaction(knowledge_root, started, acquired):
@@ -43,6 +44,13 @@ def _acquire_queue_transaction(knowledge_root, started, acquired):
 
 
 class CurationMaterializationTests(unittest.TestCase):
+    def _install_curation_contract(self, root):
+        source = Path(__file__).resolve().parents[2] / "agent-rules" / "contracts"
+        target = root.parent / "agent-rules" / "contracts"
+        target.mkdir(parents=True)
+        for name in ("index.yaml", "curation.yaml"):
+            (target / name).write_bytes((source / name).read_bytes())
+
     def _evidence(self, directory):
         root = Path(directory) / "knowledge"
         source = root / "inbox" / "manual" / "source.txt"
@@ -278,6 +286,171 @@ class CurationMaterializationTests(unittest.TestCase):
             queue = list_curation_queue(root)
             self.assertEqual(queue[0]["reason"], "adapter_disabled")
             self.assertIn("Configure the curation adapter", queue[0]["next_action"])
+
+    def test_reconcile_curation_closes_contract_valid_no_bundle(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, evidence_id = self._evidence(directory)
+            self._install_curation_contract(root)
+            config = root.parent / ".circled-wiki" / "config.yaml"
+            config.parent.mkdir(exist_ok=True)
+            config.write_text(
+                "schema_version: 1\ncuration:\n"
+                "  enabled: true\n  provider: test\n  model: curated\n  command: adapter\n",
+                encoding="utf-8",
+            )
+            output = {
+                "action": "no_bundle", "evidence_ids": [evidence_id],
+                "rationale": "The Evidence duplicates existing knowledge.",
+                "recheck_condition": "New non-duplicate Evidence arrives.",
+            }
+            completed = type("Completed", (), {"stdout": json.dumps(output)})()
+
+            with patch("circled_wiki.core.curation.propose_update", return_value={"recommended_action": "no_bundle", "blocking_conditions": []}):
+                with patch("circled_wiki.core.curation.subprocess.run", return_value=completed):
+                    result = reconcile_curation(root, limit=1)
+
+            self.assertEqual(result["actions"]["counts"]["no_bundle"], 1)
+            self.assertEqual(result["actions"]["items"][0]["evidence_id"], evidence_id)
+            self.assertEqual(result["outcomes"][0]["outcome"], "no_bundle")
+            self.assertEqual(result["outcomes"][0]["next_stage"], "no_bundle_recorded")
+            self.assertEqual(result["outcomes"][0]["queue_disposition"], "complete")
+            self.assertEqual(result["after"]["items"], [])
+            self.assertEqual(list_curation_queue(root), [])
+
+    def test_reconcile_curation_hands_manual_result_to_review_queue(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, evidence_id = self._evidence(directory)
+            self._install_curation_contract(root)
+            config = root.parent / ".circled-wiki" / "config.yaml"
+            config.parent.mkdir(exist_ok=True)
+            config.write_text(
+                "schema_version: 1\ncuration:\n"
+                "  enabled: true\n  provider: test\n  model: curated\n  command: adapter\n",
+                encoding="utf-8",
+            )
+            output = {
+                "action": "manual", "domain": "marketing", "bundle_type": "manual",
+                "title": "Curated manual", "summary": "Summary.", "body": "# Manual",
+                "evidence_ids": [evidence_id], "tags": ["curated", "manual"],
+            }
+            completed = type("Completed", (), {"stdout": json.dumps(output)})()
+
+            with patch("circled_wiki.core.curation.propose_update", return_value={"recommended_action": "create_draft_bundle", "blocking_conditions": []}):
+                with patch("circled_wiki.core.curation.subprocess.run", return_value=completed):
+                    result = reconcile_curation(root, limit=1)
+
+            item = result["actions"]["items"][0]["result"]
+            self.assertEqual(item["action"], "created_review")
+            self.assertEqual(item["handoff"]["status"], "queued_for_review")
+            self.assertEqual(result["outcomes"][0]["outcome"], "review_handoff")
+            self.assertEqual(len(list_curation_reviews(root)), 1)
+            self.assertEqual(list_curation_candidates(root), [])
+
+    def test_reconcile_curation_keeps_disabled_adapter_work_in_queue(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, evidence_id = self._evidence(directory)
+            self._install_curation_contract(root)
+
+            result = reconcile_curation(root, limit=1)
+
+            self.assertEqual(result["actions"]["counts"]["needs_review"], 1)
+            self.assertEqual(result["outcomes"][0]["outcome"], "retryable_block")
+            self.assertEqual(result["outcomes"][0]["queue_disposition"], "retain")
+            self.assertEqual(result["blocked"], [{
+                "evidence_id": evidence_id,
+                "stage": "queued",
+                "next_action": "curation_queue",
+                "reason": "adapter_disabled",
+            }])
+            self.assertEqual(result["after"]["items"][0]["evidence_id"], evidence_id)
+
+    def test_reconcile_curation_never_applies_an_approved_update(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, evidence_id = self._evidence(directory)
+            self._install_curation_contract(root)
+            target = create_bundle(
+                root, domain="marketing", slug="existing-guide", title="Existing",
+                bundle_type="guide", summary="Existing summary.", evidence_id=evidence_id,
+            )
+            output = validate_curation_output({
+                "action": "guide", "domain": "marketing", "bundle_type": "guide",
+                "title": "Reviewed update", "summary": "Updated summary.",
+                "body": "# Reviewed update\n", "evidence_ids": [evidence_id],
+                "existing_bundle_candidates": [target.frontmatter["id"]],
+                "tags": ["marketing", "reviewed-update"],
+            }, [evidence_id])
+            review = generate_curation_review(
+                root, evidence_id, output, generated_by="curator", curation_receipt="test://curation",
+            )
+            decide_curation_review(root, review["review_id"], action="approve", actor="verifier")
+
+            result = reconcile_curation(root, limit=1)
+
+            self.assertEqual(result["actions"]["attempted"], 0)
+            bundle = find_document_by_id(root, target.frontmatter["id"])
+            self.assertEqual(bundle.frontmatter["title"], "Existing")
+            self.assertEqual(bundle.frontmatter["extensions"]["knowledge_revision"], 1)
+            self.assertEqual(len(list_curation_reviews(root)), 1)
+
+    def test_reconcile_curation_records_automatic_promotion_as_published(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, evidence_id = self._evidence(directory)
+            self._install_curation_contract(root)
+            config = root.parent / ".circled-wiki" / "config.yaml"
+            config.parent.mkdir(exist_ok=True)
+            config.write_text(
+                "schema_version: 1\ncuration:\n"
+                "  enabled: true\n  provider: test\n  model: reference\n  command: adapter\n",
+                encoding="utf-8",
+            )
+            output = {
+                "action": "reference", "domain": "marketing", "bundle_type": "reference",
+                "title": "Campaign reference", "summary": "Reference summary.",
+                "body": "# Reference", "evidence_ids": [evidence_id],
+                "confidence": "high", "existing_bundle_candidates": [],
+                "tags": ["campaign", "reference"],
+            }
+            completed = type("Completed", (), {"stdout": json.dumps(output)})()
+            proposal = {"recommended_action": "create_draft_bundle", "blocking_conditions": [], "candidate_bundles": []}
+
+            with patch("circled_wiki.core.curation.propose_update", return_value=proposal):
+                with patch("circled_wiki.core.curation.subprocess.run", return_value=completed):
+                    result = reconcile_curation(root, limit=1)
+
+            self.assertEqual(result["outcomes"][0]["outcome"], "published")
+            self.assertEqual(result["outcomes"][0]["next_stage"], "published")
+            self.assertEqual(result["after"]["items"], [])
+
+    def test_reconcile_curation_records_failed_automatic_promotion_as_draft(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, evidence_id = self._evidence(directory)
+            self._install_curation_contract(root)
+            config = root.parent / ".circled-wiki" / "config.yaml"
+            config.parent.mkdir(exist_ok=True)
+            config.write_text(
+                "schema_version: 1\ncuration:\n"
+                "  enabled: true\n  provider: test\n  model: reference\n  command: adapter\n",
+                encoding="utf-8",
+            )
+            output = {
+                "action": "reference", "domain": "marketing", "bundle_type": "reference",
+                "title": "Campaign reference", "summary": "Reference summary.",
+                "body": "# Reference", "evidence_ids": [evidence_id],
+                "confidence": "high", "existing_bundle_candidates": [],
+                "tags": ["campaign", "reference"],
+            }
+            completed = type("Completed", (), {"stdout": json.dumps(output)})()
+            proposal = {"recommended_action": "create_draft_bundle", "blocking_conditions": [], "candidate_bundles": []}
+
+            with patch("circled_wiki.core.curation.propose_update", return_value=proposal):
+                with patch("circled_wiki.core.curation.subprocess.run", return_value=completed):
+                    with patch("circled_wiki.core.curation.promote_curation_candidate", side_effect=ValueError("security gate blocked")):
+                        result = reconcile_curation(root, limit=1)
+
+            self.assertEqual(result["outcomes"][0]["outcome"], "draft_created")
+            self.assertEqual(result["outcomes"][0]["next_stage"], "draft_created")
+            self.assertEqual(result["after"]["items"], [])
+            self.assertEqual(len(list_curation_candidates(root)), 1)
 
     def test_approved_update_review_applies_revision_and_archives_card(self):
         with tempfile.TemporaryDirectory() as directory:

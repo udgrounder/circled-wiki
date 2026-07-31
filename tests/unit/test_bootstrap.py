@@ -505,7 +505,7 @@ class BootstrapKnowledgeRootTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory) / "team-knowledge"
             bootstrap_circled_wiki(target, ROOT, apply=True)
-            (target / ".circled-wiki" / "agent-rules" / "contracts.yaml").unlink()
+            (target / ".circled-wiki" / "agent-rules" / "contracts" / "index.yaml").unlink()
             launcher = target / ".circled-wiki" / "bin" / "circled-wiki.py"
 
             result = subprocess.run(
@@ -515,11 +515,12 @@ class BootstrapKnowledgeRootTests(unittest.TestCase):
                 text=True,
                 check=False,
             )
+            self.assertTrue(result.stdout, result.stderr)
             payload = json.loads(result.stdout)
 
             self.assertEqual(result.returncode, 1)
             self.assertIn(
-                "Inbox reconciliation contract: Inbox reconciliation contract is missing",
+                "Inbox reconciliation contract: Inbox contract registry is missing",
                 payload["control_plane"]["reference_errors"],
             )
 

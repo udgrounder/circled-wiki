@@ -3,7 +3,7 @@
 이 파일은 설치된 대상 프로젝트에서 Circled Wiki를 운영하는 AI Agent의 시작 지점이다. Agent는 작업을 시작할 때
 `.circled-wiki/AUTONOMOUS_AGENT_STARTUP.md`, `.circled-wiki/OPERATING_RULES.md`와
 `.circled-wiki/AGENT_ROUTER.md`를 읽고, 요청 목적에 맞는 `.circled-wiki/agent-rules/` Profile을 선택한다.
-`contracts.yaml`이 지정한 자동 복구 요청은 명시된 Profile을 순서대로 적용한다. Profile의 Check와 Gate를
+`contracts/index.yaml`에 등록된 자동 복구 요청은 명시된 Profile을 순서대로 적용한다. Profile의 Check와 Gate를
 통과하기 전에는 다음 단계나 지식 발행을 진행하지 않는다.
 
 Circled Wiki 개발 저장소의 Product Agent는 `PRODUCT_ENGINEERING_RULES.md`와 `product-agent-rules/`를 따른다.
@@ -23,6 +23,7 @@ python3 .circled-wiki/bin/circled-wiki.py operational-preflight
 python3 .circled-wiki/bin/circled-wiki.py search --query "검색어"
 python3 .circled-wiki/bin/circled-wiki.py find-workflow --request "사용자 요청"
 python3 .circled-wiki/bin/circled-wiki.py reconcile-inbox --actor <operator> --limit 100
+python3 .circled-wiki/bin/circled-wiki.py reconcile-curation --limit 100
 ```
 
 Launcher는 현재 작업 디렉터리에 관계없이 이 프로젝트 root와 `.circled-wiki/runtime/`을 사용한다. Python 3.9 이상과
@@ -46,8 +47,11 @@ proposal 검토·반영 또는 안전한 upgrade가 끝날 때까지 시작하�
 3. 대화·문서·URL·파일 수집은 `inbox-capture` Profile로 `knowledge/inbox/<provider>/`에만 적재한다. 모든 수집
    Agent와 Source Adapter는 공통 Capture API의 민감정보 사전 점검(주민등록번호·계좌/카드번호·자격증명)을 먼저 거친다.
    수집과 정제, 승인, 발행은 각각의 Profile·Gate를 분리해 처리한다. `reconcile-inbox`는
-   `agent-rules/contracts.yaml`을 적용해 이미 충족한 Inbox 검사·Evidence 변환 Gate만 순서대로 재수행하며,
+   `agent-rules/contracts/inbox.yaml`을 적용해 이미 충족한 Inbox 검사·Evidence 변환 Gate만 순서대로 재수행하며,
    민감성·PII 판단을 추정하지 않고 기존 Review Queue에 남긴다.
+   Curation Queue는 `reconcile-curation`으로 분석한 뒤 `no_bundle` Receipt, Review handoff, 자동 Gate를
+   통과한 published 또는 Gate 실패 Draft를 결과 상태로 기록한다. Adapter·Gate 실패는 큐에 남긴다. 의미 변경
+   승인과 revision 적용은 자동 처리하지 않는다.
 4. 수정·발행·외부 전송·승인이 필요한 작업은 `OPERATING_RULES.md`의 권한과 Approval 규칙을 따른다. Agent는
    승인자를 대신하지 않는다.
 5. CLI 실패, Validator 오류, 예상과 다른 결과, 사용자·Agent·운영자·자동화의 운영 문제 또는 개선 요청을 발견하면

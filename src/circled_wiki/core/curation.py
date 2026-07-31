@@ -6,7 +6,7 @@ from pathlib import Path
 import re
 import shlex
 import subprocess
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 from circled_wiki.config.settings import load_settings
 
@@ -255,7 +255,10 @@ def _record_curation_blocker(
     }
 
 
-def run_configured_curation_batch(knowledge_root: Path, *, limit: int = 100) -> Dict[str, object]:
+def run_configured_curation_batch(
+    knowledge_root: Path, *, limit: int = 100,
+    evidence_ids: Optional[Set[str]] = None,
+) -> Dict[str, object]:
     """Run the configured Curator for bounded eligible Evidence and report outcomes.
 
     The report intentionally distinguishes proposal/security blocks from adapter
@@ -272,6 +275,8 @@ def run_configured_curation_batch(knowledge_root: Path, *, limit: int = 100) -> 
         "auto_promotion_blocked": 0,
     }
     queued_ids = {str(item["evidence_id"]) for item in list_curation_queue(knowledge_root)}
+    if evidence_ids is not None:
+        queued_ids &= {str(evidence_id) for evidence_id in evidence_ids}
     search_cache: Dict = {}
     for path in iter_documents(knowledge_root):
         document = parse_markdown(path)

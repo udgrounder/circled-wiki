@@ -277,6 +277,11 @@ class KnowledgeService:
 
         return reconcile_inbox(self.knowledge_root, actor, limit=limit)
 
+    def reconcile_curation(self, limit: int = 100) -> Dict[str, object]:
+        from circled_wiki.worker.jobs import reconcile_curation
+
+        return reconcile_curation(self.knowledge_root, limit=limit)
+
     def ingest_evidence(
         self,
         inbox_path: str,

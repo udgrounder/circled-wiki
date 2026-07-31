@@ -198,6 +198,38 @@ class AgentRuleProfileTests(unittest.TestCase):
         self.assertIn("검사·수용·Evidence 변환 Gate와 상태 기록", operating)
         self.assertIn("민감성·PII·승인 판단을 건너뛰거나 추정하지 않는다", operating)
 
+    def test_curation_contract_preserves_review_and_revision_gates(self):
+        operating = (ROOT / "OPERATING_RULES.md").read_text(encoding="utf-8")
+        contract = (ROOT / "agent-rules" / "contracts" / "curation.yaml").read_text(encoding="utf-8")
+
+        self.assertIn("RB-ROUTE-016", operating)
+        self.assertIn("의미 변경 승인", operating)
+        self.assertIn("revision 적용", operating)
+        self.assertIn("run_configured_curation_batch", contract)
+        self.assertIn("api_version: circled-wiki.reconciliation-contract/v1", contract)
+        self.assertIn("kind: reconciliation_contract", contract)
+        self.assertIn("metadata:", contract)
+        self.assertIn("spec:", contract)
+        self.assertIn("no_bundle_recorded", contract)
+        self.assertIn("review_handoff", contract)
+        self.assertIn("retryable_block", contract)
+        self.assertNotIn("apply_approved_curation_update", contract)
+
+    def test_contract_readme_explains_schema_and_rule_boundaries(self):
+        readme = (ROOT / "agent-rules" / "contracts" / "README.md").read_text(
+            encoding="utf-8"
+        )
+
+        for field in (
+            "`api_version`", "`kind`", "`metadata.name`", "`metadata.version`",
+            "`metadata.description`", "`spec`", "`stages.<state>.next_stage`",
+            "`outcomes.<name>.queue_disposition`", "`outcomes.<name>.terminal`",
+            "`RB-ROUTE-015~016`", "`RB-CUR-001~010`",
+        ):
+            self.assertIn(field, readme)
+        self.assertIn("전체 업무가 끝났다는 뜻이 아니라", readme)
+        self.assertIn("자동 실행 권한을 추가하지 않는다", readme)
+
     def test_runtime_repository_boundary_keeps_product_and_installation_mutations_separate(self):
         operating = (ROOT / "OPERATING_RULES.md").read_text(encoding="utf-8")
 

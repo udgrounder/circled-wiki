@@ -13,6 +13,7 @@ from circled_wiki.worker.jobs import (
     MaintenanceReport,
     ingest_accepted_inbox,
     inspect_inbox,
+    reconcile_curation,
     reconcile_inbox,
     run_curation_batch,
     run_maintenance,
@@ -24,11 +25,19 @@ class WorkerJobTests(unittest.TestCase):
     def test_reconcile_inbox_advances_only_contract_safe_stages(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "knowledge"
-            contract = root.parent / "agent-rules" / "contracts.yaml"
-            contract.parent.mkdir(parents=True)
+            contract_root = root.parent / "agent-rules" / "contracts"
+            contract_root.mkdir(parents=True)
             shutil.copyfile(
-                Path(__file__).resolve().parents[2] / "agent-rules" / "contracts.yaml",
-                contract,
+                Path(__file__).resolve().parents[2] / "agent-rules" / "contracts" / "index.yaml",
+                contract_root / "index.yaml",
+            )
+            shutil.copyfile(
+                Path(__file__).resolve().parents[2] / "agent-rules" / "contracts" / "inbox.yaml",
+                contract_root / "inbox.yaml",
+            )
+            shutil.copyfile(
+                Path(__file__).resolve().parents[2] / "agent-rules" / "contracts" / "curation.yaml",
+                contract_root / "curation.yaml",
             )
             ready = capture_conversation(
                 root, "safe source", "test", title="Ready", why_collected="test",
@@ -55,6 +64,45 @@ class WorkerJobTests(unittest.TestCase):
             )
             self.assertFalse(ready.inbox_path.exists())
             self.assertTrue(blocked.inbox_path.exists())
+
+    def test_reconcile_curation_uses_registered_contract_without_applying_revisions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "knowledge"
+            contract_root = root.parent / "agent-rules" / "contracts"
+            contract_root.mkdir(parents=True)
+            for name in ("index.yaml", "inbox.yaml", "curation.yaml"):
+                shutil.copyfile(
+                    Path(__file__).resolve().parents[2] / "agent-rules" / "contracts" / name,
+                    contract_root / name,
+                )
+
+            result = reconcile_curation(root)
+
+            self.assertEqual(result["contract"]["name"], "curation_reconciliation")
+            self.assertEqual(result["before"]["item_count"], 0)
+            self.assertEqual(result["actions"]["attempted"], 0)
+            self.assertEqual(result["blocked"], [])
+
+    def test_reconcile_curation_rejects_an_incomplete_outcome_contract(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "knowledge"
+            contract_root = root.parent / "agent-rules" / "contracts"
+            contract_root.mkdir(parents=True)
+            for name in ("index.yaml", "curation.yaml"):
+                shutil.copyfile(
+                    Path(__file__).resolve().parents[2] / "agent-rules" / "contracts" / name,
+                    contract_root / name,
+                )
+            contract_path = contract_root / "curation.yaml"
+            contract_path.write_text(
+                contract_path.read_text(encoding="utf-8").replace(
+                    "        draft_created:\n", "        omitted_draft_created:\n", 1
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "contract outcomes are incomplete"):
+                reconcile_curation(root)
 
     def test_accept_ready_inbox_accepts_only_items_that_already_pass_gates(self):
         with tempfile.TemporaryDirectory() as directory:

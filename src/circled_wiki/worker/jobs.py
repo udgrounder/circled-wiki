@@ -11,7 +11,12 @@ from uuid import uuid4
 from circled_wiki.core.curator import propose_update
 from circled_wiki.core.frontmatter import FrontmatterError, parse_markdown
 from circled_wiki.core.ingest import accept_ready_inbox, ingest_evidence, read_conversation_intake
-from circled_wiki.core.inbox_contracts import CONTRACT_NAME, load_inbox_contract
+from circled_wiki.core.inbox_contracts import (
+    CONTRACT_NAME,
+    CURATION_CONTRACT_NAME,
+    load_curation_contract,
+    load_inbox_contract,
+)
 from circled_wiki.core.inbox_review_queue import (
     complete_inbox_review,
     has_blocking_inbox_review,
@@ -93,6 +98,91 @@ def run_curation_batch(knowledge_root: Path, limit: int = 100) -> Dict[str, obje
         "cached_searches": len(search_cache),
         "proposals": pending,
     }
+
+
+def reconcile_curation(knowledge_root: Path, limit: int = 100) -> Dict[str, object]:
+    """Run only contract-authorized Curation analysis and durable handoffs.
+
+    The configured Curator may close a valid ``no_bundle`` decision or create a
+    Review Queue handoff.  It never approves meaning changes or applies an
+    approved revision through this reconciliation path.
+    """
+    if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 1000:
+        raise ValueError("limit must be an integer between 1 and 1000")
+    contract = load_curation_contract(knowledge_root)
+    stages = contract["contract"]["stages"]
+    queued_stage = stages["queued"]
+    if queued_stage["action"] != "run_configured_curation_batch":
+        raise ValueError("Curation reconciliation contract action is unsupported")
+    before = list_curation_queue(knowledge_root)[:limit]
+    selected_evidence_ids = {str(item["evidence_id"]) for item in before}
+    from circled_wiki.core.curation import run_configured_curation_batch
+
+    actions = run_configured_curation_batch(
+        knowledge_root, limit=limit, evidence_ids=selected_evidence_ids,
+    )
+    outcomes = []
+    blocked = []
+    for item in actions["items"]:
+        result = item.get("result")
+        outcome_name = _curation_outcome_name(result)
+        outcome = queued_stage["outcomes"][outcome_name]
+        outcomes.append({
+            "evidence_id": item.get("evidence_id"),
+            "outcome": outcome_name,
+            **outcome,
+        })
+        if outcome_name == "retryable_block":
+            blocked.append({
+                "evidence_id": item.get("evidence_id"),
+                "stage": "queued",
+                "next_action": "curation_queue",
+                "reason": (
+                    result.get("reason", "needs_review")
+                    if isinstance(result, dict) else "needs_review"
+                ),
+            })
+    remaining = [
+        item for item in list_curation_queue(knowledge_root)
+        if str(item["evidence_id"]) in selected_evidence_ids
+    ]
+    remaining_ids = {str(item["evidence_id"]) for item in remaining}
+    for outcome in outcomes:
+        if outcome["queue_disposition"] == "complete" and outcome["evidence_id"] in remaining_ids:
+            raise ValueError(
+                "Curation reconciliation outcome did not complete its queue item: "
+                f"{outcome['evidence_id']}"
+            )
+    return {
+        "contract": {
+            "name": CURATION_CONTRACT_NAME,
+            "version": contract["version"],
+            "path": contract["path"].relative_to(knowledge_root.resolve().parent).as_posix(),
+        },
+        "before": {"item_count": len(before), "items": before},
+        "actions": actions,
+        "outcomes": outcomes,
+        "blocked": blocked,
+        "after": {"items": remaining},
+    }
+
+
+def _curation_outcome_name(result: object) -> str:
+    """Classify a Curator result into the contract's fixed outcome vocabulary."""
+    if not isinstance(result, dict):
+        return "retryable_block"
+    action = result.get("action")
+    if action == "no_bundle":
+        return "no_bundle"
+    if action in {"created_review", "reused_review"}:
+        return "review_handoff"
+    promotion = result.get("promotion")
+    if isinstance(promotion, dict):
+        if promotion.get("status") == "active":
+            return "published"
+        if promotion.get("status") == "draft":
+            return "draft_created"
+    return "retryable_block"
 
 
 def inspect_inbox(knowledge_root: Path, limit: int = 100) -> Dict[str, object]:

@@ -31,8 +31,8 @@ inbox-capture
 독립적으로 선택한다. 제품 개발·설치·배포 Profile은 source repository의 `product-agent-rules/`에만 둔다.
 한 Agent가 여러 단계를 수행하더라도 단계별 Profile과 Gate를 순서대로 적용해야 한다.
 
-`contracts.yaml`은 Inbox Frontmatter와 Inbox Review Queue에 기록된 현재 상태에서 안전하게 재수행할 수 있는
-선행 단계만 구조화한다. 계약은 `inbox-inspection`과 `evidence-ingest` Profile을 대체하지 않으며, 사람의
+`contracts/index.yaml`은 영역별 실행 계약을 등록하며, 각 계약은 Frontmatter와 Queue에 기록된 현재 상태에서 안전하게 재수행할 수 있는
+선행 단계만 구조화한다. Inbox 계약은 `inbox-inspection`과 `evidence-ingest` Profile을 대체하지 않으며, 사람의
 민감성·PII·승인 판단은 자동으로 해소하지 않는다.
 
 여러 단계로 구성된 Pipeline은 먼저 독립적으로 검증 가능한 하위 작업을 식별하고, 사용할 수 있는 위임 수단이 있으면

@@ -1,7 +1,7 @@
 # Circled Wiki Runtime Agent Router
 
 설치된 Wiki의 Agent는 `.circled-wiki/OPERATING_RULES.md`를 먼저 읽고 요청에 맞는 Runtime Profile을 선택한다.
-단, `contracts.yaml`이 지정한 자동 복구 경로는 명시된 여러 Profile을 순서대로 적용한다.
+단, `contracts/index.yaml`에 등록된 자동 복구 경로는 명시된 여러 Profile을 순서대로 적용한다.
 이 Router는 Wiki 콘텐츠와 Runtime 관찰·검증을 위한 것이며 제품 source repository를 변경하거나 release를
 배포할 권한을 부여하지 않는다.
 
@@ -17,7 +17,8 @@ Vault 구조·domain·provider·운영 흐름을 관리하거나 변경하는 �
 | 사용자 업무 Runbook 실행 | `agent-rules/workflow-execution.md` |
 | 대화·파일을 Inbox에 넣기 | `agent-rules/inbox-capture.md` — 수집 Agent·Adapter 구분 없이 공통 민감정보 사전 점검을 먼저 실행 |
 | Inbox 항목 검사·승인 | `agent-rules/inbox-inspection.md` |
-| Inbox 항목을 안전한 선행 단계부터 Evidence까지 자동 복구 | `agent-rules/contracts.yaml`을 적용하고 `inbox-inspection.md` → `evidence-ingest.md` Gate를 순서대로 적용 |
+| Inbox 항목을 안전한 선행 단계부터 Evidence까지 자동 복구 | `agent-rules/contracts/inbox.yaml`을 적용하고 `inbox-inspection.md` → `evidence-ingest.md` Gate를 순서대로 적용 |
+| Evidence Curation Queue를 결과 상태까지 자동 복구 | `agent-rules/contracts/curation.yaml`을 적용하고 `knowledge-curation.md` Gate를 적용. `no_bundle_recorded`·`review_handoff`·`published`·`draft_created`·재시도 `queued`를 기록하며, 의미 변경 승인·revision 적용은 제외 |
 | 승인된 Inbox를 Evidence로 변환 | `agent-rules/evidence-ingest.md` |
 | Evidence 정제·Bundle 초안 또는 갱신 | `agent-rules/knowledge-curation.md` |
 | `manual`·`runbook` 직접 Review 카드 생성 또는 검증 | `agent-rules/knowledge-curation.md` |

@@ -1,0 +1,12 @@
+api_version: circled-wiki.contract-registry/v1
+kind: reconciliation_contract_registry
+metadata:
+  name: reconciliation_contract_registry
+  version: 1
+  description: Registered Runtime reconciliation contracts.
+spec:
+  contracts:
+    inbox_reconciliation:
+      path: inbox.yaml
+    curation_reconciliation:
+      path: curation.yaml

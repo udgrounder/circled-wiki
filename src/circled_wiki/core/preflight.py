@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from typing import Dict, List, Sequence, Set
 
-from .inbox_contracts import load_inbox_contract
+from .inbox_contracts import load_curation_contract, load_inbox_contract
 
 
 MANIFEST_PATH = ".circled-wiki/manifest.json"
@@ -177,6 +177,10 @@ def inspect_control_plane_readiness(
         load_inbox_contract(project / "knowledge")
     except ValueError as error:
         reference_errors.append(f"Inbox reconciliation contract: {error}")
+    try:
+        load_curation_contract(project / "knowledge")
+    except ValueError as error:
+        reference_errors.append(f"Curation reconciliation contract: {error}")
 
     launcher = project / ".circled-wiki" / "bin" / "circled-wiki.py"
     launcher_executable = launcher.is_file() and os.access(launcher, os.X_OK)

@@ -1,0 +1,39 @@
+api_version: circled-wiki.reconciliation-contract/v1
+kind: reconciliation_contract
+metadata:
+  name: curation_reconciliation
+  version: 1
+  description: >-
+    Reconcile one queued Evidence item through the configured Curator. Each
+    outcome records its durable state and queue disposition. The contract never
+    approves a meaning change or applies an approved Bundle revision.
+spec:
+  stages:
+    queued:
+      profile: knowledge-curation
+      action: run_configured_curation_batch
+      requires:
+        - curation_queue_item
+        - evidence_original_available
+        - evidence_security_gate
+      outcomes:
+        no_bundle:
+          next_stage: no_bundle_recorded
+          queue_disposition: complete
+          terminal: true
+        review_handoff:
+          next_stage: review_handoff
+          queue_disposition: complete
+          terminal: true
+        published:
+          next_stage: published
+          queue_disposition: complete
+          terminal: true
+        draft_created:
+          next_stage: draft_created
+          queue_disposition: complete
+          terminal: true
+        retryable_block:
+          next_stage: queued
+          queue_disposition: retain
+          terminal: false
