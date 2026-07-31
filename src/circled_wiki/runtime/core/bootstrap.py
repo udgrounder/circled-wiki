@@ -56,6 +56,13 @@ LEGACY_ASSET_PATHS = (
     f"{RUNTIME_ASSET_PREFIX}core/preflight.py",
     *(f"{CONTROL_PLANE}/agent-rules/{name}" for name in LEGACY_PRODUCT_PROFILE_NAMES),
 )
+KNOWN_LEGACY_ASSET_CHECKSUMS = {
+    # The former Runtime package metadata was shipped without a final newline.
+    # It is an identified product artifact, not an installation-local override.
+    f"{CONTROL_PLANE}/runtime/pyproject.toml": {
+        "sha256:bdf11c7658c6f6e1b33eaaf50b0f2c72f3c587c648603c3b14a0b739ab4c0a76",
+    },
+}
 MANAGED_DIRECTORIES = (
     f"{CONTROL_PLANE}/agent-rules", f"{CONTROL_PLANE}/templates", f"{CONTROL_PLANE}/policies",
     f"{CONTROL_PLANE}/schemas", f"{CONTROL_PLANE}/bin", f"{CONTROL_PLANE}/runtime",
@@ -472,6 +479,8 @@ def bootstrap_circled_wiki(
             # configuration.  Configuration belongs in config.yaml; retaining a
             # locally edited module here can leave a new runtime internally
             # incompatible, even though the rest of the upgrade succeeded.
+            action = "upgrade"; next_assets[relative] = desired
+        elif current in KNOWN_LEGACY_ASSET_CHECKSUMS.get(relative, set()):
             action = "upgrade"; next_assets[relative] = desired
         elif isinstance(recorded, str) and current == recorded:
             action = "upgrade"; next_assets[relative] = desired

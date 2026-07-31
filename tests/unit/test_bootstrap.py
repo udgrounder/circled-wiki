@@ -175,6 +175,19 @@ class BootstrapKnowledgeRootTests(unittest.TestCase):
             )
             self.assertEqual(user_note.read_text(encoding="utf-8"), "사용자 원문")
 
+    def test_identified_legacy_runtime_metadata_is_normalized_on_upgrade(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "team-knowledge"
+            bootstrap_circled_wiki(target, ROOT, apply=True)
+            metadata = target / ".circled-wiki" / "runtime" / "pyproject.toml"
+            metadata.write_bytes(metadata.read_bytes().rstrip(b"\n"))
+
+            plan = bootstrap_circled_wiki(target, ROOT)
+
+            action = next(item for item in plan["actions"] if item["path"] == ".circled-wiki/runtime/pyproject.toml")
+            self.assertEqual(action["action"], "upgrade")
+            self.assertFalse(plan["upgrade_issues"])
+
     def test_existing_gitignore_gets_append_only_generated_artifact_rules(self):
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory) / "team-knowledge"
