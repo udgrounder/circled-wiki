@@ -533,7 +533,7 @@ def bootstrap_circled_wiki(
     ]
     known_non_assets = {MANIFEST_PATH, f"{CONTROL_PLANE}/config.yaml"}
     known_paths = set(previous) | set(assets) | known_non_assets
-    for path in sorted(control_root.rglob("*")) if control_root.is_dir() else []:
+    for path in (sorted(control_root.rglob("*")) if control_root.is_dir() else []):
         if path.is_file() and path.relative_to(target).as_posix() not in known_paths:
             upgrade_issues.append({
                 "path": path.relative_to(target).as_posix(),
