@@ -1,0 +1,31 @@
+{
+  "receipt_type": "release",
+  "release_id": "v1-7f2b3d372422",
+  "source_revision": "c07b046577dc9b96d46085cb4a36aa142557cf45",
+  "runtime_checksum": "sha256:ef2bfe2edc6c6d7e3bc5dce9edef33007752f4bcb3672251eea013f901176143",
+  "router_checksum": "sha256:c4c2870672fc7d35bcb389ab02d455fc6001b94bfb1f0f64c9d8214f28349e42",
+  "runtime_profiles": [
+    "evidence-ingest.md",
+    "inbox-capture.md",
+    "inbox-inspection.md",
+    "knowledge-curation.md",
+    "knowledge-query.md",
+    "publication.md",
+    "runtime-upgrade-verification.md",
+    "system-observation.md",
+    "workflow-execution.md"
+  ],
+  "included_issue_ids": [],
+  "validation": {
+    "unit": "passed",
+    "integration": "passed",
+    "repository_validator": "passed"
+  },
+  "verified_by": "codex",
+  "verified_at": "2026-07-31T05:59:32.657756+00:00",
+  "source_commit_check": {
+    "revision": "c07b046577dc9b96d46085cb4a36aa142557cf45",
+    "subject": "제품과 런타임의 구분을 명확히함",
+    "worktree_clean": true
+  }
+}
