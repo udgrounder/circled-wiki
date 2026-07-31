@@ -116,6 +116,20 @@ INBOX_CONTENT_START = "<!-- INBOX_CONTENT_START -->"
 INBOX_CONTENT_END = "<!-- INBOX_CONTENT_END -->"
 
 
+def iter_active_inbox_items(knowledge_root: Path) -> Iterator[Path]:
+    """Yield normal Inbox items, explicitly excluding every quarantine subtree.
+
+    This exclusion is path-based rather than depth-based, so a future provider
+    date hierarchy cannot cause quarantined originals to re-enter processing.
+    """
+    inbox_root = knowledge_root.resolve() / "inbox"
+    if not inbox_root.is_dir():
+        return
+    for path in sorted(inbox_root.rglob("*.md")):
+        if ".quarantine" not in path.relative_to(inbox_root).parts:
+            yield path
+
+
 def _slug(value: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
     return slug or "evidence"
@@ -270,8 +284,7 @@ def accept_conversation_intake(
     if not isinstance(actor, str) or not actor.strip():
         raise ValueError("actor must be non-empty")
     knowledge_root = knowledge_root.resolve()
-    inbox_root = knowledge_root / "inbox"
-    for path in sorted(inbox_root.glob("*/*.md")):
+    for path in iter_active_inbox_items(knowledge_root):
         try:
             document = parse_markdown(path)
         except (OSError, ValueError):
@@ -299,7 +312,7 @@ def accept_ready_inbox(
     knowledge_root = knowledge_root.resolve()
     accepted: List[Dict[str, object]] = []
     skipped: List[Dict[str, str]] = []
-    for path in sorted((knowledge_root / "inbox").glob("*/*.md")):
+    for path in iter_active_inbox_items(knowledge_root):
         if len(accepted) >= limit:
             break
         try:
@@ -375,7 +388,7 @@ def complete_inbox_sensitivity_review(
     if decision not in {"completed", "not_applicable"}:
         raise ValueError("decision must be completed or not_applicable")
     knowledge_root = knowledge_root.resolve()
-    for path in sorted((knowledge_root / "inbox").glob("*/*.md")):
+    for path in iter_active_inbox_items(knowledge_root):
         try:
             document = parse_markdown(path)
         except (OSError, ValueError):
@@ -414,7 +427,7 @@ def record_inbox_pii_scan_receipt(
     """Attach a checksum-bound PII receipt before the Inbox item becomes Evidence."""
     from .pii import build_pii_scan_receipt
 
-    for path in sorted((knowledge_root / "inbox").glob("*/*.md")):
+    for path in iter_active_inbox_items(knowledge_root):
         try:
             data, _ = read_conversation_intake(path)
         except (FrontmatterError, OSError, ValueError):

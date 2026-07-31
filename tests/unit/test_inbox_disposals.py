@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from circled_wiki.core.ingest import capture_conversation
+from circled_wiki.core.ingest import capture_conversation, iter_active_inbox_items
 from circled_wiki.core.inbox_disposals import (
     decide_inbox_disposal, list_inbox_disposals, quarantine_inbox_item,
 )
@@ -55,3 +55,15 @@ class InboxDisposalTests(unittest.TestCase):
             receipt = root.parent / disposed["record_path"]
             self.assertTrue(receipt.is_file())
             self.assertNotIn("non-business conversation", receipt.read_text(encoding="utf-8"))
+
+    def test_quarantine_is_excluded_even_with_a_date_hierarchy(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "knowledge"
+            captured = self._capture(root, "active-1")
+            held = root / "inbox" / ".quarantine" / "slack" / "2026" / "07" / "held.md"
+            held.parent.mkdir(parents=True)
+            held.write_text("not an active Inbox item", encoding="utf-8")
+
+            active = list(iter_active_inbox_items(root))
+
+            self.assertEqual(active, [captured.inbox_path])

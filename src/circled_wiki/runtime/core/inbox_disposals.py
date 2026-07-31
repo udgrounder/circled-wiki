@@ -6,7 +6,7 @@ import shutil
 from typing import Dict, List
 
 from .frontmatter import parse_markdown, render_markdown
-from .ingest import read_conversation_intake
+from .ingest import iter_active_inbox_items, read_conversation_intake
 
 
 def _pending_root(knowledge_root: Path) -> Path:
@@ -19,7 +19,7 @@ def _archive_root(knowledge_root: Path) -> Path:
 
 
 def _find_inbox_item(knowledge_root: Path, intake_id: str) -> tuple[Path, Dict[str, object], object]:
-    for path in sorted((knowledge_root / "inbox").glob("*/*.md")):
+    for path in iter_active_inbox_items(knowledge_root):
         data, content = read_conversation_intake(path)
         if data.get("id") == intake_id:
             return path, data, content

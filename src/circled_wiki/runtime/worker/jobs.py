@@ -11,7 +11,10 @@ from uuid import uuid4
 from circled_wiki.core.curator import propose_update
 from circled_wiki.config.settings import load_settings
 from circled_wiki.core.frontmatter import FrontmatterError, parse_markdown
-from circled_wiki.core.ingest import accept_ready_inbox, ingest_evidence, read_conversation_intake
+from circled_wiki.core.ingest import (
+    accept_ready_inbox, ingest_evidence, iter_active_inbox_items,
+    read_conversation_intake,
+)
 from circled_wiki.core.inbox_contracts import (
     CONTRACT_NAME,
     CURATION_CONTRACT_NAME,
@@ -253,7 +256,7 @@ def inspect_inbox(knowledge_root: Path, limit: int = 100) -> Dict[str, object]:
                 ),
             })
             skipped_unmanaged += 1
-    for path in sorted(inbox_root.glob("*/*.md")):
+    for path in iter_active_inbox_items(knowledge_root):
         if len(items) + len(invalid) >= limit:
             break
         try:
@@ -328,7 +331,7 @@ def ingest_accepted_inbox(
     failed: List[Dict[str, str]] = []
     if not inbox_root.is_dir():
         return {"ingested_count": 0, "failed_count": 0, "items": [], "failures": []}
-    for path in sorted(inbox_root.glob("*/*.md")):
+    for path in iter_active_inbox_items(knowledge_root):
         if len(ingested) + len(failed) >= limit:
             break
         try:
@@ -441,7 +444,7 @@ def ingest_accepted_inbox(
 def _reconciliation_snapshot(knowledge_root: Path, limit: int) -> List[Dict[str, str]]:
     """Fix one bounded set of valid pending/accepted items for a reconciliation run."""
     snapshot: List[Dict[str, str]] = []
-    for path in sorted((knowledge_root.resolve() / "inbox").glob("*/*.md")):
+    for path in iter_active_inbox_items(knowledge_root):
         if len(snapshot) >= limit:
             break
         try:
@@ -458,7 +461,7 @@ def _reconciliation_snapshot(knowledge_root: Path, limit: int) -> List[Dict[str,
 def _reconciliation_after_state(knowledge_root: Path, intake_ids: Set[str]) -> List[Dict[str, str]]:
     """Report remaining Inbox state for the fixed run set without inferring outcomes."""
     remaining: List[Dict[str, str]] = []
-    for path in sorted((knowledge_root.resolve() / "inbox").glob("*/*.md")):
+    for path in iter_active_inbox_items(knowledge_root):
         try:
             data, _ = read_conversation_intake(path)
         except (FrontmatterError, OSError, ValueError):
