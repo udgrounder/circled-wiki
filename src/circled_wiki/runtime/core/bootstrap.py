@@ -53,6 +53,7 @@ LEGACY_ASSET_PREFIXES = (f"{CONTROL_PLANE}/runtime/knowledge_os/",)
 LEGACY_ASSET_PATHS = (
     f"{CONTROL_PLANE}/bin/knowledge-os.py",
     f"{CONTROL_PLANE}/issues/README.md",
+    f"{RUNTIME_ASSET_PREFIX}core/preflight.py",
     *(f"{CONTROL_PLANE}/agent-rules/{name}" for name in LEGACY_PRODUCT_PROFILE_NAMES),
 )
 MANAGED_DIRECTORIES = (
@@ -443,6 +444,7 @@ def bootstrap_circled_wiki(
     if create_knowledge_readme:
         actions.append({"path": "knowledge/README.md", "action": "create"})
     pending_proposals: List[Dict[str, str]] = []
+    upgrade_issues: List[Dict[str, str]] = []
     next_assets: Dict[str, str] = dict(previous)
     assets = _source_assets(source_root)
     writes: List[tuple[Path, bytes]] = []
@@ -475,6 +477,11 @@ def bootstrap_circled_wiki(
         if action in {"create", "upgrade"}:
             writes.append((destination, content))
         elif action == "preserve_and_propose":
+            upgrade_issues.append({
+                "path": relative,
+                "classification": "modified_managed_asset",
+                "resolution": "review the backup and resolve the proposal before deployment",
+            })
             proposal = target / CONTROL_PLANE / "proposals" / f"{relative.replace('/', '__')}.new"
             pending_proposals.append({
                 "path": relative,
@@ -524,6 +531,15 @@ def bootstrap_circled_wiki(
         for relative in legacy_assets
         if (target / relative).is_file() and (target / relative) not in removals
     ]
+    known_non_assets = {MANIFEST_PATH, f"{CONTROL_PLANE}/config.yaml"}
+    known_paths = set(previous) | set(assets) | known_non_assets
+    for path in sorted(control_root.rglob("*")) if control_root.is_dir() else []:
+        if path.is_file() and path.relative_to(target).as_posix() not in known_paths:
+            upgrade_issues.append({
+                "path": path.relative_to(target).as_posix(),
+                "classification": "unrecorded_control_plane_asset",
+                "resolution": "identify ownership from the backup before deployment",
+            })
     release = _release_id(next_assets)
     runtime_profiles = sorted(
         Path(path).name
@@ -665,6 +681,7 @@ def bootstrap_circled_wiki(
             "configuration_action": configuration_action,
             "configuration": configuration_report,
         "legacy_asset_warnings": legacy_asset_warnings,
+            "upgrade_issues": upgrade_issues,
             "backup_required": backup_required,
             "backup_path": str(backup_path) if backup_path is not None else None,
             "summary": {state: sum(item["action"] == state for item in actions) for state in states}}
