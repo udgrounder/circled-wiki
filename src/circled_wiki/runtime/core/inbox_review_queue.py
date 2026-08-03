@@ -46,33 +46,31 @@ def _requirements(data: Dict[str, object]) -> List[Dict[str, object]]:
 
 
 def enqueue_inbox_review(
-    knowledge_root: Path, *, intake_id: str, inbox_path: Path, source_checksum: str,
+    knowledge_root: Path, *, intake_id: str, inbox_path: Path,
     current_stage: str, reason_code: str,
 ) -> Dict[str, object]:
-    """Create or extend the one active review item for an exceptional Inbox item."""
+    """Create or extend the UUID-identified review item for an exceptional Inbox item."""
     requirement = SUPPORTED_INBOX_REVIEW_REQUIREMENTS.get(reason_code)
     if requirement is None:
         raise ValueError("inbox review reason_code is invalid")
     if current_stage != requirement["current_stage"]:
         raise ValueError("inbox review current_stage is invalid for its reason_code")
-    if not source_checksum.startswith("sha256:"):
-        raise ValueError("inbox review source_checksum must be a sha256 checksum")
     knowledge_root = knowledge_root.resolve()
     path = _item_path(knowledge_root, intake_id)
     path.parent.mkdir(parents=True, exist_ok=True)
     relative_inbox = inbox_path.resolve().relative_to(knowledge_root).as_posix()
     if path.is_file():
         data = parse_markdown(path).frontmatter
-        if data.get("source_checksum") != source_checksum:
-            raise ValueError("active inbox review belongs to a different source checksum")
+        data.pop("source_checksum", None)
         data.update({
             "type": "contract_task",
             "contract": {"name": CONTRACT_NAME, "version": CONTRACT_VERSION},
             "subject": {
                 "intake_id": intake_id,
                 "inbox_path": relative_inbox,
-                "source_checksum": source_checksum,
             },
+            "intake_id": intake_id,
+            "inbox_path": relative_inbox,
         })
         requirements = _requirements(data)
     else:
@@ -82,11 +80,9 @@ def enqueue_inbox_review(
             "subject": {
                 "intake_id": intake_id,
                 "inbox_path": relative_inbox,
-                "source_checksum": source_checksum,
             },
             "intake_id": intake_id,
             "inbox_path": relative_inbox,
-            "source_checksum": source_checksum,
             "created_at": _now(),
         }
         requirements = []
@@ -122,25 +118,21 @@ def get_inbox_review(knowledge_root: Path, intake_id: str) -> Optional[Dict[str,
     return data
 
 
-def has_blocking_inbox_review(knowledge_root: Path, intake_id: str, source_checksum: str) -> bool:
+def has_blocking_inbox_review(knowledge_root: Path, intake_id: str) -> bool:
     review = get_inbox_review(knowledge_root, intake_id)
     if review is None:
         return False
-    if review.get("source_checksum") != source_checksum:
-        raise ValueError("active inbox review belongs to a different source checksum")
     return review.get("status") == "awaiting_user"
 
 
 def resolve_inbox_review_requirement(
-    knowledge_root: Path, *, intake_id: str, source_checksum: str, reason_code: str,
+    knowledge_root: Path, *, intake_id: str, reason_code: str,
     actor: str, decision: str, receipt: str,
 ) -> Dict[str, object]:
     """Record a decision, but retain the queue until Evidence creation succeeds."""
     review = get_inbox_review(knowledge_root, intake_id)
     if review is None:
         return {"intake_id": intake_id, "reused": True, "status": "no_review"}
-    if review.get("source_checksum") != source_checksum:
-        raise ValueError("active inbox review belongs to a different source checksum")
     requirements = _requirements(review)
     matched = False
     for item in requirements:
@@ -176,10 +168,10 @@ def resolve_inbox_review_requirement(
     return {"intake_id": intake_id, "status": review["status"], "reused": False}
 
 
-def review_context(knowledge_root: Path, intake_id: str, source_checksum: str) -> Optional[Dict[str, object]]:
+def review_context(knowledge_root: Path, intake_id: str) -> Optional[Dict[str, object]]:
     """Return safe resolved-review provenance for a newly created Evidence item."""
     review = get_inbox_review(knowledge_root, intake_id)
-    if review is None or review.get("source_checksum") != source_checksum:
+    if review is None:
         return None
     if review.get("status") != "reprocessing":
         return None
@@ -198,13 +190,13 @@ def review_context(knowledge_root: Path, intake_id: str, source_checksum: str) -
 
 
 def complete_inbox_review(
-    knowledge_root: Path, *, intake_id: str, source_checksum: str, evidence_id: str,
+    knowledge_root: Path, *, intake_id: str, evidence_id: str,
 ) -> bool:
     """Archive a resolved review only after Evidence and its curation queue exist."""
     review = get_inbox_review(knowledge_root, intake_id)
     if review is None:
         return False
-    if review.get("source_checksum") != source_checksum or review.get("status") != "reprocessing":
+    if review.get("status") != "reprocessing":
         raise ValueError("inbox review is not ready to complete")
     source = review.pop("queue_path")
     review.pop("queue_id", None)
@@ -220,13 +212,11 @@ def complete_inbox_review(
     return True
 
 
-def suspend_inbox_review(knowledge_root: Path, *, intake_id: str, source_checksum: str) -> bool:
+def suspend_inbox_review(knowledge_root: Path, *, intake_id: str) -> bool:
     """Archive an unresolved Inbox review while its source awaits disposal review."""
     review = get_inbox_review(knowledge_root, intake_id)
     if review is None:
         return False
-    if review.get("source_checksum") != source_checksum:
-        raise ValueError("active inbox review belongs to a different source checksum")
     source = review.pop("queue_path")
     review.pop("queue_id", None)
     review.update({"status": "quarantined", "quarantined_at": _now()})

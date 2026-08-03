@@ -213,6 +213,9 @@ class AgentRuleProfileTests(unittest.TestCase):
         router = (ROOT / ".circled-wiki" / "AGENT_ROUTER.md").read_text(
             encoding="utf-8"
         )
+        bootstrap = (ROOT / ".circled-wiki" / "AGENT_BOOTSTRAP.md").read_text(
+            encoding="utf-8"
+        )
         rules = (ROOT / "agent-rules" / "README.md").read_text(encoding="utf-8")
         contract = (ROOT / "agent-rules" / "contracts" / "inbox.yaml").read_text(
             encoding="utf-8"
@@ -220,13 +223,19 @@ class AgentRuleProfileTests(unittest.TestCase):
 
         self.assertIn("reconcile_inbox", operating)
         self.assertIn("검사·수용·PII Scan·Evidence 변환 Gate와 상태 기록", operating)
-        self.assertIn("민감성·PII·승인 판단을 건너뛰거나 추정하지 않는다", operating)
+        self.assertIn("자동 PII Scan은 실제 후보를 검사해 `passed` 또는 `masked` Receipt를 확정", operating)
+        self.assertIn("`needs_review` 뒤 안전 처리", operating)
+        self.assertIn("Intake ID의 UUID만 사용", operating)
         self.assertIn("on_blocked:", contract)
         self.assertIn("reasons:", contract)
         self.assertIn("sensitivity_review_required", contract)
         self.assertIn("pii_needs_review", contract)
         self.assertIn("Automatic PII Scan may run for accepted candidates", contract)
         self.assertIn("자동 Scan이 `needs_review`", router)
+        self.assertIn("Inbox Review Queue는 Intake UUID로만 재개", router)
+        self.assertIn("자동 PII Scan은 실제 후보를 검사해 `passed` 또는 `masked` Receipt", bootstrap)
+        self.assertIn("`needs_review` 뒤 안전 처리", bootstrap)
+        self.assertIn("자동 PII Scan은\n실제 후보를 검사", rules)
         self.assertIn("`sensitivity_review` 결정 또는 자동 PII Scan", rules)
 
     def test_curation_contract_preserves_review_and_revision_gates(self):

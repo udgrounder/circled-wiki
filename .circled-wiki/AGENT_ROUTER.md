@@ -18,7 +18,7 @@ Vault 구조·domain·provider·운영 흐름을 관리하거나 변경하는 �
 | 대화·파일을 Inbox에 넣기 | `agent-rules/inbox-capture.md` — 수집 Agent·Adapter 구분 없이 공통 민감정보 사전 점검을 먼저 실행 |
 | Inbox 업무성 분류·비업무 항목 격리·격리 일괄 검토 | `agent-rules/inbox-disposition.md` — `non_business_confirmed`일 때만 `quarantine-inbox-item`, `list-inbox-disposals`, `decide-inbox-disposal`을 사용. 애매하거나 분류할 수 없는 항목은 일반 Inbox Inspection으로 보냄 |
 | Inbox 항목 검사·승인 | `agent-rules/inbox-inspection.md` |
-| 분류 완료 Inbox 항목을 안전한 선행 단계부터 Evidence까지 자동 복구 | `agent-rules/contracts/inbox.yaml`을 적용하고 `inbox-inspection.md` → accepted → Evidence 직전 자동 PII Scan·Receipt → `evidence-ingest.md` Gate를 순서대로 적용. 자동 Scan이 `needs_review`이면 `awaiting_user` Inbox Review Queue에 남긴다. 업무성 분류·격리·처분 판단과 `sensitivity_review` 결정은 자동 수행하지 않음 |
+| 분류 완료 Inbox 항목을 안전한 선행 단계부터 Evidence까지 자동 복구 | `agent-rules/contracts/inbox.yaml`을 적용하고 `inbox-inspection.md` → accepted → Evidence 직전 자동 PII Scan·Receipt → `evidence-ingest.md` Gate를 순서대로 적용. Inbox Review Queue는 Intake UUID로만 재개하며, checksum은 후보 변경·Receipt 검증에만 사용한다. 자동 Scan이 `needs_review`이면 `awaiting_user` Inbox Review Queue에 남긴다. 업무성 분류·격리·처분 판단과 `sensitivity_review` 결정은 자동 수행하지 않음 |
 | Evidence Curation Queue를 결과 상태까지 자동 복구 | `agent-rules/contracts/curation.yaml`을 적용하고 `knowledge-curation.md` Gate를 적용. `no_bundle_recorded`·`review_handoff`·`published`(`reference`·`report` 자동 갱신 포함)·`draft_created`·재시도 `queued`를 기록한 뒤, 검증된 상태 전이는 `publication.md`의 상태 공유 Commit·Push 단계로 넘긴다. 그 밖의 의미 변경 승인·revision 적용은 제외 |
 | 승인된 Inbox를 Evidence로 변환 | `agent-rules/evidence-ingest.md` |
 | Evidence 정제·Bundle 초안 또는 갱신 | `agent-rules/knowledge-curation.md` |

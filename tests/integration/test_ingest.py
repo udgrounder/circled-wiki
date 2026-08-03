@@ -1,6 +1,7 @@
 from copy import deepcopy
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
+import hashlib
 import tempfile
 import threading
 import unittest
@@ -62,6 +63,54 @@ class IngestEvidenceTests(unittest.TestCase):
                 evidence.frontmatter["extensions"]["inbox_review"]["reason_codes"],
                 ["sensitivity_review_required"],
             )
+
+    def test_reprocessing_review_uses_intake_uuid_when_legacy_checksum_is_stale(self):
+        with tempfile.TemporaryDirectory() as temp_directory:
+            knowledge_root = Path(temp_directory) / "knowledge"
+            captured = capture_document(
+                knowledge_root, "reviewed source", "manual", title="UUID queue",
+                why_collected="review queue test", intended_use=["test"],
+                idempotency_key="uuid-queue-reconciliation",
+            )
+            complete_inbox_sensitivity_review(
+                knowledge_root, captured.intake_id, "human-reviewer", "completed"
+            )
+            queue_path = next((knowledge_root.parent / "workspace" / "task" / "inbox_reconciliation").glob("*.md"))
+            queue = parse_markdown(queue_path)
+            self.assertNotIn("source_checksum", queue.frontmatter)
+            self.assertNotIn("source_checksum", queue.frontmatter["subject"])
+            stale = dict(queue.frontmatter)
+            legacy_checksum = captured.checksum
+            stale["source_checksum"] = legacy_checksum
+            stale["subject"] = {**stale["subject"], "source_checksum": legacy_checksum}
+            queue_path.write_text(render_markdown(stale), encoding="utf-8")
+
+            document = parse_markdown(captured.inbox_path)
+            unsafe_content = "010-1234-5678"
+            document.frontmatter["checksum"] = (
+                "sha256:" + hashlib.sha256(unsafe_content.encode("utf-8")).hexdigest()
+            )
+            captured.inbox_path.write_text(
+                render_markdown(
+                    document.frontmatter,
+                    "# Inbox Document\n\n<!-- INBOX_CONTENT_START -->"
+                    + unsafe_content
+                    + "<!-- INBOX_CONTENT_END -->\n",
+                ),
+                encoding="utf-8",
+            )
+            accept_conversation_intake(knowledge_root, captured.intake_id, "inspector")
+            first_attempt = ingest_accepted_inbox(knowledge_root)
+            self.assertEqual(first_attempt["ingested_count"], 0)
+            masked_candidate = parse_markdown(captured.inbox_path)
+            self.assertNotIn(unsafe_content, masked_candidate.body)
+            self.assertNotEqual(masked_candidate.frontmatter["checksum"], legacy_checksum)
+
+            accept_conversation_intake(knowledge_root, captured.intake_id, "inspector")
+            result = ingest_accepted_inbox(knowledge_root)
+
+            self.assertEqual(result["ingested_count"], 1)
+            self.assertEqual(list_inbox_review_queue(knowledge_root), [])
 
     def test_pii_needs_review_blocks_then_resumes_and_archives_queue(self):
         with tempfile.TemporaryDirectory() as temp_directory:

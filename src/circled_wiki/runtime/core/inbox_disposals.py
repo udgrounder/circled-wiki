@@ -45,7 +45,7 @@ def quarantine_inbox_item(
     from .inbox_review_queue import suspend_inbox_review
 
     source_checksum = str(data["checksum"])
-    suspend_inbox_review(knowledge_root, intake_id=intake_id, source_checksum=source_checksum)
+    suspend_inbox_review(knowledge_root, intake_id=intake_id)
     provider = str(data["provider"])
     target_dir = knowledge_root / "inbox" / ".quarantine" / provider
     target_dir.mkdir(parents=True, exist_ok=True)
@@ -117,7 +117,7 @@ def decide_inbox_disposal(knowledge_root: Path, intake_id: str, *, decision: str
 
             enqueue_inbox_review(
                 knowledge_root, intake_id=intake_id, inbox_path=destination,
-                source_checksum=str(restored["checksum"]), current_stage="sensitivity_review",
+                current_stage="sensitivity_review",
                 reason_code="sensitivity_review_required",
             )
         outcome = "recovered"

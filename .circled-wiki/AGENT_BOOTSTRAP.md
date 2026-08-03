@@ -46,8 +46,9 @@ Launcher는 현재 작업 디렉터리에 관계없이 이 프로젝트 root와 
 3. 대화·문서·URL·파일 수집은 `inbox-capture` Profile로 `knowledge/inbox/<provider>/`에만 적재한다. 모든 수집
    Agent와 Source Adapter는 공통 Capture API의 민감정보 사전 점검(주민등록번호·계좌/카드번호·자격증명)을 먼저 거친다.
    수집과 정제, 승인, 발행은 각각의 Profile·Gate를 분리해 처리한다. `reconcile-inbox`는
-   `agent-rules/contracts/inbox.yaml`을 적용해 이미 충족한 Inbox 검사·Evidence 변환 Gate만 순서대로 재수행하며,
-   민감성·PII 판단을 추정하지 않고 기존 Review Queue에 남긴다.
+   `agent-rules/contracts/inbox.yaml`을 적용해 이미 충족한 Inbox 검사·Evidence 변환 Gate만 순서대로 재수행한다.
+   자동 PII Scan은 실제 후보를 검사해 `passed` 또는 `masked` Receipt를 확정할 수 있지만, 민감성 판단과
+   `needs_review` 뒤 안전 처리는 추정하지 않고 기존 Review Queue에 남긴다.
    Curation adapter가 활성화된 경우에만 `reconcile-curation`으로 Queue를 분석한 뒤 `no_bundle` Receipt, Review handoff, 자동 Gate를
    통과한 published 또는 Gate 실패 Draft를 결과 상태로 기록한다. Adapter·Gate 실패는 큐에 남긴다. 의미 변경
    승인과 revision 적용은 자동 처리하지 않는다. adapter가 비활성화되면 `list-curation-queue`로 대기 항목만 확인하고 설정 필요 상태를 반환한다.

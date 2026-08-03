@@ -33,8 +33,9 @@ inbox-capture
 한 Agent가 여러 단계를 수행하더라도 단계별 Profile과 Gate를 순서대로 적용해야 한다.
 
 `contracts/index.yaml`은 영역별 실행 계약을 등록하며, 각 계약은 Frontmatter와 Queue에 기록된 현재 상태에서 안전하게 재수행할 수 있는
-선행 단계만 구조화한다. Inbox 계약은 `inbox-inspection`과 `evidence-ingest` Profile을 대체하지 않으며, 사람의
-민감성·PII·승인 판단은 자동으로 해소하지 않는다.
+선행 단계만 구조화한다. Inbox 계약은 `inbox-inspection`과 `evidence-ingest` Profile을 대체하지 않는다. 자동 PII Scan은
+실제 후보를 검사해 `passed` 또는 `masked` Receipt를 확정할 수 있지만, 사람의 민감성 판단, `needs_review` 뒤 안전 처리,
+승인 판단은 자동으로 해소하지 않는다.
 
 여러 단계로 구성된 Pipeline은 먼저 독립적으로 검증 가능한 하위 작업을 식별하고, 사용할 수 있는 위임 수단이 있으면
 위임을 권장한다. 위임은 Gate·승인·최종 책임을 이전하지 않으며, 위임 여부만으로 작업을 차단하지 않는다. 하위 작업을
@@ -63,7 +64,7 @@ inbox-capture
 | `pending` | Inbox Business-Relevance Disposition | `non_business_confirmed`인 경우에만 분류기·규칙 버전·사유를 기록해 격리. 애매하거나 분류 불가는 기록·격리 없이 일반 Inspection | 격리 일괄 검토 또는 Inbox Inspection |
 | `pending` | `inspect_inbox` · Inbox Inspection | 메타데이터, 경로, checksum, Inbox Sensitive Data Review 상태 | 승인 가능 또는 보류 |
 | `pending` + `sensitivity_review: required` | `review_inbox_sensitivity` · Inbox Inspection | 식별된 사람의 완료·비해당 결정 | 승인 검사 가능 |
-| `needs_review` 또는 판단 불가 Gate | Inbox 예외 계약 작업 (`inbox_reconciliation`) | Inbox ID·checksum·현재 단계·요청 조치만 기록, 원문은 복사하지 않음. Queue 상태와 Receipt는 검증 뒤 Commit·Push한다. `list_inbox_review_queue`는 이 작업의 조회 뷰다. | `awaiting_user` — 사용자 결정 또는 안전한 후속 입력 대기 |
+| `needs_review` 또는 판단 불가 Gate | Inbox 예외 계약 작업 (`inbox_reconciliation`) | Inbox UUID·현재 단계·요청 조치만 기록, 원문은 복사하지 않음. Queue 상태와 Receipt는 검증 뒤 Commit·Push한다. `list_inbox_review_queue`는 이 작업의 조회 뷰다. | `awaiting_user` — 사용자 결정 또는 안전한 후속 입력 대기 |
 | `awaiting_user` | `sensitivity_review` 결정 또는 자동 PII Scan이 `needs_review`로 남긴 안전 처리 결정 | 민감성 검토 완료 또는 `passed`·`masked` PII Receipt, 동일 후보 checksum | `reprocessing` — `reconcile-inbox` 재실행 |
 | `reprocessing` | `reconcile-inbox` · Evidence Ingest | PII Receipt와 후보 checksum 일치, Evidence·Curation Queue 원자 확정 | Evidence 생성 또는 새 `awaiting_user` |
 | `pending` | `accept_inbox` · Inbox Inspection | 모든 Gate 통과, inspector actor | `accepted` |
@@ -90,7 +91,7 @@ inbox-capture
 ## Queue-driven Resume
 
 다음 실행의 Wiki Agent는 Inbox Review Queue 카드의 원문 설명을 추론 근거로 사용하지 않고, 구조화된
-`current.status`, `requirements[].decision`, `subject.source_checksum`, `current.next_action`만 읽어 재개한다.
+`subject.intake_id`, `current.status`, `requirements[].decision`, `current.next_action`만 읽어 재개한다. 후보 checksum은 Queue 연관성이 아니라 Evidence 생성 직전 PII Receipt와 파일 변경 검증에만 사용한다.
 
 | Queue 상태 | Agent 동작 |
 | --- | --- |

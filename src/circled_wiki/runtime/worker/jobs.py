@@ -355,9 +355,7 @@ def ingest_accepted_inbox(
                 "reason_code": "pii_needs_review",
             })
             continue
-        if has_blocking_inbox_review(
-            knowledge_root, str(data["id"]), str(data["checksum"])
-        ):
+        if has_blocking_inbox_review(knowledge_root, str(data["id"])):
             failed.append({
                 "intake_id": str(data["id"]),
                 "path": path.relative_to(knowledge_root).as_posix(),
@@ -369,7 +367,6 @@ def ingest_accepted_inbox(
                 knowledge_root,
                 intake_id=str(data["id"]),
                 inbox_path=path,
-                source_checksum=str(data["checksum"]),
                 current_stage="pii_scan",
                 reason_code="pii_scan_required",
             )
@@ -393,9 +390,7 @@ def ingest_accepted_inbox(
         try:
             captured_at = datetime.fromisoformat(str(data["captured_at"]).replace("Z", "+00:00"))
             capture_details = data.get("capture_details")
-            inbox_review = review_context(
-                knowledge_root, str(data["id"]), str(data["checksum"])
-            )
+            inbox_review = review_context(knowledge_root, str(data["id"]))
             result = ingest_evidence(
                 knowledge_root,
                 temporary_path,
@@ -433,7 +428,7 @@ def ingest_accepted_inbox(
             if inbox_review is not None:
                 complete_inbox_review(
                     knowledge_root, intake_id=str(data["id"]),
-                    source_checksum=str(data["checksum"]), evidence_id=result.evidence_id,
+                    evidence_id=result.evidence_id,
                 )
             outcome_linked = _link_workflow_outcome(knowledge_root, data, result.evidence_id)
             path.unlink()

@@ -351,9 +351,7 @@ def _accept_inbox_document(
     categories = precheck.get("categories", []) if isinstance(precheck, dict) else []
     if data.get("sensitivity_review") == "required" and categories != ["mobile_phone_number"]:
         raise ValueError("sensitivity review must be completed before acceptance")
-    if has_blocking_inbox_review(
-        knowledge_root, intake_id, str(data.get("checksum", ""))
-    ):
+    if has_blocking_inbox_review(knowledge_root, intake_id):
         raise ValueError("inbox review must be resolved before acceptance")
     updated = dict(data)
     updated["status"] = "accepted"
@@ -534,7 +532,7 @@ def complete_inbox_sensitivity_review(
         }
         path.write_text(render_markdown(updated, document.body), encoding="utf-8")
         review = resolve_inbox_review_requirement(
-            knowledge_root, intake_id=intake_id, source_checksum=str(data["checksum"]),
+            knowledge_root, intake_id=intake_id,
             reason_code="sensitivity_review_required", actor=actor.strip(),
             decision=decision, receipt=f"inbox-review://sensitivity/{intake_id.rsplit('/', 1)[-1]}",
         )
@@ -573,14 +571,14 @@ def record_inbox_pii_scan_receipt(
         if result == "needs_review":
             queue = enqueue_inbox_review(
                 knowledge_root, intake_id=intake_id, inbox_path=path,
-                source_checksum=str(data["checksum"]), current_stage="pii_scan",
+                current_stage="pii_scan",
                 reason_code="pii_needs_review",
             )
             return {"intake_id": intake_id, "pii_scan_receipt": scan, "review_queue": queue}
         review = {"status": "no_review"}
         for reason_code in ("pii_needs_review", "pii_scan_required"):
             resolved = resolve_inbox_review_requirement(
-                knowledge_root, intake_id=intake_id, source_checksum=str(data["checksum"]),
+                knowledge_root, intake_id=intake_id,
                 reason_code=reason_code, actor=reviewed_by,
                 decision=f"pii_scan_{result}", receipt=receipt,
             )
@@ -964,7 +962,7 @@ def capture_conversation(
     if sensitivity_review == "required" and masked_categories != ["mobile_phone_number"]:
         enqueue_inbox_review(
             knowledge_root, intake_id=intake_id, inbox_path=capture_path,
-            source_checksum=checksum, current_stage="sensitivity_review",
+            current_stage="sensitivity_review",
             reason_code="sensitivity_review_required",
         )
     return CaptureResult(intake_id, capture_path, checksum)
@@ -1085,7 +1083,7 @@ def capture_document(
     if sensitivity_review == "required" and masked_categories != ["mobile_phone_number"]:
         enqueue_inbox_review(
             knowledge_root, intake_id=intake_id, inbox_path=path,
-            source_checksum=checksum, current_stage="sensitivity_review",
+            current_stage="sensitivity_review",
             reason_code="sensitivity_review_required",
         )
     return CaptureResult(intake_id, path, checksum)
@@ -1159,7 +1157,7 @@ def capture_file(
     if sensitivity_review == "required":
         enqueue_inbox_review(
             knowledge_root, intake_id=intake_id, inbox_path=envelope,
-            source_checksum=checksum, current_stage="sensitivity_review",
+            current_stage="sensitivity_review",
             reason_code="sensitivity_review_required",
         )
     return CaptureResult(intake_id, envelope, checksum)
