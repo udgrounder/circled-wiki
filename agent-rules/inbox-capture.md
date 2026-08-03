@@ -12,7 +12,7 @@
 ## Allowed Actions
 
 - **모든 수집 Agent와 Source Adapter의 공통 첫 단계**로 텍스트와 저장할 텍스트 메타데이터를 `.circled-wiki/policies/sensitive-data-masking.md`에 따라 민감정보 사전 점검한다. 이 단계는 특정 Agent의 선택 사항이 아니며 공통 Capture API를 우회할 수 없다.
-- 주민등록번호, 계좌번호, Luhn 검증된 카드번호와 API key·password·token·private key 등 자격증명만 `********`로 1차 마스킹한다. 이름·이메일·전화번호·일반 내부 URL은 이 자동 점검의 대상이 아니다.
+- Capture는 자격증명처럼 즉시 차단해야 하는 고위험 값을 안전하게 처리한다. 전화번호를 포함한 Evidence 후보의 PII 감지·마스킹·Receipt는 이후 단일 PII Scan 모듈이 수행한다.
 - 텍스트는 `Markdown + 1차 마스킹된 수집 내용`으로, 파일은 `Markdown envelope + 동명 원본`으로 `knowledge/inbox/<provider>/`에 저장
 - 파일 원본은 자동 수정하지 않고, 민감정보 가능성이 있으면 `sensitivity_review: required`로 유지해 Inspection에서 제한·파생본 처리를 결정
 - checksum과 `pending` 상태 기록

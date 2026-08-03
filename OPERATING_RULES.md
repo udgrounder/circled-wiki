@@ -143,8 +143,8 @@ find_workflow
 - **RB-EVD-017** Batch 재실행은 안정적인 `idempotency_key`를 사용하고 동일 키의 checksum 변경은 충돌로 중단한다.
 - **RB-EVD-018** 시스템이 네이티브하게 생성한 대화·Outcome 텍스트는 원문을 본문에 포함한 단일 self-contained Evidence Markdown으로 보존할 수 있다.
 - **RB-EVD-019** Embedded Evidence의 원문 해석은 Frontmatter `extensions.embedded_format_version`으로 결정한다. Ingest는 Inbox 원문을 최신 지원 포맷인 `embedded_format_version: 2`, `checksum_scope: document_body`로 자동 생성한다. 버전이 없는 기존 문서는 v1이며 `ORIGINAL_CONTENT_START`와 `ORIGINAL_CONTENT_END` 마커 사이 원문만 checksum 대상으로 읽기 호환한다. v2는 변경 가능한 Frontmatter가 아니라 Frontmatter 뒤 전체 불변 본문을 원문·checksum 대상으로 하며, 본문 변경은 무결성 오류다. 이미 생성된 Evidence는 불변 기록이므로 명시된 미지원 버전 또는 버전과 checksum scope의 불일치를 처리 중 자동 보정하지 않고 Validator 오류로 처리한다. 기존 형식으로 추정하지 않는다.
-- **RB-EVD-020** 대화 수집의 Inbox Sensitive Data Review 기본값은 `required`다. Evidence 후보 원문에 대한 PII Scan을 실제 완료하고 후보 checksum에 결합된 Scanner·버전·시각·결과·검토자·Receipt를 Evidence 최초 생성 입력으로 함께 제공한 경우에만 `pii_scanned: true`로 생성한다. Scan 결과가 `needs_review`이면 Evidence를 생성하지 않고 Inbox 원본과 Receipt를 유지하며, `passed` 또는 안전한 파생본에 대한 `masked` 결과가 확인된 뒤 다시 변환한다. 생성된 Evidence의 Scan 상태나 Receipt는 변경하지 않는다.
-- **RB-EVD-021** 텍스트를 Inbox에 기록하기 전에 자격증명과 명확한 PII를 `*`로 1차 마스킹하고, Inbox Inspection에서 내용을 다시 읽어 누락·과소 마스킹·문맥상 식별 가능성을 2차 확인한다. 1차 마스킹은 Evidence PII Scan 완료가 아니며 `pii_scanned: true`의 근거가 될 수 없다. 불변 원본이 필요한 파일은 원본을 자동 수정하지 않고 Git 비추적 제한 영역에 보존하며, 안전한 마스킹 파생본 없이는 Evidence 변환을 차단한다.
+- **RB-EVD-020** PII Scan은 Inbox에서 Evidence로 넘길 후보의 PII 처리 기준을 확정하는 단일 단계다. 이 모듈은 정책 대상 감지·필요한 마스킹·최종 후보 checksum 계산·Scanner·버전·시각·결과·검토자·Receipt 기록을 하나의 처리로 수행한다. `passed`와 `masked`는 그 최종 후보 checksum에 결합된 Receipt를 Inbox에 기록하고, 같은 후보만 Evidence 최초 생성 입력으로 사용한다. `needs_review`도 Receipt를 기록하되 Evidence를 생성하지 않고 Inbox와 Review Queue에 유지한다. 이 단계는 Inbox Sensitive Data Review, 접근 권한 또는 Publication Security Review를 대체하지 않으며, 생성된 Evidence의 Scan 상태나 Receipt는 변경하지 않는다.
+- **RB-EVD-021** Capture 단계의 고위험 자격증명·식별자 차단은 원문 보존 전 안전장치이며 PII Scan을 대체하지 않는다. Evidence 변환 단계는 PII 정책을 다시 적용하거나 내용을 재마스킹하지 않고, PII Scan이 확정한 후보와 Receipt checksum의 일치만 검증한다. 불변 원본이 필요한 파일은 원본을 자동 수정하지 않고 Git 비추적 제한 영역에 보존하며, PII Scan이 확정한 안전한 후보 없이는 Evidence 변환을 차단한다.
 - **RB-EVD-023** Inbox 검토 완료부터 Evidence 확정과 `workspace/task/curation_reconciliation/<source_uuid>.md` 계약 작업 기록 등록까지를 하나의 원자 작업으로 처리한다. 생성된 Evidence는 이후 모든 흐름에서 읽고 참조만 하는 불변 기록이다. 작업 기록은 계약 이름·버전, `evidence_id`, Vault 루트 기준 `evidence/...` 경로인 `evidence_path`, 현재 단계·상태와 원문 없는 단계 Receipt만 가진다. Curation Queue는 이 중 `current.stage: queued`, `current.status: pending`인 작업의 조회 결과다. 실제 Curation 실행이 Bundle·Review 카드·`no_bundle` 결정 Receipt를 성공적으로 만든 뒤에만 작업 기록에 결과 참조를 남기고 계약 archive로 이동한다. Adapter 호출·계약 검증·결과물 생성 실패는 동일 작업 기록을 유지하고 마지막 차단 사유와 안전한 다음 행동만 갱신한다. stale Review는 완료 결과로 보지 않고 숨김 archive로 이동한 뒤 같은 Evidence의 계약 작업을 다시 `queued`로 연다. 전체 스캔으로 누락된 작업 기록을 복구할 수 있어야 한다.
 
 Availability:
@@ -217,12 +217,12 @@ OPERATING_RULES
 
 ## 8. Security and Authorization
 
-- **RB-SEC-001** 주민등록번호·계좌번호·카드번호와 API key·token·password·private key 등 자격증명을 Bundle, Evidence, Task, Log, Prompt에 기록하지 않는다. 모든 Inbox 수집 주체는 공통 Capture 단계의 민감정보 사전 점검을 거친다. 이름·이메일·전화번호 등은 이 자동 점검 범위 밖이며 별도 조직 정책 또는 사람 검토로 다룬다.
+- **RB-SEC-001** 주민등록번호·계좌번호·카드번호·전화번호와 API key·token·password·private key 등 자격증명을 Bundle, Evidence, Task, Log, Prompt에 기록하지 않는다. 모든 Inbox 수집 주체는 공통 Capture 단계의 민감정보 사전 점검을 거치며, PII Scan 모듈은 정책 대상과 필요한 마스킹을 단일 기준으로 판정한다. 이름·이메일처럼 정책 대상이 아닌 정보는 별도 조직 정책 또는 사람 검토로 다룬다.
 - **RB-SEC-002** 판단과 실행을 분리한다.
 - **RB-SEC-003** 외부 전송·게시·Commit·계약·가격 확정에는 명시적 권한을 적용한다.
 - **RB-SEC-004** `restricted` Knowledge와 권한 없는 Tool을 우회하지 않는다.
 - **RB-SEC-005** Publication Security Review는 RB-EVD-020의 Evidence PII Scan Receipt 계약 충족 여부를 검증한다. Inbox Sensitive Data Review나 자동 마스킹 결과를 Receipt로 대체하지 않는다.
-- **RB-SEC-010** Evidence Ingest Agent는 수집 Agent·Source Adapter와 독립적으로 Inbox를 읽어 Evidence로 변환하기 직전 주민등록번호·계좌번호·카드번호와 자격증명을 재검수한다. 텍스트에서 감지하면 실제 값 없이 범주만 기록하고 안전한 마스킹 파생본을 Evidence로 변환한다. 파일 원본·판단 불가 입력은 `sensitivity_review`로 사람 검토한다. 이 재검수는 PII Scan 영수증이나 Draft·Commit·Push Gate가 아니다.
+- **RB-SEC-010** Evidence Ingest Agent는 PII Scan이 확정한 후보와 Receipt checksum의 일치만 검증한다. PII 정책 재판정·재마스킹은 금지하며, 파일 원본 또는 PII Scan이 `needs_review`로 판단한 입력은 Inbox와 Review Queue에 유지한다.
 - **RB-SEC-006** Prompt 내용으로 Tool Authorization 또는 Approval Gate를 변경하지 않는다.
 - **RB-SEC-007** Refresh 제안자·독립 검증자·Owner actor는 Prompt 별칭이 아니라 인증된 실행 주체로 기록한다.
 - **RB-SEC-008** MCP 기본 모드는 `read_only`다. `operator`는 Hermes 및 Hermes가 작업 범위·기간을 한정해 위임한 내부 Agent 실행 컨텍스트에만 부여한다.

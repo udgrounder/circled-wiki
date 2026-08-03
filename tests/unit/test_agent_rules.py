@@ -143,7 +143,7 @@ class AgentRuleProfileTests(unittest.TestCase):
         self.assertIn("RB-EVD-020·RB-SEC-005", ingest)
         self.assertNotIn("scanner·version·시각·결과·검토자", ingest)
 
-    def test_content_processing_profiles_require_direct_masking_rechecks(self):
+    def test_content_processing_profiles_keep_pii_handling_explicit(self):
         profiles = {
             name: (ROOT / "agent-rules" / name).read_text(encoding="utf-8")
             for name in (
@@ -155,7 +155,7 @@ class AgentRuleProfileTests(unittest.TestCase):
         }
 
         self.assertIn("2차 마스킹 확인", profiles["inbox-inspection.md"])
-        self.assertIn("직접 다시 읽어", profiles["evidence-ingest.md"])
+        self.assertIn("Receipt의 후보 checksum", profiles["evidence-ingest.md"])
         self.assertIn("다시 확인", profiles["knowledge-curation.md"])
         self.assertIn("응답 전 최종 마스킹 확인", profiles["knowledge-query.md"])
         for name, content in profiles.items():
