@@ -269,6 +269,10 @@ class WorkflowExecutionTests(unittest.TestCase):
                 outcome["intake_id"], "simulated-human-reviewer", "completed"
             )
             service.accept_inbox(outcome["intake_id"], "simulated-human-approver")
+            service.record_inbox_pii_scan(
+                outcome["intake_id"], scanner="test", scanner_version="1",
+                result="passed", reviewed_by="simulated-human-reviewer", receipt="test://pii-outcome",
+            )
             ingested = service.ingest_accepted()
             outcome_item = ingested["items"][0]
             self.assertTrue(outcome_item["outcome_linked"])
@@ -436,6 +440,10 @@ class WorkflowExecutionTests(unittest.TestCase):
                 outcome["intake_id"], "simulated-human-reviewer", "completed"
             )
             service.accept_inbox(outcome["intake_id"], "simulated-human-approver")
+            service.record_inbox_pii_scan(
+                outcome["intake_id"], scanner="test", scanner_version="1",
+                result="passed", reviewed_by="simulated-human-reviewer", receipt="test://pii-refresh",
+            )
             service.ingest_accepted()
             outcome_manifest = parse_markdown(
                 next((knowledge_root / "evidence" / "hermes").rglob("*.md"))

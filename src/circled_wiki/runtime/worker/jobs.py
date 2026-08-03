@@ -24,6 +24,7 @@ from circled_wiki.core.inbox_contracts import (
 )
 from circled_wiki.core.inbox_review_queue import (
     complete_inbox_review,
+    enqueue_inbox_review,
     has_blocking_inbox_review,
     review_context,
 )
@@ -321,6 +322,7 @@ def _link_workflow_outcome(
 
 def ingest_accepted_inbox(
     knowledge_root: Path, limit: int = 100, *, intake_ids: Optional[Set[str]] = None,
+    require_pii_scan: bool = False,
 ) -> Dict[str, object]:
     """Convert accepted Inbox items to Evidence without running curation."""
     if isinstance(limit, bool) or not isinstance(limit, int) or limit < 1 or limit > 1000:
@@ -349,6 +351,22 @@ def ingest_accepted_inbox(
                 "intake_id": str(data["id"]),
                 "path": path.relative_to(knowledge_root).as_posix(),
                 "error": "inbox review must be resolved before Evidence ingestion",
+            })
+            continue
+        if require_pii_scan and not isinstance(data.get("pii_scan_receipt"), dict):
+            enqueue_inbox_review(
+                knowledge_root,
+                intake_id=str(data["id"]),
+                inbox_path=path,
+                source_checksum=str(data["checksum"]),
+                current_stage="pii_scan",
+                reason_code="pii_scan_required",
+            )
+            failed.append({
+                "intake_id": str(data["id"]),
+                "path": path.relative_to(knowledge_root).as_posix(),
+                "error": "PII Scan Receipt is required before Evidence ingestion",
+                "reason_code": "pii_scan_required",
             })
             continue
         is_file = data.get("content_type") == "file"
@@ -492,7 +510,9 @@ def reconcile_inbox(knowledge_root: Path, actor: str, limit: int = 100) -> Dict[
     if pending_action != "accept_ready_inbox" or accepted_action != "ingest_accepted":
         raise ValueError("Inbox reconciliation contract action is unsupported")
     accepted = accept_ready_inbox(knowledge_root, actor, limit=limit, intake_ids=intake_ids)
-    ingested = ingest_accepted_inbox(knowledge_root, limit=limit, intake_ids=intake_ids)
+    ingested = ingest_accepted_inbox(
+        knowledge_root, limit=limit, intake_ids=intake_ids, require_pii_scan=True,
+    )
     blocked = [
         {
             "intake_id": item["intake_id"],
@@ -507,10 +527,11 @@ def reconcile_inbox(knowledge_root: Path, actor: str, limit: int = 100) -> Dict[
             "intake_id": failure["intake_id"],
             "stage": "accepted",
             "next_action": stages["accepted"]["on_blocked"]["task_contract"],
-            "reasons": [failure["error"]],
+            "reasons": [str(failure.get("reason_code") or failure["error"])],
         }
         for failure in ingested["failures"]
         if failure["error"] == "inbox review must be resolved before Evidence ingestion"
+        or failure.get("reason_code") == "pii_scan_required"
     )
     evidence_ids = {str(item["intake_id"]): str(item["evidence_id"]) for item in ingested["items"]}
     after = _reconciliation_after_state(knowledge_root, intake_ids)

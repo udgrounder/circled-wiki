@@ -391,6 +391,10 @@ class IngestEvidenceTests(unittest.TestCase):
                 outcome["intake_id"], "simulated-human-reviewer", "completed"
             )
             service.accept_inbox(outcome["intake_id"], "simulated-human-owner")
+            service.record_inbox_pii_scan(
+                outcome["intake_id"], scanner="test", scanner_version="1",
+                result="passed", reviewed_by="simulated-human-reviewer", receipt="test://pii-outcome",
+            )
             outcome_batch = service.ingest_accepted()
             self.assertTrue(outcome_batch["items"][0]["outcome_linked"])
             self.assertIn("improvement_task", outcome_batch["items"][0])

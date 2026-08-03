@@ -8,7 +8,9 @@ from circled_wiki.core.ingest import (
     accept_conversation_intake,
     accept_ready_inbox,
     capture_conversation,
+    record_inbox_pii_scan_receipt,
 )
+from circled_wiki.core.inbox_review_queue import get_inbox_review
 from circled_wiki.worker.jobs import (
     MaintenanceReport,
     ingest_accepted_inbox,
@@ -56,15 +58,28 @@ class WorkerJobTests(unittest.TestCase):
             self.assertEqual(result["contract"]["name"], "inbox_reconciliation")
             self.assertEqual(result["before"]["item_count"], 2)
             self.assertEqual(result["accepted"]["accepted_count"], 1)
-            self.assertEqual(result["ingested"]["ingested_count"], 1)
+            self.assertEqual(result["ingested"]["ingested_count"], 0)
+            self.assertEqual(result["ingested"]["failed_count"], 1)
+            self.assertIn("pii_scan_required", result["blocked"][1]["reasons"])
             self.assertEqual(result["blocked"][0]["intake_id"], blocked.intake_id)
             self.assertEqual(result["blocked"][0]["next_action"], "inbox_reconciliation")
             self.assertEqual(
                 next(item for item in result["after"]["items"] if item["intake_id"] == ready.intake_id)["status"],
-                "evidence",
+                "accepted",
             )
-            self.assertFalse(ready.inbox_path.exists())
+            self.assertTrue(ready.inbox_path.exists())
             self.assertTrue(blocked.inbox_path.exists())
+            review = get_inbox_review(root, ready.intake_id)
+            self.assertEqual(review["current"]["next_action"], "record_inbox_pii_scan")
+
+            record_inbox_pii_scan_receipt(
+                root, ready.intake_id, scanner="test", scanner_version="1",
+                result="passed", reviewed_by="security", receipt="test://pii-ready",
+            )
+            completed = reconcile_inbox(root, "contract-worker")
+
+            self.assertEqual(completed["ingested"]["ingested_count"], 1)
+            self.assertFalse(ready.inbox_path.exists())
 
     def test_reconcile_curation_uses_registered_contract_without_applying_revisions(self):
         with tempfile.TemporaryDirectory() as directory:

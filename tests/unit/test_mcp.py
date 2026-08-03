@@ -157,8 +157,16 @@ class McpServerTests(unittest.TestCase):
                 }},
             }, service, access_mode="operator")
             self.assertFalse(accepted["result"].get("isError", False))
-            ingested = handle_request({
+            scanned = handle_request({
                 "jsonrpc": "2.0", "id": 11, "method": "tools/call",
+                "params": {"name": "record_inbox_pii_scan", "arguments": {
+                    "intake_id": payload["intake_id"], "scanner": "test", "scanner_version": "1",
+                    "result": "passed", "reviewed_by": "inspection-agent", "receipt": "test://pii"
+                }},
+            }, service, access_mode="operator")
+            self.assertFalse(scanned["result"].get("isError", False))
+            ingested = handle_request({
+                "jsonrpc": "2.0", "id": 12, "method": "tools/call",
                 "params": {"name": "ingest_accepted", "arguments": {"limit": 10}},
             }, service, access_mode="operator")
             batch = json.loads(ingested["result"]["content"][0]["text"])

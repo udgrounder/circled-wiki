@@ -32,10 +32,15 @@ spec:
       next_stage: evidence
       requires:
         - accepted_inspection
+        - pii_scan_receipt
         - pii_review_not_blocking
       on_blocked:
         task_contract: inbox_reconciliation
         reasons:
+          pii_scan_required:
+            current_stage: pii_scan
+            requested_action: record_inbox_pii_scan
+            resolved_next_action: reprocess_inbox
           pii_needs_review:
             current_stage: pii_scan
             requested_action: decide_safe_handling

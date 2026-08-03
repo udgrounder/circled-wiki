@@ -452,11 +452,15 @@ def record_inbox_pii_scan_receipt(
                 reason_code="pii_needs_review",
             )
             return {"intake_id": intake_id, "pii_scan_receipt": scan, "review_queue": queue}
-        review = resolve_inbox_review_requirement(
-            knowledge_root, intake_id=intake_id, source_checksum=str(data["checksum"]),
-            reason_code="pii_needs_review", actor=reviewed_by,
-            decision=f"pii_scan_{result}", receipt=receipt,
-        )
+        review = {"status": "no_review"}
+        for reason_code in ("pii_needs_review", "pii_scan_required"):
+            resolved = resolve_inbox_review_requirement(
+                knowledge_root, intake_id=intake_id, source_checksum=str(data["checksum"]),
+                reason_code=reason_code, actor=reviewed_by,
+                decision=f"pii_scan_{result}", receipt=receipt,
+            )
+            if resolved["status"] != "no_review":
+                review = resolved
         if data.get("status") == "needs_review" and review["status"] == "reprocessing":
             updated["status"] = "accepted"
             path.write_text(render_markdown(updated, document.body), encoding="utf-8")

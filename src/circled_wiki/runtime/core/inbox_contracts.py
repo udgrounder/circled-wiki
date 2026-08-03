@@ -42,6 +42,11 @@ SUPPORTED_TRANSITIONS = {
         "on_blocked": {
             "task_contract": "inbox_reconciliation",
             "reasons": {
+                "pii_scan_required": {
+                    "current_stage": "pii_scan",
+                    "requested_action": "record_inbox_pii_scan",
+                    "resolved_next_action": "reprocess_inbox",
+                },
                 "pii_needs_review": {
                     "current_stage": "pii_scan",
                     "requested_action": "decide_safe_handling",
@@ -49,7 +54,7 @@ SUPPORTED_TRANSITIONS = {
                 },
             },
         },
-        "requires": {"accepted_inspection", "pii_review_not_blocking"},
+        "requires": {"accepted_inspection", "pii_scan_receipt", "pii_review_not_blocking"},
     },
 }
 SUPPORTED_INBOX_REVIEW_REQUIREMENTS = {
