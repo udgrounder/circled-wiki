@@ -210,6 +210,10 @@ class AgentRuleProfileTests(unittest.TestCase):
 
     def test_contract_reconciliation_preserves_inbox_stage_gates(self):
         operating = (ROOT / "OPERATING_RULES.md").read_text(encoding="utf-8")
+        router = (ROOT / ".circled-wiki" / "AGENT_ROUTER.md").read_text(
+            encoding="utf-8"
+        )
+        rules = (ROOT / "agent-rules" / "README.md").read_text(encoding="utf-8")
         contract = (ROOT / "agent-rules" / "contracts" / "inbox.yaml").read_text(
             encoding="utf-8"
         )
@@ -221,6 +225,9 @@ class AgentRuleProfileTests(unittest.TestCase):
         self.assertIn("reasons:", contract)
         self.assertIn("sensitivity_review_required", contract)
         self.assertIn("pii_needs_review", contract)
+        self.assertIn("Automatic PII Scan may run for accepted candidates", contract)
+        self.assertIn("자동 Scan이 `needs_review`", router)
+        self.assertIn("`sensitivity_review` 결정 또는 자동 PII Scan", rules)
 
     def test_curation_contract_preserves_review_and_revision_gates(self):
         operating = (ROOT / "OPERATING_RULES.md").read_text(encoding="utf-8")

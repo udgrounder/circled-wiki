@@ -498,8 +498,9 @@ def reconcile_inbox(knowledge_root: Path, actor: str, limit: int = 100) -> Dict[
     """Advance Inbox items through contract-authorized, non-judgmental stages.
 
     The contract is deliberately a dispatcher, not an approval substitute.  It
-    can accept already-ready items and ingest accepted items, but leaves human
-    sensitivity/PII decisions and blocking review work in their existing queue.
+    can accept already-ready items and run the automatic PII Scan for accepted
+    items, but leaves sensitivity_review decisions and safe handling after a
+    PII needs_review result in their existing queue.
     """
     if not isinstance(actor, str) or not actor.strip():
         raise ValueError("actor must be non-empty")

@@ -7,7 +7,8 @@ metadata:
     Reconcile normal Inbox items toward Evidence. non_business_confirmed
     disposition is handled outside this contract through reversible quarantine;
     ambiguous or unclassified items remain in the normal inspection flow.
-    Human sensitivity and PII decisions are never inferred.
+    Automatic PII Scan may run for accepted candidates, but sensitivity_review
+    decisions and safe handling after a needs_review result are never inferred.
 spec:
   stages:
     pending:

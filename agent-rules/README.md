@@ -64,7 +64,7 @@ inbox-capture
 | `pending` | `inspect_inbox` · Inbox Inspection | 메타데이터, 경로, checksum, Inbox Sensitive Data Review 상태 | 승인 가능 또는 보류 |
 | `pending` + `sensitivity_review: required` | `review_inbox_sensitivity` · Inbox Inspection | 식별된 사람의 완료·비해당 결정 | 승인 검사 가능 |
 | `needs_review` 또는 판단 불가 Gate | Inbox 예외 계약 작업 (`inbox_reconciliation`) | Inbox ID·checksum·현재 단계·요청 조치만 기록, 원문은 복사하지 않음. Queue 상태와 Receipt는 검증 뒤 Commit·Push한다. `list_inbox_review_queue`는 이 작업의 조회 뷰다. | `awaiting_user` — 사용자 결정 또는 안전한 후속 입력 대기 |
-| `awaiting_user` | 식별된 검토자의 PII Scan 또는 민감도 결정 | `passed`·`masked` Receipt 또는 검토 완료 결정, 동일 후보 checksum | `reprocessing` — `reconcile-inbox` 재실행 |
+| `awaiting_user` | `sensitivity_review` 결정 또는 자동 PII Scan이 `needs_review`로 남긴 안전 처리 결정 | 민감성 검토 완료 또는 `passed`·`masked` PII Receipt, 동일 후보 checksum | `reprocessing` — `reconcile-inbox` 재실행 |
 | `reprocessing` | `reconcile-inbox` · Evidence Ingest | PII Receipt와 후보 checksum 일치, Evidence·Curation Queue 원자 확정 | Evidence 생성 또는 새 `awaiting_user` |
 | `pending` | `accept_inbox` · Inbox Inspection | 모든 Gate 통과, inspector actor | `accepted` |
 | `accepted` | Evidence PII Scan · Evidence Ingest | RB-EVD-020·021·023, RB-SEC-005·010, Evidence Schema | 불변 Evidence + Curation Queue |
@@ -79,7 +79,7 @@ inbox-capture
 | 동일 idempotency key의 checksum 변경 | Capture 중단, 구조화된 기존 Inbox Item 참조를 확인하고 충돌 보고 |
 | checksum 불일치 | Inbox 유지, 승인 금지 |
 | `sensitivity_review: required` | 승인 금지, 검토 완료 후 재검사 |
-| PII 또는 민감도 판단에 사람 결정 필요 | `workspace/task/inbox_reconciliation/`에 예외 계약 작업을 생성하고 Evidence 변환을 중단. 해결 뒤 재처리되어 Evidence와 Curation 계약 작업이 함께 생성될 때만 작업을 archive |
+| `sensitivity_review` 또는 PII Scan의 `needs_review`에 사람 결정 필요 | `workspace/task/inbox_reconciliation/`에 예외 계약 작업을 생성하고 Evidence 변환을 중단. 자동 PII Scan 자체는 계속 수행할 수 있으며, 해결 뒤 재처리되어 Evidence와 Curation 계약 작업이 함께 생성될 때만 작업을 archive |
 | PII Scan이 `needs_review` | Evidence 생성 없이 Inbox Review Queue를 `awaiting_user`로 유지 |
 | Evidence PII Scan 결과 처리 | RB-EVD-020·RB-SEC-005 적용 |
 | provider와 폴더 불일치 | Inbox 유지, 자동 이동·수정 금지 |
