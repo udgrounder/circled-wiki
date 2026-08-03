@@ -1,4 +1,5 @@
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -356,6 +357,18 @@ class BootstrapKnowledgeRootTests(unittest.TestCase):
 
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn("invalid=0", result.stdout)
+
+    def test_installed_runtime_contains_every_router_profile(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "team-knowledge"
+            bootstrap_circled_wiki(target, ROOT, apply=True)
+            router = (target / ".circled-wiki" / "AGENT_ROUTER.md").read_text(
+                encoding="utf-8"
+            )
+            references = set(re.findall(r"`(agent-rules/[^`]+\.md)`", router))
+
+            for reference in references:
+                self.assertTrue((target / ".circled-wiki" / reference).is_file(), reference)
 
     def test_existing_agent_entrypoint_without_operating_rules_gets_an_append_only_reference(self):
         with tempfile.TemporaryDirectory() as directory:

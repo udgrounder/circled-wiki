@@ -38,6 +38,7 @@ RUNTIME_PROFILE_ALLOWLIST = (
     "inbox-capture.md",
     "inbox-disposition.md",
     "inbox-inspection.md",
+    "inbox-sensitivity-review.md",
     "knowledge-curation.md",
     "knowledge-query.md",
     "publication.md",

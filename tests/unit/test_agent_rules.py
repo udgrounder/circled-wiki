@@ -2,6 +2,8 @@ import re
 import unittest
 from pathlib import Path
 
+from circled_wiki.runtime.core.bootstrap import RUNTIME_PROFILE_ALLOWLIST
+
 
 ROOT = Path(__file__).resolve().parents[2]
 REQUIRED_PROFILE_SECTIONS = {
@@ -45,6 +47,15 @@ class AgentRuleProfileTests(unittest.TestCase):
 
         self.assertEqual(references, runtime_profiles)
         self.assertIn("agent-rules/system-observation.md", references)
+
+    def test_runtime_router_profiles_are_packaged_in_the_runtime_allowlist(self):
+        references = self._routed_profiles(
+            ROOT / ".circled-wiki" / "AGENT_ROUTER.md", "agent-rules"
+        )
+        packaged = {f"agent-rules/{path}" for path in RUNTIME_PROFILE_ALLOWLIST}
+
+        self.assertTrue(references <= packaged, references - packaged)
+        self.assertIn("agent-rules/inbox-sensitivity-review.md", packaged)
 
     def test_each_routed_profile_has_the_contract_sections(self):
         references = (

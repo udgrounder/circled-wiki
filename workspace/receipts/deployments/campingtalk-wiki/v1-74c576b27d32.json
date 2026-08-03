@@ -1,0 +1,40 @@
+{
+  "receipt_type": "deployment",
+  "release_id": "v1-74c576b27d32",
+  "previous_release": "v1-df4eeaec185a",
+  "target_ref": "campingtalk-wiki",
+  "planned_at": "2026-08-03T11:03:51.407639+00:00",
+  "applied_at": "2026-08-03T11:03:51.407710+00:00",
+  "backup_ref": ".circled-wiki-backups/v1-df4eeaec185a-20260803T110310Z",
+  "actions": {
+    "applied": [
+      ".circled-wiki/OPERATING_RULES.md",
+      ".circled-wiki/agent-rules/README.md",
+      ".circled-wiki/agent-rules/inbox-capture.md",
+      ".circled-wiki/agent-rules/inbox-inspection.md",
+      ".circled-wiki/agent-rules/publication.md",
+      ".circled-wiki/agent-rules/workflow-execution.md",
+      ".circled-wiki/AGENT_BOOTSTRAP.md",
+      ".circled-wiki/AGENT_ROUTER.md",
+      ".circled-wiki/runtime/circled_wiki/cli/__main__.py",
+      ".circled-wiki/runtime/circled_wiki/core/ingest.py",
+      ".circled-wiki/runtime/circled_wiki/core/publisher.py",
+      ".circled-wiki/runtime/circled_wiki/core/service.py",
+      ".circled-wiki/runtime/circled_wiki/core/workflow.py",
+      ".circled-wiki/runtime/circled_wiki/integrations/collector.py",
+      ".circled-wiki/runtime/circled_wiki/mcp/server.py",
+      ".circled-wiki/runtime/circled_wiki/worker/jobs.py",
+      ".circled-wiki/policies/sensitive-data-masking.md",
+      ".circled-wiki/runtime/circled_wiki/core/curation_queue.py",
+      ".circled-wiki/runtime/circled_wiki/core/inbox_review_queue.py",
+      ".circled-wiki/agent-rules/contracts/README.md",
+      ".circled-wiki/agent-rules/contracts/inbox.yaml",
+      ".circled-wiki/agent-rules/contracts/curation.yaml",
+      ".circled-wiki/runtime/circled_wiki/core/inbox_disposals.py"
+    ],
+    "preserved": [],
+    "proposed": []
+  },
+  "status": "verification_pending",
+  "release_receipt": "/Users/kjkim/Study/circled-wiki/workspace/receipts/releases/v1-74c576b27d32.json"
+}
