@@ -1,0 +1,23 @@
+{
+  "receipt_type": "deployment",
+  "release_id": "v1-f7beac49d898",
+  "previous_release": "v1-74c576b27d32",
+  "target_ref": "campingtalk-wiki",
+  "planned_at": "2026-08-03T11:23:08.807435+00:00",
+  "applied_at": "2026-08-03T11:23:08.807508+00:00",
+  "backup_ref": ".circled-wiki-backups/v1-74c576b27d32-20260803T112214Z",
+  "actions": {
+    "applied": [
+      ".circled-wiki/agent-rules/inbox-sensitivity-review.md",
+      ".circled-wiki/runtime/circled_wiki/core/bootstrap.py",
+      ".circled-wiki/history/releases/v1-f7beac49d898.json"
+    ],
+    "preserved": [
+      "config.yaml",
+      "root-agent-entrypoints"
+    ],
+    "proposed": []
+  },
+  "status": "verification_pending",
+  "release_receipt": "/Users/kjkim/Study/circled-wiki/workspace/receipts/releases/v1-f7beac49d898.json"
+}

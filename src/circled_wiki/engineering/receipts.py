@@ -275,7 +275,11 @@ def _read_json(path: Path, label: str) -> Dict[str, object]:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as error:
-        raise ValueError(f"{label} is missing or invalid") from error
+        raise ValueError(
+            f"{label} is missing or invalid at {path}. "
+            "When --workspace is set, use a path relative to that directory "
+            "(for example, receipts/releases/<release>.json), or an absolute path."
+        ) from error
     if not isinstance(payload, dict):
         raise ValueError(f"{label} must be a JSON object")
     return payload

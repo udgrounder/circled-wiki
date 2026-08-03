@@ -82,6 +82,28 @@ class ProductCliTests(unittest.TestCase):
         self.assertEqual(status, 2)
         self.assertIn("--validator-passed", json.loads(output.getvalue())["message"])
 
+    def test_deployment_command_explains_workspace_relative_receipt_paths(self):
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Path(directory) / "workspace"
+            output = io.StringIO()
+            with patch(
+                "sys.argv",
+                [
+                    "circled-wiki-product", "--workspace", str(workspace),
+                    "record-deployment-receipt",
+                    "--release-receipt", "workspace/receipts/releases/v1.json",
+                    "--previous-release", "v0", "--target-ref", "team-wiki",
+                    "--backup-ref", ".circled-wiki-backups/v0",
+                ],
+            ):
+                with patch("sys.stdout", output):
+                    status = run_product_cli()
+
+        self.assertEqual(status, 2)
+        message = json.loads(output.getvalue())["message"]
+        self.assertIn("workspace/workspace/receipts", message)
+        self.assertIn("receipts/releases/<release>.json", message)
+
     def test_release_source_check_requires_exact_clean_head(self):
         completed = lambda output: type("Completed", (), {"stdout": output})()
         with patch(
