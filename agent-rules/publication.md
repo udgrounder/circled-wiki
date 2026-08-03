@@ -40,7 +40,7 @@
 
 ## Failure State
 
-같은 처리 주체의 로컬 작업 단위는 유지한다. handoff·종료 Push가 실패하면 `publication_pending`으로 유지하고 Push 재시도 전에는 다음 업무 단계로 넘기지 않는다.
+같은 처리 주체의 아직 미공유 로컬 작업은 다음 작업과 함께 한 번에 Commit·Push할 수 있다. handoff·종료 Commit 뒤 Push가 실패하면 `publication_pending`으로 유지한다. 다음 Push는 `resume-pending-push`로 현재 HEAD와 원격에 없는 모든 선행 Commit을 함께 전송한다. Push 성공 전에는 handoff를 다음 처리 주체가 받은 것으로 보지 않는다.
 
 ## Prohibited
 

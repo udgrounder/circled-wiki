@@ -48,6 +48,7 @@ TOOLS = [
     {"name": "apply_bundle_revision", "description": "Apply a validated Bundle revision using optimistic concurrency. Evidence is read-only and referenced only from the Bundle.", "inputSchema": {"type": "object", "required": ["bundle_id", "expected_revision", "frontmatter", "body", "actor"], "properties": {"bundle_id": {"type": "string"}, "expected_revision": {"type": "integer", "minimum": 1}, "frontmatter": {"type": "object"}, "body": {"type": "string"}, "actor": {"type": "string"}}}},
     {"name": "publish_changes", "description": "Validate and automatically Git commit knowledge changes.", "inputSchema": {"type": "object", "required": ["commit_message"], "properties": {"commit_message": {"type": "string"}}}},
     {"name": "push_committed_changes", "description": "Push the current committed HEAD only when installation remote/branch allowlist enables it.", "inputSchema": {"type": "object", "required": ["commit"], "properties": {"commit": {"type": "string"}}}},
+    {"name": "resume_pending_push", "description": "Before starting a new workflow stage, retry the one failed handoff or terminal Push recorded as publication_pending.", "inputSchema": {"type": "object", "properties": {}}},
     {"name": "audit_hardcoded_install_values", "description": "Report configured organization, owner, and absolute path values embedded in source or Agent rules.", "inputSchema": {"type": "object", "properties": {}}},
     {"name": "curation_backlog_metrics", "description": "Return read-only Evidence-to-Bundle conversion and curation candidate backlog metrics.", "inputSchema": {"type": "object", "properties": {}}},
     {"name": "run_configured_curation", "description": "Run the installation-configured external Curator adapter for one Evidence item; disabled adapters return a non-writing needs_review proposal.", "inputSchema": {"type": "object", "required": ["evidence_id"], "properties": {"evidence_id": {"type": "string"}}}},
@@ -211,6 +212,7 @@ def handle_request(
             )
             elif name == "publish_changes": content = service.publish_changes(arguments["commit_message"])
             elif name == "push_committed_changes": content = service.push_committed_changes(arguments["commit"])
+            elif name == "resume_pending_push": content = service.resume_pending_push()
             elif name == "audit_hardcoded_install_values": content = service.audit_hardcoded_install_values()
             elif name == "curation_backlog_metrics": content = service.curation_backlog_metrics()
             elif name == "run_configured_curation": content = service.run_configured_curation(arguments["evidence_id"])

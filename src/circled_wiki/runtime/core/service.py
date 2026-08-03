@@ -19,7 +19,7 @@ from .ingest import (
     ingest_evidence,
     record_inbox_pii_scan_receipt,
 )
-from .publisher import publish_changes, push_committed_changes
+from .publisher import publish_changes, push_committed_changes, resume_pending_push
 from .candidates import curation_backlog_metrics, list_curation_candidates, promote_curation_candidate, review_curation_candidate
 from .curation import (
     materialize_curation_candidate, run_configured_curation,
@@ -185,6 +185,9 @@ class KnowledgeService:
 
     def push_committed_changes(self, commit: str) -> Dict[str, object]:
         return push_committed_changes(self.knowledge_root.parent, commit)
+
+    def resume_pending_push(self) -> Dict[str, object]:
+        return resume_pending_push(self.knowledge_root.parent)
 
     def audit_hardcoded_install_values(self) -> List[Dict[str, object]]:
         return audit_hardcoded_install_values(self.knowledge_root.parent)

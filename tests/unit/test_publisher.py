@@ -5,10 +5,29 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from circled_wiki.core.publisher import PublishError, push_committed_changes
+from circled_wiki.core.publisher import PublishError, push_committed_changes, resume_pending_push
 
 
 class PushPublicationTests(unittest.TestCase):
+    def test_resume_pending_push_retries_the_single_pending_commit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            receipt = project / ".runtime" / "publication" / "push" / "abc.json"
+            receipt.parent.mkdir(parents=True)
+            receipt.write_text(json.dumps({"commit": "abc", "status": "commit_pending_push"}), encoding="utf-8")
+            with (
+                patch("circled_wiki.core.publisher._git", return_value=subprocess.CompletedProcess([], 0, stdout="def\n", stderr="")),
+                patch("circled_wiki.core.publisher.push_committed_changes", return_value={"pushed": True, "commit": "def"}) as push,
+            ):
+                result = resume_pending_push(project)
+            stored = json.loads(receipt.read_text(encoding="utf-8"))
+
+            push.assert_called_once_with(project, "def")
+            self.assertTrue(result["resumed"])
+            self.assertEqual(result["pending_count"], 1)
+            self.assertEqual(stored["status"], "pushed")
+            self.assertEqual(stored["delivered_by"], "def")
+
     def test_push_is_disabled_without_install_configuration(self):
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)

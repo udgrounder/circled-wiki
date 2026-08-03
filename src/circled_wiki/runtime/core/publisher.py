@@ -17,6 +17,11 @@ class PublishError(RuntimeError):
     """A change was not safe or possible to publish."""
 
 
+_PENDING_PUSH_STATUSES = {
+    "remote_fetch_failed", "remote_advanced", "remote_check_failed", "commit_pending_push",
+}
+
+
 def publish_changes(project_root: Path, commit_message: str) -> Dict[str, object]:
     """Commit only configured safe paths after all managed documents validate."""
     allowed_paths = load_settings(project_root).publication.allowed_paths
@@ -116,6 +121,41 @@ def push_committed_changes(project_root: Path, commit: str) -> Dict[str, object]
         "pushed": True, "commit": current, "remote": settings.push_remote,
         "branch": settings.push_branch, "receipt": receipt,
     }
+
+
+def resume_pending_push(project_root: Path) -> Dict[str, object]:
+    """Push the current HEAD and every earlier pending publication with it.
+
+    Git pushes reachable ancestors with HEAD, so multiple earlier pending
+    receipts are not an ambiguity.  A successful push marks all of them as
+    delivered by the current HEAD.  A handoff remains unavailable to its next
+    owner until this operation succeeds.
+    """
+    directory = project_root / ".runtime" / "publication" / "push"
+    pending = []
+    if directory.is_dir():
+        for path in sorted(directory.glob("*.json")):
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            if isinstance(payload, dict) and payload.get("status") in _PENDING_PUSH_STATUSES:
+                pending.append(payload)
+    if not pending:
+        return {"resumed": False, "reason": "no publication pending"}
+    current = _git(project_root, "rev-parse", "HEAD").stdout.strip()
+    result = push_committed_changes(project_root, current)
+    for payload in pending:
+        commit = payload.get("commit")
+        if not isinstance(commit, str) or not commit.strip():
+            continue
+        path = directory / f"{commit}.json"
+        payload.update({
+            "status": "pushed", "delivered_by": current,
+            "updated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        })
+        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return {"resumed": True, "pending_count": len(pending), **result}
 
 
 @contextmanager

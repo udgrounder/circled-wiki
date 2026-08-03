@@ -279,6 +279,7 @@ def main() -> int:
     publish.add_argument("--message", required=True)
     push = subparsers.add_parser("push-changes")
     push.add_argument("--commit", required=True)
+    subparsers.add_parser("resume-pending-push")
     workflow = subparsers.add_parser("find-workflow")
     workflow.add_argument("--request", required=True)
     task = subparsers.add_parser("prepare-task")
@@ -782,6 +783,12 @@ def main() -> int:
     if args.command == "push-changes":
         try:
             print(json.dumps(service.push_committed_changes(args.commit), ensure_ascii=False))
+        except PublishError as error:
+            parser.exit(1, f"ERROR: {error}\n")
+        return 0
+    if args.command == "resume-pending-push":
+        try:
+            print(json.dumps(service.resume_pending_push(), ensure_ascii=False))
         except PublishError as error:
             parser.exit(1, f"ERROR: {error}\n")
         return 0
