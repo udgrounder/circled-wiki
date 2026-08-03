@@ -11,8 +11,6 @@ from typing import Dict, Iterator, Tuple
 from circled_wiki.config.settings import load_settings
 
 from .validator import validate_repository
-from .frontmatter import parse_markdown
-from .pii import pii_scan_receipt_errors
 
 
 class PublishError(RuntimeError):
@@ -162,25 +160,6 @@ def _record_push_receipt(
     }
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return {**payload, "path": path.relative_to(project_root).as_posix()}
-
-
-def _require_sensitive_data_review(knowledge_root: Path) -> None:
-    """Do not commit a Git-tracked original until its security review is recorded."""
-    for manifest_path in (knowledge_root / "evidence").rglob("*.md"):
-        if manifest_path.name in {"index.md", "log.md"}:
-            continue
-        manifest = parse_markdown(manifest_path).frontmatter
-        if manifest.get("type") != "evidence" or not manifest.get("original_file_git_tracked"):
-            continue
-        extensions = manifest.get("extensions", {})
-        errors = pii_scan_receipt_errors(manifest)
-        if not isinstance(extensions, dict) or extensions.get("pii_scanned") is not True:
-            errors.insert(0, "extensions.pii_scanned must be true before publication")
-        if errors:
-            raise PublishError(
-                "sensitive-data scan is incomplete or invalid: "
-                f"{manifest_path.relative_to(knowledge_root.parent)}: {errors[0]}"
-            )
 
 
 def _git(project_root: Path, *args: str) -> subprocess.CompletedProcess:

@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 from circled_wiki.core.sensitive_data import REDACTED_VALUE, redact_sensitive_data
 
@@ -27,6 +28,39 @@ class SensitiveDataPrecheckTests(unittest.TestCase):
         self.assertNotIn("010-1234-5678", result.content)
         self.assertIn("gildong@example.com", result.content)
         self.assertEqual(result.categories, ("mobile_phone_number",))
+
+    def test_does_not_mask_uuid_that_contains_a_phone_like_digit_sequence(self):
+        task_id = "c2f29370-e7d6-0100-1234-56789abcdef0"
+        result = redact_sensitive_data(f"task_id={task_id}")
+
+        self.assertEqual(result.content, f"task_id={task_id}")
+        self.assertEqual(result.categories, ())
+
+    def test_reuses_a_valid_pii_receipt_without_rescanning_the_same_candidate(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+
+        from circled_wiki.core.ingest import capture_conversation, run_automatic_pii_scan
+
+        with TemporaryDirectory() as directory:
+            knowledge_root = Path(directory) / "knowledge"
+            (knowledge_root / "organization.yaml").parent.mkdir(parents=True)
+            (knowledge_root / "organization.yaml").write_text(
+                "organization_id: test-org\n", encoding="utf-8"
+            )
+            captured = capture_conversation(
+                knowledge_root, "safe candidate", "test", title="receipt reuse",
+                why_collected="unit test", intended_use=["test"],
+                idempotency_key="receipt-reuse",
+            )
+            run_automatic_pii_scan(knowledge_root, captured.intake_id)
+            with patch(
+                "circled_wiki.core.ingest.redact_sensitive_data",
+                side_effect=AssertionError("same candidate must not be rescanned"),
+            ):
+                reused = run_automatic_pii_scan(knowledge_root, captured.intake_id)
+
+        self.assertTrue(reused["reused"])
 
     def test_masks_credential_before_text_capture_is_written(self):
         from pathlib import Path
@@ -64,12 +98,16 @@ class SensitiveDataPrecheckTests(unittest.TestCase):
         self.assertNotIn("synthetic-signature", result.content)
         self.assertEqual(result.categories, ("credential",))
 
-    def test_evidence_ingest_recheck_masks_a_legacy_unmasked_text_item(self):
+    def test_canonical_pii_scan_masks_a_legacy_unmasked_text_item_before_evidence(self):
         from pathlib import Path
         from tempfile import TemporaryDirectory
 
         from circled_wiki.core.frontmatter import parse_markdown, render_markdown
-        from circled_wiki.core.ingest import accept_conversation_intake, capture_conversation
+        from circled_wiki.core.ingest import (
+            accept_conversation_intake,
+            capture_conversation,
+            run_automatic_pii_scan,
+        )
         from circled_wiki.worker.jobs import ingest_accepted_inbox
 
         with TemporaryDirectory() as directory:
@@ -84,7 +122,7 @@ class SensitiveDataPrecheckTests(unittest.TestCase):
                 idempotency_key="legacy-sensitive-data-test", sensitivity_review="completed",
             )
             document = parse_markdown(captured.inbox_path)
-            unsafe_text = "password=do-not-store"
+            unsafe_text = "010-1234-5678"
             unsafe_content = "<!-- INBOX_CONTENT_START -->" + unsafe_text + "<!-- INBOX_CONTENT_END -->"
             document.frontmatter["checksum"] = (
                 "sha256:" + __import__("hashlib").sha256(unsafe_text.encode("utf-8")).hexdigest()
@@ -94,14 +132,17 @@ class SensitiveDataPrecheckTests(unittest.TestCase):
                 encoding="utf-8",
             )
 
+            run_automatic_pii_scan(knowledge_root, captured.intake_id)
             accept_conversation_intake(knowledge_root, captured.intake_id, "inspector")
             result = ingest_accepted_inbox(knowledge_root)
             self.assertEqual(result["ingested_count"], 1)
-            self.assertEqual(
-                result["items"][0]["sensitive_data_recheck"]["categories"], ["credential"]
-            )
-            evidence = Path(knowledge_root.parent / result["items"][0]["evidence_path"])
-            self.assertNotIn("do-not-store", evidence.read_text(encoding="utf-8"))
+            item = result["items"][0]
+            self.assertEqual(item["pii_scan_result"], "masked")
+            evidence = Path(knowledge_root.parent / item["evidence_path"])
+            self.assertNotIn("010-1234-5678", evidence.read_text(encoding="utf-8"))
+            evidence_data = parse_markdown(evidence).frontmatter
+            self.assertEqual(evidence_data["extensions"]["pii_scan"]["result"], "masked")
+            self.assertEqual(evidence_data["extensions"]["pii_scan"]["source_checksum"], evidence_data["checksum"])
 
 
 if __name__ == "__main__":

@@ -37,7 +37,7 @@ SUPPORTED_TRANSITIONS = {
     },
     "accepted": {
         "profile": "evidence-ingest",
-        "action": "ingest_accepted",
+        "action": "scan_pii_then_ingest",
         "next_stage": "evidence",
         "on_blocked": {
             "task_contract": "inbox_reconciliation",
@@ -54,7 +54,7 @@ SUPPORTED_TRANSITIONS = {
                 },
             },
         },
-        "requires": {"accepted_inspection", "pii_scan_receipt", "pii_review_not_blocking"},
+        "requires": {"accepted_inspection", "pii_review_not_blocking"},
     },
 }
 SUPPORTED_INBOX_REVIEW_REQUIREMENTS = {

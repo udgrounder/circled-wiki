@@ -4,8 +4,9 @@ This is intentionally not a general PII classifier.  It only handles the
 small, high-confidence set that must never be copied into a Wiki capture:
 Korean resident registration numbers, financial account/card numbers, and
 credentials.  Names, email addresses, telephone numbers, and ordinary internal
-URLs are outside this automatic rule and remain subject to the normal reviewer
-judgment.
+URLs and landline/representative telephone numbers are outside this automatic
+rule and remain subject to the normal reviewer judgment.  Korean mobile
+numbers beginning with ``010`` (including ``+82 10`` notation) are masked.
 """
 
 from dataclasses import dataclass
@@ -50,7 +51,10 @@ _KNOWN_TOKEN = re.compile(
     r"xox[baprs]-[A-Za-z0-9-]{20,})(?![A-Za-z0-9_-])"
 )
 _CARD_CANDIDATE = re.compile(r"(?<!\d)(?:\d[ -]?){12,18}\d(?!\d)")
-_MOBILE_PHONE_NUMBER = re.compile(r"(?<!\d)(?:010|\+82[ -]?10)[ -]?\d{3,4}[ -]?\d{4}(?!\d)")
+# Hyphenated UUIDs and identifiers can contain a digit sequence that looks
+# like a phone number.  Do not match when either edge remains part of such an
+# identifier.
+_MOBILE_PHONE_NUMBER = re.compile(r"(?<![\d-])(?:010|\+82[ -]?10)[ -]?\d{3,4}[ -]?\d{4}(?![\d-])")
 _HTML_LAYOUT_NUMBER = re.compile(r'(?P<attribute>\b(?:width|height)\s*=\s*["\'])(?P<value>\d+(?:\.\d+)?)(?P<end>["\'])', re.I)
 
 

@@ -63,7 +63,9 @@ inbox-capture
 | `pending` | Inbox Business-Relevance Disposition | `non_business_confirmed`인 경우에만 분류기·규칙 버전·사유를 기록해 격리. 애매하거나 분류 불가는 기록·격리 없이 일반 Inspection | 격리 일괄 검토 또는 Inbox Inspection |
 | `pending` | `inspect_inbox` · Inbox Inspection | 메타데이터, 경로, checksum, Inbox Sensitive Data Review 상태 | 승인 가능 또는 보류 |
 | `pending` + `sensitivity_review: required` | `review_inbox_sensitivity` · Inbox Inspection | 식별된 사람의 완료·비해당 결정 | 승인 검사 가능 |
-| `needs_review` 또는 판단 불가 Gate | Inbox 예외 계약 작업 (`inbox_reconciliation`) | Inbox ID·checksum·현재 단계·요청 조치만 기록, 원문은 복사하지 않음. `list_inbox_review_queue`는 이 작업의 조회 뷰다. | 사용자 결정 또는 안전한 후속 입력 대기 |
+| `needs_review` 또는 판단 불가 Gate | Inbox 예외 계약 작업 (`inbox_reconciliation`) | Inbox ID·checksum·현재 단계·요청 조치만 기록, 원문은 복사하지 않음. Queue 상태와 Receipt는 검증 뒤 Commit·Push한다. `list_inbox_review_queue`는 이 작업의 조회 뷰다. | `awaiting_user` — 사용자 결정 또는 안전한 후속 입력 대기 |
+| `awaiting_user` | 식별된 검토자의 PII Scan 또는 민감도 결정 | `passed`·`masked` Receipt 또는 검토 완료 결정, 동일 후보 checksum | `reprocessing` — `reconcile-inbox` 재실행 |
+| `reprocessing` | `reconcile-inbox` · Evidence Ingest | PII Receipt와 후보 checksum 일치, Evidence·Curation Queue 원자 확정 | Evidence 생성 또는 새 `awaiting_user` |
 | `pending` | `accept_inbox` · Inbox Inspection | 모든 Gate 통과, inspector actor | `accepted` |
 | `accepted` | Evidence PII Scan · Evidence Ingest | RB-EVD-020·021·023, RB-SEC-005·010, Evidence Schema | 불변 Evidence + Curation Queue |
 | Curation Queue | `propose_pending` · Knowledge Curation | Evidence 원본 접근, 관련성 검토 | Bundle 또는 Review 카드 |
@@ -78,12 +80,45 @@ inbox-capture
 | checksum 불일치 | Inbox 유지, 승인 금지 |
 | `sensitivity_review: required` | 승인 금지, 검토 완료 후 재검사 |
 | PII 또는 민감도 판단에 사람 결정 필요 | `workspace/task/inbox_reconciliation/`에 예외 계약 작업을 생성하고 Evidence 변환을 중단. 해결 뒤 재처리되어 Evidence와 Curation 계약 작업이 함께 생성될 때만 작업을 archive |
-| Evidence 변환 중 민감정보 감지 | RB-EVD-021·RB-SEC-010에 따라 안전한 파생 입력 또는 사람 검토로 분기 |
+| PII Scan이 `needs_review` | Evidence 생성 없이 Inbox Review Queue를 `awaiting_user`로 유지 |
 | Evidence PII Scan 결과 처리 | RB-EVD-020·RB-SEC-005 적용 |
 | provider와 폴더 불일치 | Inbox 유지, 자동 이동·수정 금지 |
 | accepted 항목 ingest 실패 | Inbox와 필요 시 `.raw/` 유지, 재시도 조건 기록 |
 | Evidence는 있으나 큐가 누락 | `refresh-curation-queue`로 큐 복구 |
 | Profile 선택이 모호함 | 변경을 시작하지 않고 기대 출력을 확인 |
+
+## Queue-driven Resume
+
+다음 실행의 Wiki Agent는 Inbox Review Queue 카드의 원문 설명을 추론 근거로 사용하지 않고, 구조화된
+`current.status`, `requirements[].decision`, `subject.source_checksum`, `current.next_action`만 읽어 재개한다.
+
+| Queue 상태 | Agent 동작 |
+| --- | --- |
+| `awaiting_user` | 변경하지 않고 검토 대기 상태를 반환한다. |
+| `reprocessing` + 모든 requirement가 `resolved` | `current.next_action`이 `reprocess_inbox`일 때만 `reconcile-inbox`를 재실행한다. |
+| `reprocessing` + PII `passed` 또는 `masked` Receipt | Receipt checksum과 Inbox 후보 checksum을 검증한 뒤 Evidence 변환을 시도한다. |
+| `reprocessing` + `needs_review` 또는 미해결 requirement | Inbox와 Queue를 유지하고 필요한 검토 행동으로 되돌린다. |
+| Inbox Review `resolved` | Inbox Review 카드는 재실행하지 않고, 연결된 Evidence의 Curation Queue를 다음 단계로 진행한다. |
+| Curation Queue `completed` | 해당 Curation 카드는 재실행하지 않고, 생성된 Review·Draft·Bundle·`no_bundle` Receipt의 Commit·Push 또는 다음 승인 단계를 진행한다. |
+
+Inbox Review Queue의 결정 vocabulary(`passed`, `masked`, `needs_review`)는 PII·민감도 처리용이다.
+Curation Review의 `approve`, `no_bundle`, `needs_changes`, `needs_review`는 별도 카드와 Curation 계약에서만
+해석한다. 두 Queue의 결과를 서로 전환하거나 혼합하지 않는다.
+
+## Handoff and Publication Boundary
+
+동일 Agent가 연속으로 수행하는 Inbox 검사·PII Scan·Evidence 변환·Curation 단계는 하나의 로컬 작업 단위로
+유지한다. Commit·Push는 다음 경우에만 필수다.
+
+| 경계 | 필수 기록 | 다음 상태 |
+| --- | --- | --- |
+| `agent -> user` | 현재 결과·Receipt·checksum·사용자가 해야 할 `next_action` | `awaiting_user` |
+| `user -> agent` | 사용자 결정·결정자·시각·Receipt·Agent의 `next_action` | `reprocessing` |
+| 최종 종료 | Evidence·Archive·폐기·`no_bundle` 등 종료 결과와 Receipt | `completed` / `rejected` / `archived` / `disposed` |
+| Push 실패 | Commit revision·remote·branch·재시도 조건 | `publication_pending` |
+
+`publication_pending`은 공유가 완료되지 않은 상태이므로 다음 업무 단계를 시작하지 않는다. Push 성공 Receipt가
+기록된 뒤에만 handoff 또는 최종 종료를 완료 처리한다.
 
 ## Metrics
 

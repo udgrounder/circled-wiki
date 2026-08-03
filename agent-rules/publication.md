@@ -2,18 +2,18 @@
 
 ## Trigger
 
-검토된 Draft 또는 Bundle revision을 공식 지식으로 발행하거나 Commit한다.
+검토된 Draft 또는 Bundle revision을 공식 지식으로 발행하거나, 처리 주체 변경·최종 종료 시 검증된 Queue·Review·Draft 상태를 Commit·Push해 다음 실행 주체와 공유한다. 같은 처리 주체의 연속 단계는 하나의 로컬 작업 단위로 묶으며 중간 Commit·Push를 요구하지 않는다.
 
 ## Input
 
-- 검토 완료 변경
+- 검토 완료 변경 또는 주체 변경·종료를 나타내는 원문 없는 검증된 handoff Receipt
 - Evidence 참조
-- 승인 actor와 발행 권한
+- 공식 지식 발행에는 승인 actor와 발행 권한, 상태 공유에는 configured publication policy
 
 ## Allowed Actions
 
 - 전체 Validator와 보안 Gate 실행
-- 승인된 `knowledge/` 변경 Commit
+- 승인된 `knowledge/` 변경 또는 허용된 상태 기록 Commit·Push
 
 ## Checks
 
@@ -28,18 +28,19 @@
 - Bundle `evidence` 참조 무결성
 - Bundle 정규화면 파일명 `{slug}.md`, `id` `bundle/{organization_id}/{slug}--{bundle_uuid}`, `bundle_uuid` 불변성과 전체 Validator
 - Publication Security Review
-- 승인 상태와 발행 권한
+- 공식 지식 발행은 승인 상태와 발행 권한, Queue·Review·Draft 상태 공유는 configured publication policy
 - 기존 staged 변경 없음
 - 현재 Evidence checksum과 승격 provenance 기록. `runbook`·`manual`은 생성 전 Review ID와 별도 검증 시도 기록이 필수이며, 최초 생성·보완 Review는 `extensions.curation.review_receipts`에 누적 보존한다. 직접 생성 가능한 유형은 RB-CUR-006 자동 Gate의 provenance를 남긴다
 - active 전환이면 전용 Promotion Gate의 Security Receipt와 PII Scan Receipt
+- handoff 또는 종료면 이전 결과, 대상 checksum, 다음 처리 주체와 `next_action`을 기록. Push Receipt는 Commit·Push 성공 뒤 이 전이를 완료 처리하는 결과물
 
 ## Output
 
-발행 revision 또는 Commit 결과
+발행 revision 또는 handoff·종료 Commit 및 Push Receipt. Push가 실패하면 `publication_pending` 상태와 재시도 조건
 
 ## Failure State
 
-Draft를 유지하고 발행 차단 원인과 수정 조건을 기록한다.
+같은 처리 주체의 로컬 작업 단위는 유지한다. handoff·종료 Push가 실패하면 `publication_pending`으로 유지하고 Push 재시도 전에는 다음 업무 단계로 넘기지 않는다.
 
 ## Prohibited
 
@@ -47,4 +48,4 @@ Draft를 유지하고 발행 차단 원인과 수정 조건을 기록한다.
 - 일반 Bundle 생성·revision API로 `draft -> active`를 전환
 - `runbook`·`manual`의 active 전환에 Review 카드·별도 검증 시도 기록 없이 active 상태를 주장
 - 미검토·`needs_review` 자료 발행
-- 승인 없는 외부 게시·Commit
+- configured publication policy 또는 명시된 발행 권한 없는 외부 게시·Commit

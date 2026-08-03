@@ -35,7 +35,6 @@ from circled_wiki.core.curation_queue import (
     refresh_curation_queue,
 )
 from circled_wiki.core.service import KnowledgeService
-from circled_wiki.core.sensitive_data import redact_sensitive_data
 from circled_wiki.core.workflow import TaskStore
 
 
@@ -322,9 +321,8 @@ def _link_workflow_outcome(
 
 def ingest_accepted_inbox(
     knowledge_root: Path, limit: int = 100, *, intake_ids: Optional[Set[str]] = None,
-    require_pii_scan: bool = False,
 ) -> Dict[str, object]:
-    """Convert accepted Inbox items to Evidence without running curation."""
+    """Run the final PII Scan, then convert accepted Inbox items to Evidence."""
     if isinstance(limit, bool) or not isinstance(limit, int) or limit < 1 or limit > 1000:
         raise ValueError("limit must be an integer between 1 and 1000")
     knowledge_root = knowledge_root.resolve()
@@ -344,6 +342,19 @@ def ingest_accepted_inbox(
             continue
         if data.get("status") != "accepted":
             continue
+        # PII Scan is intentionally adjacent to Evidence creation.  This
+        # makes every public and internal ingest path use the same candidate
+        # and prevents an accepted item from bypassing its security decision.
+        pii_outcome = run_automatic_pii_scan(knowledge_root, str(data["id"]))
+        data, content = read_conversation_intake(path)
+        if data.get("status") != "accepted":
+            failed.append({
+                "intake_id": str(data["id"]),
+                "path": path.relative_to(knowledge_root).as_posix(),
+                "error": "PII scan requires review before Evidence ingestion",
+                "reason_code": "pii_needs_review",
+            })
+            continue
         if has_blocking_inbox_review(
             knowledge_root, str(data["id"]), str(data["checksum"])
         ):
@@ -353,7 +364,7 @@ def ingest_accepted_inbox(
                 "error": "inbox review must be resolved before Evidence ingestion",
             })
             continue
-        if require_pii_scan and not isinstance(data.get("pii_scan_receipt"), dict):
+        if not isinstance(data.get("pii_scan_receipt"), dict):
             enqueue_inbox_review(
                 knowledge_root,
                 intake_id=str(data["id"]),
@@ -370,7 +381,6 @@ def ingest_accepted_inbox(
             })
             continue
         is_file = data.get("content_type") == "file"
-        sensitive_categories: tuple[str, ...] = ()
         if is_file:
             payload_path = Path(content)
             temporary_path = path.parent / f".ingest-{uuid4()}{payload_path.suffix.lower()}"
@@ -378,14 +388,8 @@ def ingest_accepted_inbox(
             # failed batch remains retryable.
             shutil.copy2(payload_path, temporary_path)
         else:
-            # Recheck immediately before Evidence conversion.  Capture may have
-            # been performed by any Agent or an older adapter, so never assume
-            # its first pass is still sufficient.  Only the policy-scoped values
-            # are transformed and no matched value is written to the result.
-            precheck = redact_sensitive_data(str(content))
-            sensitive_categories = precheck.categories
             temporary_path = path.parent / f".ingest-{uuid4()}.md"
-            temporary_path.write_text(precheck.content, encoding="utf-8")
+            temporary_path.write_text(str(content), encoding="utf-8")
         try:
             captured_at = datetime.fromisoformat(str(data["captured_at"]).replace("Z", "+00:00"))
             capture_details = data.get("capture_details")
@@ -443,10 +447,10 @@ def ingest_accepted_inbox(
                 ).as_posix(),
                 "reused": result.reused,
                 "outcome_linked": outcome_linked,
-                "sensitive_data_recheck": {
-                    "masked": bool(sensitive_categories),
-                    "categories": list(sensitive_categories),
-                },
+                "pii_scan_result": (
+                    str(data["pii_scan_receipt"].get("result"))
+                    if isinstance(data.get("pii_scan_receipt"), dict) else None
+                ),
             })
         except (OSError, ValueError, KeyError, TypeError) as error:
             temporary_path.unlink(missing_ok=True)
@@ -507,13 +511,11 @@ def reconcile_inbox(knowledge_root: Path, actor: str, limit: int = 100) -> Dict[
     stages = contract["contract"]["stages"]
     pending_action = stages["pending"]["action"]
     accepted_action = stages["accepted"]["action"]
-    if pending_action != "accept_ready_inbox" or accepted_action != "ingest_accepted":
+    if pending_action != "accept_ready_inbox" or accepted_action != "scan_pii_then_ingest":
         raise ValueError("Inbox reconciliation contract action is unsupported")
-    for intake_id in sorted(intake_ids):
-        run_automatic_pii_scan(knowledge_root, intake_id)
     accepted = accept_ready_inbox(knowledge_root, actor, limit=limit, intake_ids=intake_ids)
     ingested = ingest_accepted_inbox(
-        knowledge_root, limit=limit, intake_ids=intake_ids, require_pii_scan=True,
+        knowledge_root, limit=limit, intake_ids=intake_ids,
     )
     blocked = [
         {
@@ -533,7 +535,7 @@ def reconcile_inbox(knowledge_root: Path, actor: str, limit: int = 100) -> Dict[
         }
         for failure in ingested["failures"]
         if failure["error"] == "inbox review must be resolved before Evidence ingestion"
-        or failure.get("reason_code") == "pii_scan_required"
+        or failure.get("reason_code") in {"pii_scan_required", "pii_needs_review"}
     )
     evidence_ids = {str(item["intake_id"]): str(item["evidence_id"]) for item in ingested["items"]}
     after = _reconciliation_after_state(knowledge_root, intake_ids)

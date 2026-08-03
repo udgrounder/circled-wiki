@@ -22,6 +22,7 @@ from .inbox_review_queue import (
     review_context,
 )
 from .namespace import require_stable_organization_id
+from .pii import pii_scan_receipt_errors
 from .sensitive_data import redact_sensitive_data
 from .evidence import (
     EMBEDDED_FORMAT_VERSION,
@@ -376,21 +377,121 @@ def _accept_inbox_document(
 
 
 def run_automatic_pii_scan(knowledge_root: Path, intake_id: str) -> Dict[str, object]:
-    """Record the canonical automated PII receipt for an Inbox candidate."""
+    """Scan and normalize the Inbox candidate before issuing its PII receipt.
+
+    Capture uses the same redaction policy as an early safety guard.  This
+    function is nevertheless authoritative for the Evidence transition: it
+    rescans the actual Inbox candidate, updates its checksum when masking was
+    needed, and only then records the receipt bound to that checksum.
+    """
     for path in iter_active_inbox_items(knowledge_root):
         try:
-            data, _content = read_conversation_intake(path)
+            document = parse_markdown(path)
+            data, content = read_conversation_intake(path)
         except (FrontmatterError, OSError, ValueError):
             continue
         if data.get("id") != intake_id:
             continue
-        details = data.get("capture_details")
-        precheck = details.get("sensitive_data_precheck") if isinstance(details, dict) else None
-        categories = precheck.get("categories") if isinstance(precheck, dict) else []
+
+        existing = data.get("pii_scan_receipt")
+        # A valid successful Receipt is the final PII decision for this exact
+        # candidate, regardless of whether an Agent or a user created it.
+        # Later workflow stages reuse it; only a changed checksum reopens PII.
+        receipt_probe = {
+            "checksum": data.get("checksum"),
+            "extensions": {
+                "pii_scan": existing,
+                "pii_scanned": isinstance(existing, dict) and existing.get("result") in {"passed", "masked"},
+                "pii_masked": isinstance(existing, dict) and existing.get("result") == "masked",
+            },
+        }
+        if isinstance(existing, dict) and not pii_scan_receipt_errors(receipt_probe):
+            return {"intake_id": intake_id, "pii_scan_receipt": existing, "reused": True}
+
+        # File payloads have no safe generic text representation.  Do not
+        # claim they passed a text policy; retain them for an explicit review.
+        if isinstance(content, Path):
+            return record_inbox_pii_scan_receipt(
+                knowledge_root, intake_id, scanner="circled-wiki-pii-scan",
+                scanner_version="mobile-phone-v2", result="needs_review",
+                reviewed_by="circled-wiki-pii-scan",
+                receipt=f"runtime://pii-scan/{data['checksum']}",
+            )
+
+        updated = dict(data)
+        details = dict(data.get("capture_details", {})) if isinstance(data.get("capture_details"), dict) else {}
+        prior_precheck = details.get("sensitive_data_precheck")
+        prior_categories = (
+            prior_precheck.get("categories", [])
+            if isinstance(prior_precheck, dict) else []
+        )
+        content_scan = redact_sensitive_data(str(content))
+        field_scans = {}
+        for field in ("title", "why_collected", "source_url", "source_locator"):
+            value = updated.get(field)
+            if isinstance(value, str):
+                field_scans[field] = redact_sensitive_data(value)
+        intended_use = updated.get("intended_use")
+        intended_use_scans = []
+        if isinstance(intended_use, list):
+            intended_use_scans = [
+                redact_sensitive_data(value) for value in intended_use if isinstance(value, str)
+            ]
+
+        masked_content = content_scan.content
+        for field, scan in field_scans.items():
+            updated[field] = scan.content
+        if isinstance(intended_use, list):
+            updated["intended_use"] = [
+                redact_sensitive_data(value).content if isinstance(value, str) else value
+                for value in intended_use
+            ]
+        categories = sorted({
+            *[str(category) for category in prior_categories if isinstance(category, str)],
+            *content_scan.categories,
+            *(category for scan in field_scans.values() for category in scan.categories),
+            *(category for scan in intended_use_scans for category in scan.categories),
+        })
+        details["sensitive_data_precheck"] = {
+            "masked": bool(categories), "categories": categories,
+        }
+        updated["capture_details"] = details
+
+        candidate_changed = masked_content != content or any(
+            updated.get(field) != data.get(field)
+            for field in ("title", "why_collected", "source_url", "source_locator", "intended_use")
+        )
+        if candidate_changed:
+            start = document.body.find(INBOX_CONTENT_START)
+            end = document.body.find(INBOX_CONTENT_END, start + len(INBOX_CONTENT_START))
+            body = (
+                document.body[:start + len(INBOX_CONTENT_START)]
+                + masked_content
+                + document.body[end:]
+            )
+            updated["checksum"] = _content_checksum(masked_content)
+            # A prior acceptance attests to an older candidate.  Re-run the
+            # inexpensive inspection in this same reconciliation pass.
+            if updated.get("status") == "accepted":
+                updated["status"] = "pending"
+                updated.pop("inspection", None)
+            updated.pop("pii_scan_receipt", None)
+            path.write_text(render_markdown(updated, body), encoding="utf-8")
+            data = updated
+
+        existing = data.get("pii_scan_receipt")
         result = "masked" if categories else "passed"
+        if (
+            isinstance(existing, dict)
+            and existing.get("scanner") == "circled-wiki-pii-scan"
+            and existing.get("scanner_version") == "mobile-phone-v2"
+            and existing.get("source_checksum") == data.get("checksum")
+            and existing.get("result") == result
+        ):
+            return {"intake_id": intake_id, "pii_scan_receipt": existing, "reused": True}
         return record_inbox_pii_scan_receipt(
             knowledge_root, intake_id, scanner="circled-wiki-pii-scan",
-            scanner_version="mobile-phone-v1", result=result,
+            scanner_version="mobile-phone-v2", result=result,
             reviewed_by="circled-wiki-pii-scan",
             receipt=f"runtime://pii-scan/{data['checksum']}",
         )

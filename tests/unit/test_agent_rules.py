@@ -215,7 +215,7 @@ class AgentRuleProfileTests(unittest.TestCase):
         )
 
         self.assertIn("reconcile_inbox", operating)
-        self.assertIn("검사·수용·Evidence 변환 Gate와 상태 기록", operating)
+        self.assertIn("검사·수용·PII Scan·Evidence 변환 Gate와 상태 기록", operating)
         self.assertIn("민감성·PII·승인 판단을 건너뛰거나 추정하지 않는다", operating)
         self.assertIn("on_blocked:", contract)
         self.assertIn("reasons:", contract)

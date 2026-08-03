@@ -28,11 +28,10 @@ spec:
             resolved_next_action: reprocess_inbox
     accepted:
       profile: evidence-ingest
-      action: ingest_accepted
+      action: scan_pii_then_ingest
       next_stage: evidence
       requires:
         - accepted_inspection
-        - pii_scan_receipt
         - pii_review_not_blocking
       on_blocked:
         task_contract: inbox_reconciliation

@@ -18,7 +18,7 @@ from circled_wiki.worker.jobs import (
     run_curation_batch,
     run_maintenance,
 )
-from circled_wiki.core.publisher import PublishError, _require_sensitive_data_review, publish_changes
+from circled_wiki.core.publisher import PublishError, publish_changes
 from circled_wiki.core.inbox_contracts import curation_blocker_policy
 
 
@@ -293,15 +293,6 @@ class WorkerJobTests(unittest.TestCase):
             (root / "knowledge" / "evidence").mkdir()
             with self.assertRaisesRegex(PublishError, "not a Git repository"):
                 publish_changes(root, "knowledge: publish")
-
-    def test_publication_blocks_unscanned_git_tracked_evidence(self):
-        with tempfile.TemporaryDirectory() as temporary_directory:
-            root = Path(temporary_directory)
-            evidence = root / "knowledge" / "evidence" / "manual" / "sample.md"
-            evidence.parent.mkdir(parents=True)
-            evidence.write_text("---\ntype: evidence\noriginal_file_git_tracked: true\nextensions:\n  pii_scanned: false\n---\n", encoding="utf-8")
-            with self.assertRaisesRegex(PublishError, "sensitive-data scan is incomplete"):
-                _require_sensitive_data_review(root / "knowledge")
 
     def test_publication_rejects_preexisting_staged_changes(self):
         with tempfile.TemporaryDirectory() as temporary_directory:

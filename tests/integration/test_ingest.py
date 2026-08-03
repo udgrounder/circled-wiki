@@ -199,6 +199,14 @@ class IngestEvidenceTests(unittest.TestCase):
                 self.assertEqual(
                     accepted.frontmatter["inspection"]["actor"], "simulated-human-reviewer"
                 )
+            for captured in (pdf, word):
+                accepted = parse_markdown(captured.inbox_path).frontmatter
+                record_inbox_pii_scan_receipt(
+                    knowledge_root, captured.intake_id,
+                    scanner="simulated-file-review", scanner_version="v1",
+                    result="passed", reviewed_by="simulated-human-reviewer",
+                    receipt=f"review://file/{captured.intake_id.rsplit('/', 1)[-1]}",
+                )
             ingested = ingest_accepted_inbox(knowledge_root)
             self.assertEqual(ingested["ingested_count"], 4)
             self.assertEqual(ingested["failed_count"], 0)
@@ -240,6 +248,12 @@ class IngestEvidenceTests(unittest.TestCase):
             )
             accept_conversation_intake(
                 knowledge_root, captured.intake_id, "simulated-human-reviewer"
+            )
+            record_inbox_pii_scan_receipt(
+                knowledge_root, captured.intake_id,
+                scanner="simulated-file-review", scanner_version="v1",
+                result="passed", reviewed_by="simulated-human-reviewer",
+                receipt="review://file/safe-markdown-fixture",
             )
 
             ingested = ingest_accepted_inbox(knowledge_root)
@@ -472,7 +486,7 @@ class IngestEvidenceTests(unittest.TestCase):
                 evidence.frontmatter["extensions"]["embedded_format_version"], 2
             )
             self.assertEqual(evidence.frontmatter["extensions"]["capture_fidelity"], "verbatim")
-            self.assertFalse(evidence.frontmatter["extensions"]["pii_scanned"])
+            self.assertTrue(evidence.frontmatter["extensions"]["pii_scanned"])
             self.assertEqual(evidence.body, content)
             self.assertEqual(validate_repository(knowledge_root)[0].profile_errors, [])
 

@@ -7,7 +7,6 @@ from circled_wiki.core.frontmatter import parse_markdown, render_markdown
 from circled_wiki.core.evidence import evidence_original_bytes
 from circled_wiki.core.ingest import ingest_evidence
 from circled_wiki.core.pii import build_pii_scan_receipt
-from circled_wiki.core.publisher import PublishError, _require_sensitive_data_review
 from circled_wiki.core.validator import validate_document
 
 
@@ -41,9 +40,8 @@ class PiiScanReceiptTests(unittest.TestCase):
                 document.frontmatter["checksum"],
             )
             self.assertTrue(validate_document(ingested.manifest_path, knowledge_root).is_valid)
-            _require_sensitive_data_review(knowledge_root)
 
-    def test_boolean_without_receipt_is_rejected_by_validation_and_publication(self):
+    def test_boolean_without_receipt_is_rejected_by_validation(self):
         with tempfile.TemporaryDirectory() as directory:
             knowledge_root, ingested = self._ingest(directory)
             document = parse_markdown(ingested.manifest_path)
@@ -56,8 +54,6 @@ class PiiScanReceiptTests(unittest.TestCase):
                 "extensions.pii_scan receipt is required when pii_scanned is true",
                 validation.profile_errors,
             )
-            with self.assertRaisesRegex(PublishError, "pii_scan receipt is required"):
-                _require_sensitive_data_review(knowledge_root)
 
     def test_stale_checksum_receipt_is_rejected(self):
         with tempfile.TemporaryDirectory() as directory:

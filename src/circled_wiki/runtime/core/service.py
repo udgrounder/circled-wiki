@@ -250,7 +250,7 @@ class KnowledgeService:
     def ingest_accepted(self, limit: int = 100) -> Dict[str, object]:
         from circled_wiki.worker.jobs import ingest_accepted_inbox
 
-        result = ingest_accepted_inbox(self.knowledge_root, limit=limit, require_pii_scan=True)
+        result = ingest_accepted_inbox(self.knowledge_root, limit=limit)
         for item in result["items"]:
             if not item.get("outcome_linked"):
                 continue
