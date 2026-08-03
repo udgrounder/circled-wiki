@@ -3,11 +3,28 @@ import unittest
 from pathlib import Path
 
 from circled_wiki.core.frontmatter import parse_markdown, render_markdown
-from circled_wiki.core.ingest import accept_conversation_intake, capture_conversation, iter_active_inbox_items
+from circled_wiki.core.ingest import (
+    accept_conversation_intake, capture_conversation as _capture_conversation,
+    complete_inbox_sensitivity_review, iter_active_inbox_items,
+)
 from circled_wiki.core.inbox_disposals import (
     decide_inbox_disposal, list_inbox_disposals, quarantine_inbox_item,
 )
 from circled_wiki.core.inbox_review_queue import list_inbox_review_queue
+
+
+def capture_conversation(*args, **kwargs):
+    decision = kwargs.pop("sensitivity_review", None)
+    result = _capture_conversation(*args, **kwargs)
+    if decision in {"completed", "not_applicable"}:
+        complete_inbox_sensitivity_review(
+            args[0], result.intake_id, "test-inspection-agent", decision,
+            policy_ref="inbox-sensitivity/v1",
+            checks=["source_access_scope", "personal_context", "confidential_business_context", "publication_scope"],
+            matched_categories=["test_fixture"] if decision == "completed" else [],
+            rationale="테스트 fixture의 명시적 민감성 검사 결과다.",
+        )
+    return result
 
 
 class InboxDisposalTests(unittest.TestCase):
@@ -21,7 +38,7 @@ class InboxDisposalTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "knowledge"
             captured = self._capture(root, "quarantine-1")
-            self.assertEqual(len(list_inbox_review_queue(root)), 1)
+            self.assertEqual(len(list_inbox_review_queue(root)), 0)
 
             quarantined = quarantine_inbox_item(
                 root, captured.intake_id, classifier="slack-business-filter",
@@ -30,6 +47,12 @@ class InboxDisposalTests(unittest.TestCase):
 
             self.assertEqual(quarantined["status"], "pending_disposal_review")
             self.assertEqual(len(list_inbox_review_queue(root)), 0)
+            archived = list((root.parent / "workspace" / "task" / ".archive" / "inbox_reconciliation").glob("*.md"))
+            self.assertEqual(len(archived), 1)
+            archived_task = parse_markdown(archived[0]).frontmatter
+            self.assertEqual(archived_task["current"]["actor"], "slack-business-filter")
+            self.assertEqual(archived_task["current"]["next_action"], "decide_inbox_disposal")
+            self.assertEqual(archived_task["transitions"][-1]["outcome"], "quarantined")
             pending = list_inbox_disposals(root)
             self.assertEqual(pending[0]["classification"], "non_business_confirmed")
             self.assertFalse(captured.inbox_path.exists())
@@ -37,7 +60,7 @@ class InboxDisposalTests(unittest.TestCase):
             recovered = decide_inbox_disposal(root, captured.intake_id, decision="recover", actor="reviewer")
             self.assertEqual(recovered["status"], "recovered")
             self.assertTrue(captured.inbox_path.exists())
-            self.assertEqual(len(list_inbox_review_queue(root)), 1)
+            self.assertEqual(len(list_inbox_review_queue(root)), 0)
             self.assertEqual(list_inbox_disposals(root), [])
 
     def test_dispose_removes_original_but_keeps_minimal_archive_receipt(self):

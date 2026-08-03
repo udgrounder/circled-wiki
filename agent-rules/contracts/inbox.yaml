@@ -7,8 +7,14 @@ metadata:
     Reconcile normal Inbox items toward Evidence. non_business_confirmed
     disposition is handled outside this contract through reversible quarantine;
     ambiguous or unclassified items remain in the normal inspection flow.
-    Automatic PII Scan may run for accepted candidates, but sensitivity_review
-    decisions and safe handling after a needs_review result are never inferred.
+    Capture starts with sensitivity_review: required. The Agent resolves it
+    from the selected Inbox policy or procedure and recorded evidence; only a
+    missing procedure or insufficient evidence awaits the user. Automatic PII
+    Scan processes policy-target PII including mobile phone numbers for
+    accepted candidates, but PII categories do not resolve sensitivity_review
+    decisions or safe handling after a needs_review result. Block reasons are
+    requirements; only user-only actions move the contract work to
+    awaiting_user.
 spec:
   stages:
     pending:

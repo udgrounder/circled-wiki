@@ -110,10 +110,10 @@ def run_curation_batch(knowledge_root: Path, limit: int = 100) -> Dict[str, obje
 
 
 def reconcile_curation(knowledge_root: Path, limit: int = 100) -> Dict[str, object]:
-    """Run only contract-authorized Curation analysis and durable handoffs.
+    """Run only contract-authorized Curation analysis and durable Review results.
 
     The configured Curator may close a valid ``no_bundle`` decision or create a
-    Review Queue handoff.  It never approves meaning changes or applies an
+    Review Queue result.  It never approves meaning changes or applies an
     approved revision through this reconciliation path.
     """
     if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 1000:
@@ -351,8 +351,8 @@ def ingest_accepted_inbox(
             failed.append({
                 "intake_id": str(data["id"]),
                 "path": path.relative_to(knowledge_root).as_posix(),
-                "error": "PII scan requires review before Evidence ingestion",
-                "reason_code": "pii_needs_review",
+                "error": "Inbox candidate changed during PII Scan and requires acceptance",
+                "reason_code": "accepted_inspection",
             })
             continue
         if has_blocking_inbox_review(knowledge_root, str(data["id"])):
@@ -425,11 +425,10 @@ def ingest_accepted_inbox(
                     )
                 ),
             )
-            if inbox_review is not None:
-                complete_inbox_review(
-                    knowledge_root, intake_id=str(data["id"]),
-                    evidence_id=result.evidence_id,
-                )
+            complete_inbox_review(
+                knowledge_root, intake_id=str(data["id"]),
+                evidence_id=result.evidence_id,
+            )
             outcome_linked = _link_workflow_outcome(knowledge_root, data, result.evidence_id)
             path.unlink()
             if is_file:

@@ -106,6 +106,7 @@ class SensitiveDataPrecheckTests(unittest.TestCase):
         from circled_wiki.core.ingest import (
             accept_conversation_intake,
             capture_conversation,
+            complete_inbox_sensitivity_review,
             run_automatic_pii_scan,
         )
         from circled_wiki.worker.jobs import ingest_accepted_inbox
@@ -119,7 +120,7 @@ class SensitiveDataPrecheckTests(unittest.TestCase):
             captured = capture_conversation(
                 knowledge_root, "safe content", "test", title="legacy item",
                 why_collected="unit test", intended_use=["test"],
-                idempotency_key="legacy-sensitive-data-test", sensitivity_review="completed",
+                idempotency_key="legacy-sensitive-data-test",
             )
             document = parse_markdown(captured.inbox_path)
             unsafe_text = "010-1234-5678"
@@ -132,6 +133,13 @@ class SensitiveDataPrecheckTests(unittest.TestCase):
                 encoding="utf-8",
             )
 
+            complete_inbox_sensitivity_review(
+                knowledge_root, captured.intake_id, "test-inspection-agent", "completed",
+                policy_ref="inbox-sensitivity/v1",
+                checks=["source_access_scope", "personal_context", "confidential_business_context", "publication_scope"],
+                matched_categories=["test_fixture"],
+                rationale="테스트 fixture의 명시적 민감성 검사 결과다.",
+            )
             run_automatic_pii_scan(knowledge_root, captured.intake_id)
             accept_conversation_intake(knowledge_root, captured.intake_id, "inspector")
             result = ingest_accepted_inbox(knowledge_root)

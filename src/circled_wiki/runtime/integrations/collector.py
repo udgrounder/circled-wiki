@@ -62,7 +62,6 @@ def collect_items(
                 source_url=item.source_url or None,
                 source_locator=item.source_locator or f"external_id={item.external_id}",
                 captured_from="sync",
-                sensitivity_review=item.sensitivity_review,
                 capture_details={
                     "capture_type": "scheduled_source", "external_id": item.external_id,
                     "revision": item.revision,
@@ -82,7 +81,6 @@ def collect_items(
                 source_url=item.source_url or None,
                 source_locator=item.source_locator or f"external_id={item.external_id}",
                 captured_from="sync",
-                sensitivity_review=item.sensitivity_review,
             )
         else:
             raise ValueError("collected content must be text or bytes")

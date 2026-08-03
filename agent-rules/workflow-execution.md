@@ -37,7 +37,8 @@ Inbox Sensitive Data Review, 승인과 `ingest_accepted`를 거친 후에만 Out
 
 ## Failure State
 
-`awaiting_input`, `failed`, `needs_review` 중 해당 상태로 유지하고 재시도 조건을 기록한다.
+`failed` 또는 `needs_review` 결과로 종료하고 재시도 조건을 기록한다. Required Input 누락은
+`awaiting_input` 상태를 만들지 않으며, 누락 항목과 안전한 다음 행동을 가진 `needs_review`로 기록한다.
 
 ## Prohibited
 

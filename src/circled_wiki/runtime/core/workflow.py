@@ -296,7 +296,7 @@ class TaskStore:
                 link for link in workflow.get("links", [])
                 if isinstance(link, str) and link.startswith("bundle/")
             ],
-            "status": "awaiting_input" if missing else "ready",
+            "status": "needs_review" if missing else "ready",
             "created_at": now,
             "updated_at": now,
             "outcome_evidence_id": None,
@@ -450,6 +450,10 @@ class TaskStore:
         task = self.read(task_id)
         if task.get("outcome_evidence_id") or task.get("outcome_intake_id"):
             raise ValueError("completed task inputs cannot be changed")
+        if task.get("status") == "needs_review":
+            raise ValueError(
+                "needs_review task is terminal; prepare a new task or record an explicit re-review"
+            )
         task["inputs"].update(dict(inputs))
         task["missing_inputs"] = [
             item["name"]
@@ -458,9 +462,7 @@ class TaskStore:
             or task["inputs"].get(item["name"]) == ""
         ]
         if task["missing_inputs"]:
-            task["status"] = "awaiting_input"
-        elif all(step.get("status") == "pending" for step in task.get("step_states", [])):
-            task["status"] = "ready"
+            task["status"] = "needs_review"
         return self.update(task)
 
     def record_step(
@@ -963,7 +965,6 @@ def record_outcome(
         title=f"Workflow outcome: {task['workflow_id']}",
         source_locator=f"task_id={task_id}",
         captured_from="sync",
-        sensitivity_review="required",
         idempotency_key=f"workflow-outcome:{task_id}",
         capture_details={"capture_type": "workflow_outcome", "task_id": task_id},
     )

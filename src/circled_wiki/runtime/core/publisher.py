@@ -128,8 +128,8 @@ def resume_pending_push(project_root: Path) -> Dict[str, object]:
 
     Git pushes reachable ancestors with HEAD, so multiple earlier pending
     receipts are not an ambiguity.  A successful push marks all of them as
-    delivered by the current HEAD.  A handoff remains unavailable to its next
-    owner until this operation succeeds.
+    delivered by the current HEAD.  A processing-actor transition remains
+    unavailable to its next actor until this operation succeeds.
     """
     directory = project_root / ".runtime" / "publication" / "push"
     pending = []

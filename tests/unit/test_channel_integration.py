@@ -18,7 +18,7 @@ class _Service:
         return {
             "mode": "workflow_execution",
             "task": {
-                "task_id": "task-1", "workflow_id": workflow_id, "status": "awaiting_input",
+                "task_id": "task-1", "workflow_id": workflow_id, "status": "needs_review",
                 "missing_inputs": ["customer_id"],
                 "required_inputs": [{"name": "customer_id", "description": "고객 식별자"}],
             },
@@ -35,5 +35,5 @@ class ChannelIntegrationTests(unittest.TestCase):
 
     def test_workflow_preparation_returns_missing_input_questions(self):
         response = prepare_channel_workflow(_Service(), "고객 처리", workflow_id="customer-support")
-        self.assertEqual(response["status"], "awaiting_input")
+        self.assertEqual(response["status"], "needs_review")
         self.assertEqual(response["questions"], [{"input": "customer_id", "question": "고객 식별자"}])

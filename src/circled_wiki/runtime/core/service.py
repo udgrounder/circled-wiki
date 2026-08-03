@@ -16,8 +16,8 @@ from .ingest import (
     capture_document,
     capture_file,
     complete_inbox_sensitivity_review,
-    ingest_evidence,
     record_inbox_pii_scan_receipt,
+    request_inbox_sensitivity_decision,
 )
 from .publisher import publish_changes, push_committed_changes, resume_pending_push
 from .candidates import curation_backlog_metrics, list_curation_candidates, promote_curation_candidate, review_curation_candidate
@@ -244,10 +244,23 @@ class KnowledgeService:
         return accept_ready_inbox(self.knowledge_root, actor, limit=limit)
 
     def review_inbox_sensitivity(
-        self, intake_id: str, actor: str, decision: str
+        self, intake_id: str, actor: str, decision: str, *, policy_ref: str,
+        checks: List[str], matched_categories: List[str], rationale: str,
     ) -> Dict[str, object]:
         return complete_inbox_sensitivity_review(
-            self.knowledge_root, intake_id, actor, decision
+            self.knowledge_root, intake_id, actor, decision,
+            policy_ref=policy_ref, checks=checks,
+            matched_categories=matched_categories, rationale=rationale,
+        )
+
+    def request_inbox_sensitivity_decision(
+        self, intake_id: str, actor: str, *, question: str, missing_procedure: str,
+        safe_next_action: str, facts: List[str], hypotheses: List[str],
+    ) -> Dict[str, object]:
+        return request_inbox_sensitivity_decision(
+            self.knowledge_root, intake_id, actor, question=question,
+            missing_procedure=missing_procedure, safe_next_action=safe_next_action,
+            facts=facts, hypotheses=hypotheses,
         )
 
     def ingest_accepted(self, limit: int = 100) -> Dict[str, object]:
@@ -295,64 +308,6 @@ class KnowledgeService:
 
         return reconcile_curation(self.knowledge_root, limit=limit)
 
-    def ingest_evidence(
-        self,
-        inbox_path: str,
-        provider: str,
-        *,
-        why_collected: str,
-        intended_use: List[str],
-        title: Optional[str] = None,
-        source_url: Optional[str] = None,
-        source_locator: Optional[str] = None,
-        captured_from: str = "manual",
-        reuse_value: str = "medium",
-        retention_class: str = "general_reference",
-        sensitivity_review: str = "required",
-        idempotency_key: Optional[str] = None,
-        content_mode: str = "external_file",
-        pii_scan_receipt: Optional[Dict[str, object]] = None,
-    ) -> Dict[str, object]:
-        """Ingest only an inbox-relative file for user, Batch, or Hermes collection."""
-        if not isinstance(inbox_path, str) or not inbox_path.strip():
-            raise ValueError("inbox_path must be non-empty")
-        inbox_root = (self.knowledge_root / "inbox").resolve()
-        source_path = (inbox_root / inbox_path).resolve()
-        if inbox_root not in source_path.parents:
-            raise ValueError("inbox_path must stay inside knowledge/inbox/")
-        result = ingest_evidence(
-            self.knowledge_root,
-            source_path,
-            provider,
-            why_collected=why_collected,
-            intended_use=intended_use,
-            title=title,
-            source_url=source_url,
-            source_locator=source_locator,
-            captured_from=captured_from,
-            reuse_value=reuse_value,
-            retention_class=retention_class,
-            sensitivity_review=sensitivity_review,
-            idempotency_key=idempotency_key,
-            content_mode=content_mode,
-            pii_scan_receipt=pii_scan_receipt,
-        )
-        response = {
-            "evidence_id": result.evidence_id,
-            "source_uuid": result.source_uuid,
-            "original_path": result.original_path.relative_to(
-                self.knowledge_root.parent.resolve()
-            ).as_posix(),
-            "manifest_path": result.manifest_path.relative_to(
-                self.knowledge_root.parent.resolve()
-            ).as_posix(),
-            "reused": result.reused,
-        }
-        response["curation_proposal"] = propose_update(
-            self.knowledge_root, result.evidence_id
-        )
-        return response
-
     def capture_conversation(
         self,
         content: str,
@@ -366,7 +321,6 @@ class KnowledgeService:
         turn_from: Optional[int] = None,
         turn_to: Optional[int] = None,
         artifacts: Optional[List[Dict[str, object]]] = None,
-        sensitivity_review: str = "required",
     ) -> Dict[str, object]:
         """Capture one conversation in Inbox without running downstream processing."""
         result = capture_conversation(
@@ -381,7 +335,6 @@ class KnowledgeService:
             turn_from=turn_from,
             turn_to=turn_to,
             artifacts=artifacts,
-            sensitivity_review=sensitivity_review,
         )
         return _capture_result_payload(self.knowledge_root, result)
 
@@ -397,7 +350,6 @@ class KnowledgeService:
         source_url: Optional[str] = None,
         source_locator: Optional[str] = None,
         captured_from: str = "sync",
-        sensitivity_review: str = "required",
         capture_details: Optional[Dict[str, object]] = None,
     ) -> Dict[str, object]:
         """Land an external source document in Inbox without processing it."""
@@ -412,7 +364,6 @@ class KnowledgeService:
             source_url=source_url,
             source_locator=source_locator,
             captured_from=captured_from,
-            sensitivity_review=sensitivity_review,
             capture_details=capture_details,
         )
         return _capture_result_payload(self.knowledge_root, result)
@@ -430,7 +381,6 @@ class KnowledgeService:
         source_url: Optional[str] = None,
         source_locator: Optional[str] = None,
         captured_from: str = "upload",
-        sensitivity_review: str = "required",
     ) -> Dict[str, object]:
         """Land a binary or arbitrary source file in Inbox without processing it."""
         result = capture_file(
@@ -438,7 +388,6 @@ class KnowledgeService:
             title=title, why_collected=why_collected, intended_use=intended_use,
             idempotency_key=idempotency_key, source_url=source_url,
             source_locator=source_locator, captured_from=captured_from,
-            sensitivity_review=sensitivity_review,
         )
         return _capture_result_payload(self.knowledge_root, result)
 

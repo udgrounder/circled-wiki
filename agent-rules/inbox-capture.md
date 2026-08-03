@@ -14,6 +14,7 @@
 - **모든 수집 Agent와 Source Adapter의 공통 첫 단계**로 텍스트와 저장할 텍스트 메타데이터를 `.circled-wiki/policies/sensitive-data-masking.md`에 따라 민감정보 사전 점검한다. 이 단계는 특정 Agent의 선택 사항이 아니며 공통 Capture API를 우회할 수 없다.
 - Capture는 자격증명처럼 즉시 차단해야 하는 고위험 값을 안전하게 처리한다. `010`·`+82 10` 휴대전화 번호를 포함한 Evidence 후보의 PII 감지·마스킹·Receipt는 단일 PII Scan 기준으로 처리하며, 지역번호·대표번호는 자동 마스킹하지 않는다.
 - 텍스트는 `Markdown + 1차 마스킹된 수집 내용`으로, 파일은 `Markdown envelope + 동명 원본`으로 `knowledge/inbox/<provider>/`에 저장
+- Capture의 `sensitivity_review` 기본값은 항상 `required`다. `completed` 또는 `not_applicable`은 Capture의 자동 판정값이 아니며, Inbox Inspection의 식별된 검토자가 남기는 명시적 결정으로만 해소한다.
 - 파일 원본은 자동 수정하지 않고, 민감정보 가능성이 있으면 `sensitivity_review: required`로 유지해 Inspection에서 제한·파생본 처리를 결정
 - checksum과 `pending` 상태 기록
 

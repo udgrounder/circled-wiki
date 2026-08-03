@@ -7,7 +7,8 @@ from pathlib import Path
 from circled_wiki.core.ingest import (
     accept_conversation_intake,
     accept_ready_inbox,
-    capture_conversation,
+    capture_conversation as _capture_conversation,
+    complete_inbox_sensitivity_review,
 )
 from circled_wiki.worker.jobs import (
     MaintenanceReport,
@@ -20,6 +21,20 @@ from circled_wiki.worker.jobs import (
 )
 from circled_wiki.core.publisher import PublishError, publish_changes
 from circled_wiki.core.inbox_contracts import curation_blocker_policy
+
+
+def capture_conversation(*args, **kwargs):
+    decision = kwargs.pop("sensitivity_review", None)
+    result = _capture_conversation(*args, **kwargs)
+    if decision in {"completed", "not_applicable"}:
+        complete_inbox_sensitivity_review(
+            args[0], result.intake_id, "test-inspection-agent", decision,
+            policy_ref="inbox-sensitivity/v1",
+            checks=["source_access_scope", "personal_context", "confidential_business_context", "publication_scope"],
+            matched_categories=["test_fixture"] if decision == "completed" else [],
+            rationale="테스트 fixture의 명시적 민감성 검사 결과다.",
+        )
+    return result
 
 
 class WorkerJobTests(unittest.TestCase):

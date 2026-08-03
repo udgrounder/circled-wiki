@@ -34,8 +34,12 @@ inbox-capture
 
 `contracts/index.yaml`은 영역별 실행 계약을 등록하며, 각 계약은 Frontmatter와 Queue에 기록된 현재 상태에서 안전하게 재수행할 수 있는
 선행 단계만 구조화한다. Inbox 계약은 `inbox-inspection`과 `evidence-ingest` Profile을 대체하지 않는다. 자동 PII Scan은
-실제 후보를 검사해 `passed` 또는 `masked` Receipt를 확정할 수 있지만, 사람의 민감성 판단, `needs_review` 뒤 안전 처리,
-승인 판단은 자동으로 해소하지 않는다.
+전화번호를 포함한 정책 대상 PII를 실제 후보에서 검사·마스킹해 `passed` 또는 `masked` Receipt를 확정할 수 있지만, PII 유형으로
+정책·절차 근거가 없는 민감성 판단, `needs_review` 뒤 안전 처리, 승인 판단을 자동으로 해소하지 않는다.
+
+`needs_review`는 단계가 자동 결론을 낼 수 없다는 판정이고, `awaiting_user`는 사용자만 할 수 있는 행동을 실제로 기다리는 Queue
+상태다. Curation의 `review_handoff`는 Review 카드 생성 결과이며, 카드가 사용자 또는 허용된 검증 Agent 중 누구를 기다리는지는
+카드의 reviewer 계약이 결정한다.
 
 여러 단계로 구성된 Pipeline은 먼저 독립적으로 검증 가능한 하위 작업을 식별하고, 사용할 수 있는 위임 수단이 있으면
 위임을 권장한다. 위임은 Gate·승인·최종 책임을 이전하지 않으며, 위임 여부만으로 작업을 차단하지 않는다. 하위 작업을
@@ -56,70 +60,21 @@ inbox-capture
 같은 실행 주체가 여러 역할을 맡더라도 Profile을 합치지 않는다. Approval이 필요한 단계에서는 제안자와
 승인자를 분리한다.
 
-## State Transitions
+## State, Contract, and Resume Source
 
-| Current | Action and Profile | Required Gate | Next |
-| --- | --- | --- | --- |
-| 없음 | `capture_conversation` · Inbox Capture | 필수 입력, 안전 경로, idempotency, 모든 수집 주체의 공통 민감정보 사전 점검 | `pending` |
-| `pending` | Inbox Business-Relevance Disposition | `non_business_confirmed`인 경우에만 분류기·규칙 버전·사유를 기록해 격리. 애매하거나 분류 불가는 기록·격리 없이 일반 Inspection | 격리 일괄 검토 또는 Inbox Inspection |
-| `pending` | `inspect_inbox` · Inbox Inspection | 메타데이터, 경로, checksum, Inbox Sensitive Data Review 상태 | 승인 가능 또는 보류 |
-| `pending` + `sensitivity_review: required` | `review_inbox_sensitivity` · Inbox Inspection | 식별된 사람의 완료·비해당 결정 | 승인 검사 가능 |
-| `needs_review` 또는 판단 불가 Gate | Inbox 예외 계약 작업 (`inbox_reconciliation`) | Inbox UUID·현재 단계·요청 조치만 기록, 원문은 복사하지 않음. Queue 상태와 Receipt는 검증 뒤 Commit·Push한다. `list_inbox_review_queue`는 이 작업의 조회 뷰다. | `awaiting_user` — 사용자 결정 또는 안전한 후속 입력 대기 |
-| `awaiting_user` | `sensitivity_review` 결정 또는 자동 PII Scan이 `needs_review`로 남긴 안전 처리 결정 | 민감성 검토 완료 또는 `passed`·`masked` PII Receipt, 동일 후보 checksum | `reprocessing` — `reconcile-inbox` 재실행 |
-| `reprocessing` | `reconcile-inbox` · Evidence Ingest | PII Receipt와 후보 checksum 일치, Evidence·Curation Queue 원자 확정 | Evidence 생성 또는 새 `awaiting_user` |
-| `pending` | `accept_inbox` · Inbox Inspection | 모든 Gate 통과, inspector actor | `accepted` |
-| `accepted` | Evidence PII Scan · Evidence Ingest | RB-EVD-020·021·023, RB-SEC-005·010, Evidence Schema | 불변 Evidence + Curation Queue |
-| Curation Queue | `propose_pending` · Knowledge Curation | Evidence 원본 접근, 관련성 검토 | Bundle 또는 Review 카드 |
-| Draft (`runbook`·`manual`) | Review · Publication | Validator, Evidence, 보안, 사용자 또는 검증 Agent의 별도 검증 시도 기록 | 발행 가능 |
-| Draft (`policy`·`guide`·`decision`·`spec`·`reference`·`report`) | RB-CUR-006 Automatic Promotion | Validator, Evidence·PII·참조 무결성, Security Receipt | active 또는 Gate 실패 Draft |
+이 README는 상태 전이를 다시 정의하지 않는다. 정본은 아래와 같이 분리한다.
 
-## Exceptions
-
-| Scenario | Required Handling |
+| 주제 | 정본 |
 | --- | --- |
-| 동일 idempotency key의 checksum 변경 | Capture 중단, 구조화된 기존 Inbox Item 참조를 확인하고 충돌 보고 |
-| checksum 불일치 | Inbox 유지, 승인 금지 |
-| `sensitivity_review: required` | 승인 금지, 검토 완료 후 재검사 |
-| `sensitivity_review` 또는 PII Scan의 `needs_review`에 사람 결정 필요 | `workspace/task/inbox_reconciliation/`에 예외 계약 작업을 생성하고 Evidence 변환을 중단. 자동 PII Scan 자체는 계속 수행할 수 있으며, 해결 뒤 재처리되어 Evidence와 Curation 계약 작업이 함께 생성될 때만 작업을 archive |
-| PII Scan이 `needs_review` | Evidence 생성 없이 Inbox Review Queue를 `awaiting_user`로 유지 |
-| Evidence PII Scan 결과 처리 | RB-EVD-020·RB-SEC-005 적용 |
-| provider와 폴더 불일치 | Inbox 유지, 자동 이동·수정 금지 |
-| accepted 항목 ingest 실패 | Inbox와 필요 시 `.raw/` 유지, 재시도 조건 기록 |
-| Evidence는 있으나 큐가 누락 | `refresh-curation-queue`로 큐 복구 |
-| Profile 선택이 모호함 | 변경을 시작하지 않고 기대 출력을 확인 |
+| 전역 용어·예외·처리 주체 전이·발행 경계 | `OPERATING_RULES.md` |
+| Inbox 전이·차단 사유·재처리 | `contracts/inbox.yaml`, `inbox-inspection.md`, `inbox-sensitivity-review.md`, `evidence-ingest.md` |
+| Curation outcome·재시도 | `contracts/curation.yaml`, `knowledge-curation.md` |
+| Queue 상태 조회·재개 | 각 계약의 `current.stage/status/actor`, `requirements`, Receipt |
+| Commit·Push 상태 공유 | `publication.md` |
 
-## Queue-driven Resume
-
-다음 실행의 Wiki Agent는 Inbox Review Queue 카드의 원문 설명을 추론 근거로 사용하지 않고, 구조화된
-`subject.intake_id`, `current.status`, `requirements[].decision`, `current.next_action`만 읽어 재개한다. 후보 checksum은 Queue 연관성이 아니라 Evidence 생성 직전 PII Receipt와 파일 변경 검증에만 사용한다.
-
-| Queue 상태 | Agent 동작 |
-| --- | --- |
-| `awaiting_user` | 변경하지 않고 검토 대기 상태를 반환한다. |
-| `reprocessing` + 모든 requirement가 `resolved` | `current.next_action`이 `reprocess_inbox`일 때만 `reconcile-inbox`를 재실행한다. |
-| `reprocessing` + PII `passed` 또는 `masked` Receipt | Receipt checksum과 Inbox 후보 checksum을 검증한 뒤 Evidence 변환을 시도한다. |
-| `reprocessing` + `needs_review` 또는 미해결 requirement | Inbox와 Queue를 유지하고 필요한 검토 행동으로 되돌린다. |
-| Inbox Review `resolved` | Inbox Review 카드는 재실행하지 않고, 연결된 Evidence의 Curation Queue를 다음 단계로 진행한다. |
-| Curation Queue `completed` | 해당 Curation 카드는 재실행하지 않고, 생성된 Review·Draft·Bundle·`no_bundle` Receipt의 Commit·Push 또는 다음 승인 단계를 진행한다. |
-
-Inbox Review Queue의 결정 vocabulary(`passed`, `masked`, `needs_review`)는 PII·민감도 처리용이다.
-Curation Review의 `approve`, `no_bundle`, `needs_changes`, `needs_review`는 별도 카드와 Curation 계약에서만
-해석한다. 두 Queue의 결과를 서로 전환하거나 혼합하지 않는다.
-
-## Handoff and Publication Boundary
-
-동일 Agent가 연속으로 수행하는 Inbox 검사·PII Scan·Evidence 변환·Curation 단계는 하나의 로컬 작업 단위로
-유지한다. Commit·Push는 다음 경우에만 필수다.
-
-| 경계 | 필수 기록 | 다음 상태 |
-| --- | --- | --- |
-| `agent -> user` | 현재 결과·Receipt·checksum·사용자가 해야 할 `next_action` | `awaiting_user` |
-| `user -> agent` | 사용자 결정·결정자·시각·Receipt·Agent의 `next_action` | `reprocessing` |
-| 최종 종료 | Evidence·Archive·폐기·`no_bundle` 등 종료 결과와 Receipt | `completed` / `rejected` / `archived` / `disposed` |
-| Push 실패 | Commit revision·remote·branch·재시도 조건 | `publication_pending` |
-
-`publication_pending`은 공유가 완료되지 않은 상태이므로 다음 업무 단계를 시작하지 않는다. Push 성공 Receipt가
-기록된 뒤에만 handoff 또는 최종 종료를 완료 처리한다.
+자동 PII Scan은 전화번호를 포함한 정책 대상 PII를 실제 후보에서 검사·마스킹하는 Evidence 직전 단계다.
+`needs_review`는 단계별 판정이고, 사용자만 할 수 있는 조치일 때만 계약 작업을 `awaiting_user`로 전이한다.
+`review_handoff`는 Curation Review 카드 생성 결과이며 사용자 대기 상태가 아니다.
 
 ## Metrics
 

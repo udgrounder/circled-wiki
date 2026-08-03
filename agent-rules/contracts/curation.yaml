@@ -5,7 +5,8 @@ metadata:
   version: 1
   description: >-
     Reconcile one queued Evidence item through the configured Curator. Each
-    outcome records its durable state and queue disposition. The contract never
+    outcome records its durable result and queue disposition. review_handoff is
+    a Review card creation result, not a user-waiting state. The contract never
     approves a meaning change or applies an approved Bundle revision.
 spec:
   stages:

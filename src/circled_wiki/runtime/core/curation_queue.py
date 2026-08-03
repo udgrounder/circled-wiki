@@ -75,18 +75,21 @@ def _enqueue_curation_work_unlocked(
         # immutable Evidence binding instead of trusting the stale contents.
         payload = {}
     previous = payload.get("current") if isinstance(payload.get("current"), dict) else {}
+    current = {
+        "stage": "queued",
+        "status": "pending",
+        "actor": "curation-agent",
+        "next_action": "run_configured_curation_batch",
+    }
     payload.update({
         "type": "contract_task",
         "contract": {"name": CONTRACT_NAME, "version": CONTRACT_VERSION},
         "evidence_id": evidence_id,
         "evidence_path": relative.as_posix(),
-        "current": {
-            "stage": "queued",
-            "status": "pending",
-            "next_action": "run_configured_curation_batch",
-        },
+        "current": current,
     })
     if previous.get("status") != "pending":
+        _append_transition(payload, from_current=previous or None, to_current=current, outcome="queued")
         _append_step(payload, stage="queued", status="pending", outcome="queued")
     _write_task(target, payload)
     return target
@@ -107,9 +110,15 @@ def _complete_curation_work_unlocked(
     if not target.is_file():
         return False
     payload = parse_markdown(target).frontmatter
-    payload["current"] = {"stage": "result_created", "status": "completed"}
+    previous = payload.get("current") if isinstance(payload.get("current"), dict) else None
+    payload["current"] = {
+        "stage": "result_created", "status": "completed", "actor": "curation-agent",
+    }
     payload.pop("last_blocker", None)
     _append_step(payload, stage="result_created", status="completed")
+    _append_transition(
+        payload, from_current=previous, to_current=payload["current"], outcome="result_created",
+    )
     archive = _archive_path(knowledge_root, evidence_id)
     _write_task(archive, payload)
     target.unlink(missing_ok=True)
@@ -131,14 +140,19 @@ def record_curation_contract_outcome(
         if not target.is_file():
             return False
         payload = parse_markdown(target).frontmatter
+        previous = payload.get("current") if isinstance(payload.get("current"), dict) else None
         payload["current"] = {
             "stage": next_stage,
             "status": "completed",
+            "actor": "curation-agent",
             "outcome": outcome,
         }
         if artifact:
             payload["result_artifact"] = artifact
         _append_step(payload, stage=next_stage, status="completed", outcome=outcome)
+        _append_transition(
+            payload, from_current=previous, to_current=payload["current"], outcome=outcome,
+        )
         _write_task(target, payload)
         return True
 
@@ -157,10 +171,15 @@ def record_curation_blocker(
             "reason": reason.strip(), "reason_category": reason_category.strip(),
             "next_action": next_action.strip(),
         }
+        previous = data.get("current") if isinstance(data.get("current"), dict) else None
         data["current"] = {
-            "stage": "queued", "status": "pending", "next_action": next_action.strip(),
+            "stage": "queued", "status": "pending", "actor": "curation-agent",
+            "next_action": next_action.strip(),
         }
         _append_step(data, stage="queued", status="pending", outcome="retryable_block", reason=reason.strip())
+        _append_transition(
+            data, from_current=previous, to_current=data["current"], outcome="retryable_block",
+        )
         _write_task(target, data)
         return target
 
@@ -266,12 +285,17 @@ def _refresh_curation_queue_unlocked(
             # the task receipts, but discard only the unusable diagnostic data
             # and return the task to the contract's normal queued action.
             data.pop("last_blocker", None)
+            previous = data.get("current") if isinstance(data.get("current"), dict) else None
             data["current"] = {
                 "stage": "queued",
                 "status": "pending",
+                "actor": "curation-agent",
                 "next_action": "run_configured_curation_batch",
             }
             _append_step(data, stage="queued", status="pending", outcome="blocker_repaired")
+            _append_transition(
+                data, from_current=previous, to_current=data["current"], outcome="blocker_repaired",
+            )
             _write_task(target, data)
             repaired += 1
     for path in existing_paths - expected_paths:
@@ -351,6 +375,22 @@ def _append_step(
     payload["step_receipts"] = steps
 
 
+def _append_transition(
+    payload: Dict[str, object], *, from_current: Optional[Dict[str, object]],
+    to_current: Dict[str, object], outcome: str,
+) -> None:
+    transitions = payload.get("transitions")
+    if not isinstance(transitions, list):
+        transitions = []
+    transitions.append({
+        "from": from_current,
+        "to": dict(to_current),
+        "outcome": outcome,
+        "recorded_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    })
+    payload["transitions"] = transitions
+
+
 def _write_task(path: Path, payload: Dict[str, object]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.name}.{uuid4()}.tmp")
@@ -368,7 +408,9 @@ def _valid_task_record(data: Dict[str, object]) -> bool:
         and isinstance(current, dict)
         and current.get("stage") == "queued"
         and current.get("status") == "pending"
+        and isinstance(current.get("actor"), str)
         and isinstance(data.get("step_receipts"), list)
+        and isinstance(data.get("transitions"), list)
     )
 
 

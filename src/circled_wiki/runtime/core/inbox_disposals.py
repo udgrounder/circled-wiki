@@ -45,7 +45,9 @@ def quarantine_inbox_item(
     from .inbox_review_queue import suspend_inbox_review
 
     source_checksum = str(data["checksum"])
-    suspend_inbox_review(knowledge_root, intake_id=intake_id)
+    suspend_inbox_review(
+        knowledge_root, intake_id=intake_id, actor=classifier,
+    )
     provider = str(data["provider"])
     target_dir = knowledge_root / "inbox" / ".quarantine" / provider
     target_dir.mkdir(parents=True, exist_ok=True)

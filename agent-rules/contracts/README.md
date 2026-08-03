@@ -34,7 +34,7 @@
 | `stages.<state>.requires` | action 전에 충족돼야 하는 Gate 목록이다. 누락된 Gate를 자동으로 해소하지 않는다. |
 | `stages.<state>.next_stage` | 모든 Gate가 충족됐을 때의 다음 상태다. |
 | `stages.<state>.on_blocked.task_contract` | Gate가 충족되지 않았을 때 생성·재개할 예외 계약 작업 영역이다. |
-| `stages.<state>.on_blocked.reasons.<reason>` | 해당 단계에서 사람이 결정해야 하는 허용 사유와 `current_stage`, `requested_action`, 결정 후 `resolved_next_action`이다. 실제 발생 사유·결정은 같은 계약 작업 파일의 `requirements`와 단계 Receipt에 기록한다. |
+| `stages.<state>.on_blocked.reasons.<reason>` | 자동 처리로 해소할 수 없는 허용 사유와 **차단 발생 단계 정의값** `current_stage`, `requested_action`, 결정 후 `resolved_next_action`이다. 이 `current_stage`는 저장된 계약 작업의 상태 필드가 아니다. 실제 작업 상태의 정본은 `current.stage/status/actor`이고, 발생 사유·결정은 같은 계약 작업 파일의 `requirements`와 단계 Receipt에 기록한다. 사용자만 할 수 있는 행동일 때만 작업의 `current.status`를 `awaiting_user`로 둔다. |
 
 ### Curation
 
@@ -44,7 +44,7 @@
 | 속성 | 의미 |
 | --- | --- |
 | `stages.queued.profile`·`action`·`requires` | 큐에 있는 Evidence를 분석할 Profile·허용 action·선행 Gate다. |
-| `outcomes.<name>.next_stage` | 분석 결과를 기록할 Curation 계약 상태다. |
+| `outcomes.<name>.next_stage` | 분석 결과를 기록할 Curation 계약 상태다. `review_handoff`는 Review 카드 생성 결과이지 사용자 대기 상태가 아니다. |
 | `outcomes.<name>.queue_disposition` | `complete`이면 Curation Queue 항목이 사라져야 하고, `retain`이면 재시도 가능하게 남아야 한다. Runtime이 실제 큐 상태를 검증한다. |
 | `outcomes.<name>.terminal` | 전체 업무가 끝났다는 뜻이 아니라, 이 **Curation 재조정 계약**에서 더 진행하지 않는다는 뜻이다. `review_handoff` 뒤의 Review·승인 절차는 별도다. |
 | `outcomes.retryable_block.reason_categories.<category>` | 세부 구현 오류를 운영상 사유군으로 정규화한다. `reason_codes`는 허용된 사실 코드, `safe_next_action`은 사람이 수행할 안전한 다음 행동이다. |
@@ -55,9 +55,9 @@
 
 ## 계약 작업 기록과 결과물
 
-`workspace/task/<contract-name>/<subject-uuid>.md`는 계약별 처리 기록이다. Inbox에서는 사람의 검토·재시도·중단이
-발생한 예외 입력에만 생성하며, 정상 자동 완료 Inbox는 Evidence와 실행 Receipt만 남긴다. Curation에서는 모든
-새 Evidence에 생성하고, `pending` 상태의 작업을 Curation Queue로 조회한다. 완료된 작업 기록은
+`workspace/task/<contract-name>/<subject-uuid>.md`는 계약별 처리 기록이다. Inbox에서는 Capture마다 하나를 만들고
+일반 Agent 처리와 사용자 전용 검토 사유를 같은 기록에 남긴다. Curation에서는 모든 새 Evidence에 생성하고,
+`pending` 상태의 작업을 Curation Queue로 조회한다. 완료된 작업 기록은
 `workspace/task/.archive/<contract-name>/`으로 이동한다.
 
 Inbox 검토 요청은 위 계약 작업 기록의 `requirements`로 완결하며 별도 요청 문서를 만들지 않는다. Curation Review
@@ -65,6 +65,10 @@ Card는 제안 본문·근거 스냅샷·검토 결정을 담는 결과물이므
 작업 기록이 Review 카드·Bundle·결정 Receipt를 만들어내는 것은 아니다. 해당 결과물은 Curator·Reviewer·Publication
 단계가 실제 Gate를 통과해 성공했을 때에만 생성된다. 그 뒤 계약 작업 기록은 결과물의 안전한 참조와 다음 상태를
 기록한다.
+
+처리 기록의 `current.status`는 진행 상태만 표현한다. `sensitivity_review_required` 같은 값은
+`requirements[].reason_code`, PII Scan의 `needs_review`는 Receipt 판정, `review_handoff`는 Curation outcome에
+기록한다. 이 셋을 `current.status`로 중복 기록하지 않는다.
 
 ## 정본과 변경 원칙
 

@@ -71,7 +71,7 @@ class McpServerTests(unittest.TestCase):
         self.assertTrue(response["result"]["isError"])
         self.assertIn("access mode", response["result"]["content"][0]["text"])
 
-    def test_operator_can_ingest_only_from_inbox(self):
+    def test_operator_cannot_bypass_inbox_reconciliation_with_direct_ingest(self):
         with tempfile.TemporaryDirectory() as directory:
             knowledge_root = Path(directory) / "knowledge"
             inbox = knowledge_root / "inbox"
@@ -86,33 +86,9 @@ class McpServerTests(unittest.TestCase):
                 }},
             }, service, access_mode="operator")
 
-            self.assertFalse(response["result"].get("isError", False))
-            self.assertTrue(any((knowledge_root / "evidence" / "user").rglob("*.md")))
-            evidence = json.loads(response["result"]["content"][0]["text"])
-            created = handle_request({
-                "jsonrpc": "2.0", "id": 6, "method": "tools/call",
-                "params": {"name": "create_draft_bundle", "arguments": {
-                    "domain": "operations", "slug": "pilot-guide", "title": "Pilot Guide",
-                    "bundle_type": "policy", "summary": "Pilot summary",
-                    "evidence_id": evidence["evidence_id"], "body": "# Guide\n\nDraft.\n",
-                    "actor": "hermes-curator", "tags": ["pilot", "guide"],
-                }},
-            }, service, access_mode="operator")
-            self.assertFalse(created["result"].get("isError", False))
-            bundle = json.loads(created["result"]["content"][0]["text"])
-            proposal = dict(bundle["frontmatter"])
-            proposal["summary"] = "Reviewed pilot summary"
-            applied = handle_request({
-                "jsonrpc": "2.0", "id": 7, "method": "tools/call",
-                "params": {"name": "apply_bundle_revision", "arguments": {
-                    "bundle_id": bundle["id"], "expected_revision": 1,
-                    "frontmatter": proposal, "body": "# Guide\n\nReviewed.\n",
-                    "actor": "verification-agent",
-                }},
-            }, service, access_mode="operator")
-            self.assertFalse(applied["result"].get("isError", False))
-            revision = json.loads(applied["result"]["content"][0]["text"])
-            self.assertEqual(revision["frontmatter"]["extensions"]["knowledge_revision"], 2)
+            self.assertTrue(response["result"]["isError"])
+            self.assertIn("not available", response["result"]["content"][0]["text"])
+            self.assertFalse(any((knowledge_root / "evidence").rglob("*.md")))
 
     def test_operator_capture_only_lands_pending_inbox_item(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -130,7 +106,6 @@ class McpServerTests(unittest.TestCase):
                     "thread_ref": "thread-3",
                     "turn_from": 1,
                     "turn_to": 1,
-                    "sensitivity_review": "completed",
                 }},
             }, service, access_mode="operator")
 
@@ -142,6 +117,17 @@ class McpServerTests(unittest.TestCase):
             inbox_path = knowledge_root.parent / payload["inbox_path"]
             self.assertTrue(inbox_path.is_file())
             self.assertIn("메뉴 이미지를 만들어줘", inbox_path.read_text(encoding="utf-8"))
+
+            reviewed = handle_request({
+                "jsonrpc": "2.0", "id": 9, "method": "tools/call",
+                "params": {"name": "review_inbox_sensitivity", "arguments": {
+                    "intake_id": payload["intake_id"], "actor": "inspection-agent",
+                    "decision": "not_applicable", "policy_ref": "inbox-sensitivity/v1",
+                    "checks": ["source_access_scope", "personal_context", "confidential_business_context", "publication_scope"],
+                    "matched_categories": [], "rationale": "제한 검토 대상이 없는 일반 업무 대화다.",
+                }},
+            }, service, access_mode="operator")
+            self.assertFalse(reviewed["result"].get("isError", False))
 
             inspected = handle_request({
                 "jsonrpc": "2.0", "id": 9, "method": "tools/call",
@@ -184,7 +170,6 @@ class McpServerTests(unittest.TestCase):
                     "thread_ref": "thread-3",
                     "turn_from": 1,
                     "turn_to": 1,
-                    "sensitivity_review": "completed",
                 }},
             }, service, access_mode="operator")
             self.assertFalse(repeated["result"].get("isError", False))

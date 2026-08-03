@@ -6,7 +6,7 @@
 
 ## Input
 
-- 검토 완료 변경 또는 주체 변경·종료를 나타내는 원문 없는 검증된 handoff Receipt
+- 검토 완료 변경 또는 주체 변경·종료를 나타내는 원문 없는 검증된 처리 주체·작업 상태 전이 Receipt
 - Evidence 참조
 - 공식 지식 발행에는 승인 actor와 발행 권한, 상태 공유에는 configured publication policy
 
@@ -32,15 +32,15 @@
 - 기존 staged 변경 없음
 - 현재 Evidence checksum과 승격 provenance 기록. `runbook`·`manual`은 생성 전 Review ID와 별도 검증 시도 기록이 필수이며, 최초 생성·보완 Review는 `extensions.curation.review_receipts`에 누적 보존한다. 직접 생성 가능한 유형은 RB-CUR-006 자동 Gate의 provenance를 남긴다
 - active 전환이면 전용 Promotion Gate의 Security Receipt와 PII Scan Receipt
-- handoff 또는 종료면 이전 결과, 대상 checksum, 다음 처리 주체와 `next_action`을 기록. Push Receipt는 Commit·Push 성공 뒤 이 전이를 완료 처리하는 결과물
+- 처리 주체 전이 또는 종료면 이전 결과, 대상 checksum, 다음 처리 주체와 `next_action`을 기록. Push Receipt는 Commit·Push 성공 뒤 이 전이를 완료 처리하는 결과물
 
 ## Output
 
-발행 revision 또는 handoff·종료 Commit 및 Push Receipt. Push가 실패하면 `publication_pending` 상태와 재시도 조건
+발행 revision 또는 처리 주체 전이·종료 Commit 및 Push Receipt. Push가 실패하면 `publication_pending` 상태와 재시도 조건
 
 ## Failure State
 
-같은 처리 주체의 아직 미공유 로컬 작업은 다음 작업과 함께 한 번에 Commit·Push할 수 있다. handoff·종료 Commit 뒤 Push가 실패하면 `publication_pending`으로 유지한다. 다음 Push는 `resume-pending-push`로 현재 HEAD와 원격에 없는 모든 선행 Commit을 함께 전송한다. Push 성공 전에는 handoff를 다음 처리 주체가 받은 것으로 보지 않는다.
+같은 처리 주체의 아직 미공유 로컬 작업은 다음 작업과 함께 한 번에 Commit·Push할 수 있다. 처리 주체 전이·종료 Commit 뒤 Push가 실패하면 `publication_pending`으로 유지한다. 다음 Push는 `resume-pending-push`로 현재 HEAD와 원격에 없는 모든 선행 Commit을 함께 전송한다. Push 성공 전에는 다음 처리 주체가 전이된 상태를 공유받은 것으로 보지 않는다.
 
 ## Prohibited
 

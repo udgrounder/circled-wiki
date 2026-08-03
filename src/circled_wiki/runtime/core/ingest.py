@@ -17,6 +17,9 @@ from .frontmatter import parse_markdown, render_markdown
 from .inbox_review_queue import (
     complete_inbox_review,
     enqueue_inbox_review,
+    escalate_inbox_sensitivity_review,
+    advance_inbox_task,
+    ensure_inbox_task,
     has_blocking_inbox_review,
     resolve_inbox_review_requirement,
     review_context,
@@ -33,6 +36,13 @@ from .validator import validate_document
 
 
 MAX_GIT_EVIDENCE_BYTES = 10 * 1024 * 1024
+SENSITIVITY_POLICY_REF = "inbox-sensitivity/v1"
+SENSITIVITY_REQUIRED_CHECKS = {
+    "source_access_scope",
+    "personal_context",
+    "confidential_business_context",
+    "publication_scope",
+}
 
 
 @dataclass(frozen=True)
@@ -240,7 +250,7 @@ def read_conversation_intake(path: Path) -> tuple[Dict[str, object], object]:
     for field in ("id", "title", "provider", "captured_at", "idempotency_key", "why_collected"):
         if not isinstance(data.get(field), str) or not str(data[field]).strip():
             raise ValueError(f"Inbox item {field} must be non-empty")
-    if data.get("status") not in {"pending", "accepted", "needs_review"}:
+    if data.get("status") not in {"pending", "accepted"}:
         raise ValueError("Inbox item status is invalid")
     if data.get("sensitivity_review") not in {"completed", "required", "not_applicable"}:
         raise ValueError("Inbox item sensitivity_review is invalid")
@@ -347,9 +357,7 @@ def _accept_inbox_document(
         return {"intake_id": intake_id, "status": "accepted", "reused": True}
     if data.get("status") != "pending":
         raise ValueError("only pending Inbox items can be accepted")
-    precheck = data.get("capture_details", {}).get("sensitive_data_precheck", {}) if isinstance(data.get("capture_details"), dict) else {}
-    categories = precheck.get("categories", []) if isinstance(precheck, dict) else []
-    if data.get("sensitivity_review") == "required" and categories != ["mobile_phone_number"]:
+    if data.get("sensitivity_review") == "required":
         raise ValueError("sensitivity review must be completed before acceptance")
     if has_blocking_inbox_review(knowledge_root, intake_id):
         raise ValueError("inbox review must be resolved before acceptance")
@@ -366,6 +374,10 @@ def _accept_inbox_document(
         ],
     }
     path.write_text(render_markdown(updated, document.body), encoding="utf-8")
+    advance_inbox_task(
+        knowledge_root, intake_id=intake_id, stage="accepted", status="pending",
+        actor=actor, next_action="scan_pii_then_ingest", outcome="accepted_inspection",
+    )
     return {
         "intake_id": intake_id,
         "status": "accepted",
@@ -411,7 +423,7 @@ def run_automatic_pii_scan(knowledge_root: Path, intake_id: str) -> Dict[str, ob
         if isinstance(content, Path):
             return record_inbox_pii_scan_receipt(
                 knowledge_root, intake_id, scanner="circled-wiki-pii-scan",
-                scanner_version="mobile-phone-v2", result="needs_review",
+                scanner_version="pii-scan-v1", result="needs_review",
                 reviewed_by="circled-wiki-pii-scan",
                 receipt=f"runtime://pii-scan/{data['checksum']}",
             )
@@ -482,14 +494,14 @@ def run_automatic_pii_scan(knowledge_root: Path, intake_id: str) -> Dict[str, ob
         if (
             isinstance(existing, dict)
             and existing.get("scanner") == "circled-wiki-pii-scan"
-            and existing.get("scanner_version") == "mobile-phone-v2"
+            and existing.get("scanner_version") == "pii-scan-v1"
             and existing.get("source_checksum") == data.get("checksum")
             and existing.get("result") == result
         ):
             return {"intake_id": intake_id, "pii_scan_receipt": existing, "reused": True}
         return record_inbox_pii_scan_receipt(
             knowledge_root, intake_id, scanner="circled-wiki-pii-scan",
-            scanner_version="mobile-phone-v2", result=result,
+            scanner_version="pii-scan-v1", result=result,
             reviewed_by="circled-wiki-pii-scan",
             receipt=f"runtime://pii-scan/{data['checksum']}",
         )
@@ -497,9 +509,10 @@ def run_automatic_pii_scan(knowledge_root: Path, intake_id: str) -> Dict[str, ob
 
 
 def complete_inbox_sensitivity_review(
-    knowledge_root: Path, intake_id: str, actor: str, decision: str
+    knowledge_root: Path, intake_id: str, actor: str, decision: str, *,
+    policy_ref: str, checks: List[str], matched_categories: List[str], rationale: str,
 ) -> Dict[str, object]:
-    """Record a human sensitivity review before Inbox acceptance.
+    """Record an actor-attributed sensitivity review before Inbox acceptance.
 
     Collection never asserts that a source is safe.  This distinct operation makes
     the reviewer and their explicit decision auditable before acceptance.
@@ -510,6 +523,22 @@ def complete_inbox_sensitivity_review(
         raise ValueError("actor must be non-empty")
     if decision not in {"completed", "not_applicable"}:
         raise ValueError("decision must be completed or not_applicable")
+    if policy_ref != SENSITIVITY_POLICY_REF:
+        raise ValueError(f"policy_ref must be {SENSITIVITY_POLICY_REF}")
+    if not isinstance(checks, list) or set(checks) != SENSITIVITY_REQUIRED_CHECKS:
+        raise ValueError("checks must contain the four inbox-sensitivity/v1 checks exactly once")
+    if len(checks) != len(SENSITIVITY_REQUIRED_CHECKS):
+        raise ValueError("checks must contain the four inbox-sensitivity/v1 checks exactly once")
+    if not isinstance(matched_categories, list) or any(
+        not isinstance(category, str) or not category.strip() for category in matched_categories
+    ):
+        raise ValueError("matched_categories must be a list of non-empty strings")
+    if decision == "not_applicable" and matched_categories:
+        raise ValueError("not_applicable requires matched_categories to be empty")
+    if decision == "completed" and not matched_categories:
+        raise ValueError("completed requires at least one matched category")
+    if not isinstance(rationale, str) or not rationale.strip():
+        raise ValueError("rationale must be non-empty")
     knowledge_root = knowledge_root.resolve()
     for path in iter_active_inbox_items(knowledge_root):
         try:
@@ -526,9 +555,13 @@ def complete_inbox_sensitivity_review(
         updated = dict(data)
         updated["sensitivity_review"] = decision
         updated["sensitivity_inspection"] = {
+            "policy_ref": policy_ref,
             "actor": actor.strip(),
-            "reviewed_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "checked_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "checks": checks,
+            "matched_categories": matched_categories,
             "decision": decision,
+            "rationale": rationale.strip(),
         }
         path.write_text(render_markdown(updated, document.body), encoding="utf-8")
         review = resolve_inbox_review_requirement(
@@ -540,6 +573,65 @@ def complete_inbox_sensitivity_review(
             "intake_id": intake_id, "sensitivity_review": decision,
             "status": "pending", "review_status": review["status"],
         }
+    raise ValueError("intake_id must refer to an existing Inbox item")
+
+
+def request_inbox_sensitivity_decision(
+    knowledge_root: Path, intake_id: str, actor: str, *, question: str,
+    missing_procedure: str, safe_next_action: str, facts: List[str],
+    hypotheses: List[str],
+) -> Dict[str, object]:
+    """Keep the Inbox pending and record why only the user can decide next."""
+    from .pii import build_pii_scan_receipt
+
+    values = {
+        "question": question, "missing_procedure": missing_procedure,
+        "safe_next_action": safe_next_action,
+    }
+    if any(not isinstance(value, str) or not value.strip() for value in values.values()):
+        raise ValueError("sensitivity escalation fields must be non-empty strings")
+    if any(
+        not isinstance(items, list) or any(
+            not isinstance(value, str) or not value.strip() for value in items
+        ) for items in (facts, hypotheses)
+    ):
+        raise ValueError("facts and hypotheses must be lists of non-empty strings")
+
+    def mask(value: str):
+        return redact_sensitive_data(value)
+
+    question_scan = mask(question)
+    procedure_scan = mask(missing_procedure)
+    action_scan = mask(safe_next_action)
+    fact_scans = [mask(value) for value in facts]
+    hypothesis_scans = [mask(value) for value in hypotheses]
+    raw_values = [question, missing_procedure, safe_next_action, *facts, *hypotheses]
+    categories = sorted({
+        *question_scan.categories, *procedure_scan.categories, *action_scan.categories,
+        *(category for scan in [*fact_scans, *hypothesis_scans] for category in scan.categories),
+    })
+    task_checksum = _content_checksum("\n".join(raw_values))
+    pii_scan_receipt = build_pii_scan_receipt(
+        task_checksum, scanner="circled-wiki-pii-scan", scanner_version="pii-scan-v1",
+        result="masked" if categories else "passed", reviewed_by="circled-wiki-pii-scan",
+        receipt=f"runtime://pii-scan/task/{task_checksum}",
+    )
+    for path in iter_active_inbox_items(knowledge_root):
+        try:
+            data, _ = read_conversation_intake(path)
+        except (FrontmatterError, OSError, ValueError):
+            continue
+        if data.get("id") != intake_id:
+            continue
+        if data.get("status") != "pending" or data.get("sensitivity_review") != "required":
+            raise ValueError("only required pending sensitivity reviews can await user")
+        return escalate_inbox_sensitivity_review(
+            knowledge_root, intake_id=intake_id, actor=actor, question=question_scan.content,
+            missing_procedure=procedure_scan.content, safe_next_action=action_scan.content,
+            facts=[scan.content for scan in fact_scans],
+            hypotheses=[scan.content for scan in hypothesis_scans],
+            pii_scan_receipt={**pii_scan_receipt, "categories": categories},
+        )
     raise ValueError("intake_id must refer to an existing Inbox item")
 
 
@@ -564,8 +656,6 @@ def record_inbox_pii_scan_receipt(
             reviewed_by=reviewed_by, receipt=receipt, scanned_at=scanned_at,
         )
         updated["pii_scan_receipt"] = scan
-        if result == "needs_review":
-            updated["status"] = "needs_review"
         document = parse_markdown(path)
         path.write_text(render_markdown(updated, document.body), encoding="utf-8")
         if result == "needs_review":
@@ -584,9 +674,6 @@ def record_inbox_pii_scan_receipt(
             )
             if resolved["status"] != "no_review":
                 review = resolved
-        if data.get("status") == "needs_review" and review["status"] == "reprocessing":
-            updated["status"] = "accepted"
-            path.write_text(render_markdown(updated, document.body), encoding="utf-8")
         return {"intake_id": intake_id, "pii_scan_receipt": scan, "review_status": review["status"]}
     raise ValueError("intake_id must refer to an existing Inbox item")
 
@@ -848,7 +935,6 @@ def capture_conversation(
     turn_from: Optional[int] = None,
     turn_to: Optional[int] = None,
     artifacts: Optional[List[Dict[str, object]]] = None,
-    sensitivity_review: str = "required",
     captured_at: Optional[datetime] = None,
 ) -> CaptureResult:
     """Land a conversation in its provider Inbox without ingesting or curating it."""
@@ -876,8 +962,6 @@ def capture_conversation(
         not isinstance(artifacts, list) or any(not isinstance(item, dict) for item in artifacts)
     ):
         raise ValueError("artifacts must be an array of objects")
-    if sensitivity_review not in {"completed", "required", "not_applicable"}:
-        raise ValueError("sensitivity_review is invalid")
     if not isinstance(idempotency_key, str) or not idempotency_key.strip() or len(idempotency_key) > 200:
         raise ValueError("idempotency_key must be a non-empty string up to 200 characters")
 
@@ -948,7 +1032,7 @@ def capture_conversation(
         "idempotency_key": idempotency_key.strip(),
         "why_collected": why_collected.strip(),
         "intended_use": [item.strip() for item in intended_use],
-        "sensitivity_review": sensitivity_review,
+        "sensitivity_review": "required",
         "capture_details": details,
     }
     capture_path.write_text(
@@ -959,12 +1043,12 @@ def capture_conversation(
         ),
         encoding="utf-8",
     )
-    if sensitivity_review == "required" and masked_categories != ["mobile_phone_number"]:
-        enqueue_inbox_review(
-            knowledge_root, intake_id=intake_id, inbox_path=capture_path,
-            current_stage="sensitivity_review",
-            reason_code="sensitivity_review_required",
-        )
+    ensure_inbox_task(knowledge_root, intake_id=intake_id, inbox_path=capture_path)
+    enqueue_inbox_review(
+        knowledge_root, intake_id=intake_id, inbox_path=capture_path,
+        current_stage="sensitivity_review",
+        reason_code="sensitivity_review_required",
+    )
     return CaptureResult(intake_id, capture_path, checksum)
 
 
@@ -981,7 +1065,6 @@ def capture_document(
     source_url: Optional[str] = None,
     source_locator: Optional[str] = None,
     captured_from: str = "sync",
-    sensitivity_review: str = "required",
     captured_at: Optional[datetime] = None,
     capture_details: Optional[Dict[str, object]] = None,
 ) -> CaptureResult:
@@ -1000,8 +1083,6 @@ def capture_document(
         raise ValueError("intended_use must be a non-empty string array")
     if captured_from not in {"api", "webhook", "manual", "upload", "sync"}:
         raise ValueError("captured_from is invalid")
-    if sensitivity_review not in {"completed", "required", "not_applicable"}:
-        raise ValueError("sensitivity_review is invalid")
     if capture_details is not None and not isinstance(capture_details, dict):
         raise ValueError("capture_details must be an object")
     if not isinstance(idempotency_key, str) or not idempotency_key.strip() or len(idempotency_key) > 200:
@@ -1062,7 +1143,7 @@ def capture_document(
         "idempotency_key": idempotency_key.strip(),
         "why_collected": why_collected.strip(),
         "intended_use": [item.strip() for item in intended_use],
-        "sensitivity_review": sensitivity_review,
+        "sensitivity_review": "required",
     }
     details = dict(capture_details or {})
     if masked_categories:
@@ -1080,12 +1161,12 @@ def capture_document(
         ),
         encoding="utf-8",
     )
-    if sensitivity_review == "required" and masked_categories != ["mobile_phone_number"]:
-        enqueue_inbox_review(
-            knowledge_root, intake_id=intake_id, inbox_path=path,
-            current_stage="sensitivity_review",
-            reason_code="sensitivity_review_required",
-        )
+    ensure_inbox_task(knowledge_root, intake_id=intake_id, inbox_path=path)
+    enqueue_inbox_review(
+        knowledge_root, intake_id=intake_id, inbox_path=path,
+        current_stage="sensitivity_review",
+        reason_code="sensitivity_review_required",
+    )
     return CaptureResult(intake_id, path, checksum)
 
 
@@ -1094,7 +1175,7 @@ def capture_file(
     knowledge_root: Path, payload: bytes, original_filename: str, provider: str, *,
     title: str, why_collected: str, intended_use: List[str], idempotency_key: str,
     source_url: Optional[str] = None, source_locator: Optional[str] = None,
-    captured_from: str = "upload", sensitivity_review: str = "required",
+    captured_from: str = "upload",
 ) -> CaptureResult:
     """Land a binary or arbitrary file with a self-contained Inbox envelope."""
     if not isinstance(payload, bytes) or not payload:
@@ -1115,8 +1196,6 @@ def capture_file(
         raise ValueError("idempotency_key must be a non-empty string up to 200 characters")
     if captured_from not in {"api", "webhook", "manual", "upload", "sync"}:
         raise ValueError("captured_from is invalid")
-    if sensitivity_review not in {"completed", "required", "not_applicable"}:
-        raise ValueError("sensitivity_review is invalid")
     organization_id = require_stable_organization_id(knowledge_root)
     checksum = "sha256:" + hashlib.sha256(payload).hexdigest()
     ingested = _reuse_ingested_capture(
@@ -1151,13 +1230,13 @@ def capture_file(
         "captured_from": captured_from, "source_url": source_url or "", "source_locator": source_locator or "",
         "status": "pending", "checksum": checksum, "payload_file": payload_name,
         "idempotency_key": idempotency_key.strip(), "why_collected": why_collected.strip(),
-        "intended_use": [item.strip() for item in intended_use], "sensitivity_review": sensitivity_review,
+        "intended_use": [item.strip() for item in intended_use], "sensitivity_review": "required",
     }
     envelope.write_text(render_markdown(frontmatter, "# Inbox File\n\nPending inspection.\n"), encoding="utf-8")
-    if sensitivity_review == "required":
-        enqueue_inbox_review(
-            knowledge_root, intake_id=intake_id, inbox_path=envelope,
-            current_stage="sensitivity_review",
-            reason_code="sensitivity_review_required",
-        )
+    ensure_inbox_task(knowledge_root, intake_id=intake_id, inbox_path=envelope)
+    enqueue_inbox_review(
+        knowledge_root, intake_id=intake_id, inbox_path=envelope,
+        current_stage="sensitivity_review",
+        reason_code="sensitivity_review_required",
+    )
     return CaptureResult(intake_id, envelope, checksum)

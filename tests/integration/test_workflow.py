@@ -178,7 +178,7 @@ class WorkflowExecutionTests(unittest.TestCase):
             self.assertEqual(query["mode"], "knowledge_query")
             self.assertEqual(query["answers"][0]["sources"][0]["kind"], "preserved_evidence")
             self.assertEqual(prepared["questions"], [{"input": "channel", "question": "게시 채널"}])
-            self.assertEqual(task["status"], "awaiting_input")
+            self.assertEqual(task["status"], "needs_review")
             self.assertEqual(task["missing_inputs"], ["channel"])
             self.assertEqual(task["owners"], ["marketing-owner"])
             self.assertEqual(task["applies_to"], ["internal-marketing"])
@@ -191,7 +191,13 @@ class WorkflowExecutionTests(unittest.TestCase):
                     task["task_id"], status="completed", summary="too early"
                 )
 
-            task = service.update_task_inputs(task["task_id"], {"channel": "모바일 앱"})
+            with self.assertRaisesRegex(ValueError, "needs_review task is terminal"):
+                service.update_task_inputs(task["task_id"], {"channel": "모바일 앱"})
+            prepared_again = service.prepare_task(
+                "poster-production", "여름 이벤트 포스터를 만들어줘",
+                {"audience": "가족 캠퍼", "channel": "모바일 앱"},
+            )
+            task = service.get_task(prepared_again["task"]["task_id"])
             self.assertEqual(task["status"], "ready")
             service.record_task_step(
                 task["task_id"],
@@ -266,7 +272,11 @@ class WorkflowExecutionTests(unittest.TestCase):
             inspection = service.inspect_inbox()
             self.assertEqual(inspection["items"][0]["gate_status"], "blocked")
             service.review_inbox_sensitivity(
-                outcome["intake_id"], "simulated-human-reviewer", "completed"
+                outcome["intake_id"], "simulated-human-reviewer", "completed",
+                policy_ref="inbox-sensitivity/v1",
+                checks=["source_access_scope", "personal_context", "confidential_business_context", "publication_scope"],
+                matched_categories=["workflow_outcome"],
+                rationale="내부 업무 결과로 보존하며 접근 범위를 제한한다.",
             )
             service.accept_inbox(outcome["intake_id"], "simulated-human-approver")
             service.record_inbox_pii_scan(
@@ -437,7 +447,11 @@ class WorkflowExecutionTests(unittest.TestCase):
                 summary="변경 사항을 검토하고 Runbook revision을 발행했다.",
             )
             service.review_inbox_sensitivity(
-                outcome["intake_id"], "simulated-human-reviewer", "completed"
+                outcome["intake_id"], "simulated-human-reviewer", "completed",
+                policy_ref="inbox-sensitivity/v1",
+                checks=["source_access_scope", "personal_context", "confidential_business_context", "publication_scope"],
+                matched_categories=["workflow_outcome"],
+                rationale="내부 업무 결과로 보존하며 접근 범위를 제한한다.",
             )
             service.accept_inbox(outcome["intake_id"], "simulated-human-approver")
             service.record_inbox_pii_scan(

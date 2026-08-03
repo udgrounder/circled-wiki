@@ -1,15 +1,13 @@
 """Human-friendly CLI without domain logic."""
 
 import argparse
-import hashlib
 import json
 from pathlib import Path
 import sys
 import unicodedata
 
 from circled_wiki.config.paths import project_root
-from circled_wiki.core.ingest import CaptureIdempotencyConflict, ingest_evidence
-from circled_wiki.core.pii import build_pii_scan_receipt
+from circled_wiki.core.ingest import CaptureIdempotencyConflict
 from circled_wiki.core.repository import apply_bundle_revision, create_bundle, find_document_by_id
 from circled_wiki.core.evidence import evidence_original_path
 from circled_wiki.core.search import search_knowledge
@@ -146,32 +144,6 @@ def main() -> int:
     bootstrap.add_argument("--graphify", choices=("enabled", "disabled"))
     initialize_workspace = subparsers.add_parser("initialize-operational-workspace")
     initialize_workspace.add_argument("--apply", action="store_true")
-    ingest = subparsers.add_parser("ingest-evidence")
-    ingest.add_argument("--provider", required=True)
-    ingest.add_argument(
-        "--file",
-        required=True,
-        help=(
-            "Source path inside knowledge/inbox/; use capture-document or "
-            "capture-file before ingesting external input"
-        ),
-    )
-    ingest.add_argument("--title")
-    ingest.add_argument("--why-collected", required=True)
-    ingest.add_argument("--intended-use", action="append", required=True)
-    ingest.add_argument("--source-url")
-    ingest.add_argument("--source-locator", help="원문 위치. 예: page=12;section=Refund")
-    ingest.add_argument("--reuse-value", choices=("high", "medium", "low"), default="medium")
-    ingest.add_argument("--retention-class", choices=("workflow_reference", "decision_record", "outcome", "general_reference", "ephemeral"), default="general_reference")
-    ingest.add_argument("--sensitivity-review", choices=("completed", "required", "not_applicable"), default="required")
-    ingest.add_argument("--idempotency-key")
-    ingest.add_argument("--content-mode", choices=("external_file", "embedded"), default="external_file")
-    ingest.add_argument("--pii-scanner")
-    ingest.add_argument("--pii-scanner-version")
-    ingest.add_argument("--pii-result", choices=("passed", "masked", "needs_review"))
-    ingest.add_argument("--pii-reviewed-by")
-    ingest.add_argument("--pii-receipt")
-    ingest.add_argument("--pii-scanned-at")
     inbox_pii = subparsers.add_parser("record-inbox-pii-scan")
     inbox_pii.add_argument("--intake", required=True)
     inbox_pii.add_argument("--scanner", required=True)
@@ -191,11 +163,6 @@ def main() -> int:
     capture.add_argument("--turn-from", type=int)
     capture.add_argument("--turn-to", type=int)
     capture.add_argument("--artifacts", default="[]", help="JSON array of artifact metadata")
-    capture.add_argument(
-        "--sensitivity-review",
-        choices=("completed", "required", "not_applicable"),
-        default="required",
-    )
     capture_document = subparsers.add_parser("capture-document")
     capture_document.add_argument("--provider", required=True)
     capture_document.add_argument("--file", required=True, help="UTF-8 source document")
@@ -207,9 +174,6 @@ def main() -> int:
     capture_document.add_argument("--source-locator")
     capture_document.add_argument(
         "--captured-from", choices=("api", "webhook", "manual", "upload", "sync"), default="sync"
-    )
-    capture_document.add_argument(
-        "--sensitivity-review", choices=("completed", "required", "not_applicable"), default="required"
     )
     capture_file = subparsers.add_parser("capture-file")
     capture_file.add_argument("--provider", required=True)
@@ -230,9 +194,6 @@ def main() -> int:
     capture_file.add_argument("--source-locator")
     capture_file.add_argument(
         "--captured-from", choices=("api", "webhook", "manual", "upload", "sync"), default="upload"
-    )
-    capture_file.add_argument(
-        "--sensitivity-review", choices=("completed", "required", "not_applicable"), default="required"
     )
     search = subparsers.add_parser("search")
     search.add_argument("--query", required=True)
@@ -273,6 +234,18 @@ def main() -> int:
     review_inbox.add_argument("--intake", required=True)
     review_inbox.add_argument("--actor", required=True)
     review_inbox.add_argument("--decision", choices=("completed", "not_applicable"), required=True)
+    review_inbox.add_argument("--policy-ref", default="inbox-sensitivity/v1")
+    review_inbox.add_argument("--checks", required=True, help="JSON array of four inbox sensitivity checks")
+    review_inbox.add_argument("--matched-categories", required=True, help="JSON array of observed policy categories")
+    review_inbox.add_argument("--rationale", required=True)
+    request_sensitivity = subparsers.add_parser("request-inbox-sensitivity-decision")
+    request_sensitivity.add_argument("--intake", required=True)
+    request_sensitivity.add_argument("--actor", required=True)
+    request_sensitivity.add_argument("--question", required=True)
+    request_sensitivity.add_argument("--missing-procedure", required=True)
+    request_sensitivity.add_argument("--safe-next-action", required=True)
+    request_sensitivity.add_argument("--facts", required=True, help="JSON array of observed facts")
+    request_sensitivity.add_argument("--hypotheses", required=True, help="JSON array of hypotheses")
     ingest_accepted = subparsers.add_parser("ingest-accepted")
     ingest_accepted.add_argument("--limit", type=int, default=100)
     publish = subparsers.add_parser("publish-changes")
@@ -514,39 +487,6 @@ def main() -> int:
     if args.command == "inspect-legacy-evidence-backlinks":
         print(json.dumps(service.inspect_legacy_evidence_backlinks(), ensure_ascii=False, indent=2))
         return 0
-    if args.command == "ingest-evidence":
-        pii_values = (
-            args.pii_scanner, args.pii_scanner_version, args.pii_result,
-            args.pii_reviewed_by, args.pii_receipt,
-        )
-        if any(pii_values) and not all(pii_values):
-            raise ValueError("all PII scan arguments are required together")
-        pii_receipt = None
-        if all(pii_values):
-            source_checksum = "sha256:" + hashlib.sha256(Path(args.file).read_bytes()).hexdigest()
-            pii_receipt = build_pii_scan_receipt(
-                source_checksum, scanner=args.pii_scanner,
-                scanner_version=args.pii_scanner_version, result=args.pii_result,
-                reviewed_by=args.pii_reviewed_by, receipt=args.pii_receipt,
-                scanned_at=args.pii_scanned_at,
-            )
-        result = ingest_evidence(
-            root,
-            Path(args.file),
-            args.provider,
-            why_collected=args.why_collected,
-            intended_use=args.intended_use,
-            title=args.title,
-            source_url=args.source_url,
-            source_locator=args.source_locator,
-            reuse_value=args.reuse_value,
-            retention_class=args.retention_class,
-            sensitivity_review=args.sensitivity_review,
-            idempotency_key=args.idempotency_key,
-            content_mode=args.content_mode,
-            pii_scan_receipt=pii_receipt,
-        )
-        print(result.evidence_id); return 0
     if args.command == "record-inbox-pii-scan":
         print(json.dumps(service.record_inbox_pii_scan(
             args.intake, scanner=args.scanner, scanner_version=args.scanner_version,
@@ -567,7 +507,6 @@ def main() -> int:
                 turn_from=args.turn_from,
                 turn_to=args.turn_to,
                 artifacts=json.loads(args.artifacts),
-                sensitivity_review=args.sensitivity_review,
             )
         except CaptureIdempotencyConflict as error:
             print(json.dumps(error.as_dict(project_root()), ensure_ascii=False, indent=2))
@@ -581,7 +520,6 @@ def main() -> int:
                 why_collected=args.why_collected, intended_use=args.intended_use,
                 idempotency_key=args.idempotency_key, source_url=args.source_url,
                 source_locator=args.source_locator, captured_from=args.captured_from,
-                sensitivity_review=args.sensitivity_review,
             )
         except CaptureIdempotencyConflict as error:
             print(json.dumps(error.as_dict(project_root()), ensure_ascii=False, indent=2))
@@ -595,7 +533,7 @@ def main() -> int:
                 title=args.title, why_collected=args.why_collected,
                 intended_use=args.intended_use, idempotency_key=args.idempotency_key,
                 source_url=args.source_url, source_locator=args.source_locator,
-                captured_from=args.captured_from, sensitivity_review=args.sensitivity_review,
+                captured_from=args.captured_from,
             )
         except CaptureIdempotencyConflict as error:
             print(json.dumps(error.as_dict(project_root()), ensure_ascii=False, indent=2))
@@ -670,8 +608,22 @@ def main() -> int:
         return 0
     if args.command == "review-inbox-sensitivity":
         print(json.dumps(
-            service.review_inbox_sensitivity(args.intake, args.actor, args.decision),
+            service.review_inbox_sensitivity(
+                args.intake, args.actor, args.decision,
+                policy_ref=args.policy_ref, checks=json.loads(args.checks),
+                matched_categories=json.loads(args.matched_categories), rationale=args.rationale,
+            ),
             ensure_ascii=False, indent=2,
+        ))
+        return 0
+    if args.command == "request-inbox-sensitivity-decision":
+        print(json.dumps(
+            service.request_inbox_sensitivity_decision(
+                args.intake, args.actor, question=args.question,
+                missing_procedure=args.missing_procedure,
+                safe_next_action=args.safe_next_action,
+                facts=json.loads(args.facts), hypotheses=json.loads(args.hypotheses),
+            ), ensure_ascii=False, indent=2,
         ))
         return 0
     if args.command == "ingest-accepted":

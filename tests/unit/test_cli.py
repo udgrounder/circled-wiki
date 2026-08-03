@@ -112,16 +112,14 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["stage"], "find-workflow")
         self.assertIn("the following arguments are required: --request", payload["message"])
 
-    def test_ingest_help_explains_required_inbox_routing(self):
+    def test_direct_ingest_command_is_not_exposed(self):
         output = io.StringIO()
-        with patch("sys.argv", ["circled-wiki", "ingest-evidence", "--help"]):
+        with patch("sys.argv", ["circled-wiki", "ingest-evidence"]):
             with patch("sys.stdout", output):
-                with self.assertRaises(SystemExit) as raised:
-                    main()
+                status = run_cli()
 
-        self.assertEqual(raised.exception.code, 0)
-        self.assertIn("inside knowledge/inbox/", output.getvalue())
-        self.assertIn("capture-file", output.getvalue())
+        self.assertEqual(status, 2)
+        self.assertIn("invalid choice", output.getvalue())
 
     def test_quarantine_and_disposal_commands_use_service(self):
         intake_id = "inbox://acme/slack/11111111-1111-1111-1111-111111111111"

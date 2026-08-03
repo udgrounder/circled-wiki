@@ -15,7 +15,7 @@
 - Inbox 내용을 직접 다시 읽어 Capture 단계의 지정된 고위험 식별자·자격증명 마스킹 누락 가능성을 **2차 확인**하고, Evidence 변환 시 Ingest Agent가 수행할 2차 마스킹 확인·재검수를 안내. 이 확인은 전체 PII Scan을 주장하지 않는다.
 - 명확한 누락은 정책에 맞게 `*`로 마스킹한 안전한 파생 입력으로 교체하되, 불변 파일 원본과 기존 checksum을 직접 변경하지 않음
 - 외부 문서의 source URL·locator 존재 여부 검사
-- `required` 민감성 상태는 식별된 검토자의 `completed` 또는 `not_applicable` 결정으로만 해소. 이 상태는 `workspace/task/inbox_reconciliation/`의 계약 작업으로 표시하며 원문은 작업 기록에 복사하지 않음
+- `required` 민감성 상태는 `inbox-sensitivity-review.md`의 `inbox-sensitivity/v1`을 적용한다. Agent는 정책 참조, 네 검사 항목, 관찰된 범주와 rationale을 가진 `sensitivity_inspection` Receipt로만 `completed` 또는 `not_applicable`을 기록해 해소한다. 적용할 정책이 없거나 근거가 부족하면 이 상태를 유지해 `workspace/task/inbox_reconciliation/`의 계약 작업으로 사용자에게 문의하며 원문은 작업 기록에 복사하지 않음
 - 통과 항목을 검사자 actor와 함께 `accepted`로 기록
 - `inspect-inbox` 검사 보고에서 통과했고 필요한 민감성 예외가 해소된 여러 `pending` 항목은 `accept-ready-inbox`로 한 번에 `accepted`로 전환. PII Scan은 Evidence 직전에 별도로 수행하며, 이 일괄 처리는 검사·민감성 결정·PII 판단을 대신하거나 우회하지 않음
 
@@ -31,7 +31,7 @@
 - checksum 일치
 - provider와 폴더 일치
 - 필수 메타데이터 완전성
-- `sensitivity_review`가 `completed` 또는 `not_applicable`
+- `sensitivity_review`가 `inbox-sensitivity/v1` Receipt의 정책·절차 근거와 식별된 actor를 가진 `completed` 또는 `not_applicable`
 - 텍스트 Inbox의 실제 재마스킹은 Evidence Ingest Profile에서 수행한다. 파일 원본과 판단 불가 입력은 `sensitivity_review` 완료 후에만 다음 단계로 넘긴다.
 
 ## Output

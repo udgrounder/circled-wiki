@@ -13,14 +13,15 @@ from circled_wiki.core.ingest import (
     CaptureIdempotencyConflict,
     MAX_GIT_EVIDENCE_BYTES,
     accept_conversation_intake,
-    capture_conversation,
-    capture_document,
-    capture_file,
+    capture_conversation as _capture_conversation,
+    capture_document as _capture_document,
+    capture_file as _capture_file,
     complete_inbox_sensitivity_review,
     ingest_evidence,
     record_inbox_pii_scan_receipt,
+    request_inbox_sensitivity_decision,
 )
-from circled_wiki.core.inbox_review_queue import list_inbox_review_queue
+from circled_wiki.core.inbox_review_queue import get_inbox_review, list_inbox_review_queue
 from circled_wiki.core.repository import apply_bundle_revision, create_bundle
 from circled_wiki.core.curator import propose_update
 from circled_wiki.core.search import search_knowledge
@@ -30,8 +31,34 @@ from circled_wiki.integrations.channel import answer_knowledge_query, prepare_ch
 from circled_wiki.worker.jobs import ingest_accepted_inbox, inspect_inbox
 
 
+def _capture_with_resolved_sensitivity(capture, *args, **kwargs):
+    decision = kwargs.pop("sensitivity_review", None)
+    result = capture(*args, **kwargs)
+    if decision in {"completed", "not_applicable"}:
+        complete_inbox_sensitivity_review(
+            args[0], result.intake_id, "test-inspection-agent", decision,
+            policy_ref="inbox-sensitivity/v1",
+            checks=["source_access_scope", "personal_context", "confidential_business_context", "publication_scope"],
+            matched_categories=["test_fixture"] if decision == "completed" else [],
+            rationale="테스트 fixture의 명시적 민감성 검사 결과다.",
+        )
+    return result
+
+
+def capture_conversation(*args, **kwargs):
+    return _capture_with_resolved_sensitivity(_capture_conversation, *args, **kwargs)
+
+
+def capture_document(*args, **kwargs):
+    return _capture_with_resolved_sensitivity(_capture_document, *args, **kwargs)
+
+
+def capture_file(*args, **kwargs):
+    return _capture_with_resolved_sensitivity(_capture_file, *args, **kwargs)
+
+
 class IngestEvidenceTests(unittest.TestCase):
-    def test_required_sensitivity_creates_exception_only_review_queue(self):
+    def test_required_sensitivity_is_agent_work_not_a_user_review_queue(self):
         with tempfile.TemporaryDirectory() as temp_directory:
             knowledge_root = Path(temp_directory) / "knowledge"
             captured = capture_document(
@@ -40,19 +67,26 @@ class IngestEvidenceTests(unittest.TestCase):
                 idempotency_key="review-queue-sensitivity",
             )
 
-            queue = list_inbox_review_queue(knowledge_root)
-            self.assertEqual(len(queue), 1)
-            self.assertEqual(queue[0]["current_stage"], "sensitivity_review")
-            self.assertEqual(queue[0]["requirements"][0]["reason_code"], "sensitivity_review_required")
-            task = parse_markdown(knowledge_root.parent / "workspace" / "task" / "inbox_reconciliation" / f"{queue[0]['queue_id']}.md")
+            self.assertEqual(list_inbox_review_queue(knowledge_root), [])
+            task_path = next((knowledge_root.parent / "workspace" / "task" / "inbox_reconciliation").glob("*.md"))
+            task = parse_markdown(task_path)
             self.assertEqual(task.frontmatter["type"], "contract_task")
             self.assertEqual(task.frontmatter["contract"], {"name": "inbox_reconciliation", "version": 1})
-            self.assertEqual(task.frontmatter["current"]["status"], "awaiting_user")
+            self.assertEqual(task.frontmatter["current"]["status"], "pending")
+            self.assertEqual(task.frontmatter["current"]["actor"], "inbox-inspection-agent")
+            self.assertEqual(task.frontmatter["requirements"][0]["reason_code"], "sensitivity_review_required")
             self.assertTrue(task.frontmatter["step_receipts"])
 
             complete_inbox_sensitivity_review(
-                knowledge_root, captured.intake_id, "human-reviewer", "completed"
+                knowledge_root, captured.intake_id, "inbox-inspection-agent", "completed",
+                policy_ref="inbox-sensitivity/v1",
+                checks=["source_access_scope", "personal_context", "confidential_business_context", "publication_scope"],
+                matched_categories=["internal_business_context"],
+                rationale="내부 보존 범위와 접근 제한 조치를 적용한다.",
             )
+            inspection = parse_markdown(captured.inbox_path).frontmatter["sensitivity_inspection"]
+            self.assertEqual(inspection["policy_ref"], "inbox-sensitivity/v1")
+            self.assertEqual(inspection["matched_categories"], ["internal_business_context"])
             accept_conversation_intake(knowledge_root, captured.intake_id, "inspector")
             result = ingest_accepted_inbox(knowledge_root)
 
@@ -64,6 +98,93 @@ class IngestEvidenceTests(unittest.TestCase):
                 ["sensitivity_review_required"],
             )
 
+    def test_sensitivity_review_rejects_decision_without_required_receipt_basis(self):
+        with tempfile.TemporaryDirectory() as temp_directory:
+            knowledge_root = Path(temp_directory) / "knowledge"
+            captured = capture_document(
+                knowledge_root, "public procedure", "manual", title="Receipt required",
+                why_collected="sensitivity receipt test", intended_use=["test"],
+                idempotency_key="sensitivity-receipt-required",
+            )
+
+            with self.assertRaisesRegex(ValueError, "checks must contain"):
+                complete_inbox_sensitivity_review(
+                    knowledge_root, captured.intake_id, "inbox-inspection-agent", "not_applicable",
+                    policy_ref="inbox-sensitivity/v1", checks=[], matched_categories=[],
+                    rationale="근거 없는 결정은 허용하지 않는다.",
+                )
+            self.assertEqual(
+                parse_markdown(captured.inbox_path).frontmatter["sensitivity_review"], "required"
+            )
+
+    def test_unresolved_sensitivity_records_structured_user_decision_request(self):
+        with tempfile.TemporaryDirectory() as temp_directory:
+            knowledge_root = Path(temp_directory) / "knowledge"
+            captured = capture_document(
+                knowledge_root, "restricted source", "manual", title="Need decision",
+                why_collected="sensitivity escalation test", intended_use=["test"],
+                idempotency_key="sensitivity-escalation",
+            )
+
+            result = request_inbox_sensitivity_decision(
+                knowledge_root, captured.intake_id, "inbox-inspection-agent",
+                question="이 접근 제한 원문을 internal 범위로 보존해도 되는가?",
+                missing_procedure="접근 제한 원문의 보존 범위 절차가 없다.",
+                safe_next_action="보존 범위와 visibility를 결정한다.",
+                facts=["담당자 연락처는 010-1234-5678이며 원문에 접근 제한 표시가 있다."],
+                hypotheses=["internal 보존이 가능할 수 있다."],
+            )
+
+            self.assertEqual(result["status"], "awaiting_user")
+            queue = list_inbox_review_queue(knowledge_root)
+            self.assertEqual(len(queue), 1)
+            requirement = queue[0]["requirements"][0]
+            self.assertEqual(requirement["blocked_step"], "sensitivity_review")
+            self.assertEqual(requirement["facts"], ["담당자 연락처는 ********이며 원문에 접근 제한 표시가 있다."])
+            self.assertEqual(requirement["hypotheses"], ["internal 보존이 가능할 수 있다."])
+            self.assertEqual(requirement["pii_scan"]["result"], "masked")
+            self.assertEqual(requirement["pii_scan"]["categories"], ["mobile_phone_number"])
+
+            task_path = knowledge_root.parent / "workspace" / "task" / "inbox_reconciliation" / (
+                captured.intake_id.rsplit("/", 1)[-1] + ".md"
+            )
+            task = parse_markdown(task_path)
+            task.frontmatter["requirements"][0]["pii_scan"]["source_checksum"] = "sha256:invalid"
+            task_path.write_text(render_markdown(task.frontmatter, task.body), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "PII receipt is invalid"):
+                get_inbox_review(knowledge_root, captured.intake_id)
+            invalid = list_inbox_review_queue(knowledge_root)
+            self.assertEqual(len(invalid), 1)
+            self.assertEqual(invalid[0]["status"], "invalid_receipt")
+            self.assertEqual(invalid[0]["safe_next_action"], "repair_inbox_task_receipt")
+
+    def test_mobile_phone_number_uses_standard_automatic_pii_scan(self):
+        with tempfile.TemporaryDirectory() as temp_directory:
+            knowledge_root = Path(temp_directory) / "knowledge"
+            captured = capture_document(
+                knowledge_root, "담당자 연락처는 010-1234-5678", "manual",
+                title="전화번호 포함", why_collected="PII 처리 회귀 검증",
+                intended_use=["test"], idempotency_key="mobile-phone-standard-scan",
+                sensitivity_review="not_applicable",
+            )
+
+            accept_conversation_intake(knowledge_root, captured.intake_id, "inspector")
+            result = ingest_accepted_inbox(knowledge_root)
+
+            self.assertEqual(result["ingested_count"], 1)
+            self.assertEqual(result["items"][0]["pii_scan_result"], "masked")
+            evidence = (knowledge_root.parent / result["items"][0]["evidence_path"])
+            self.assertNotIn("010-1234-5678", evidence.read_text(encoding="utf-8"))
+            self.assertEqual(list_inbox_review_queue(knowledge_root), [])
+            archived = list((
+                knowledge_root.parent / "workspace" / "task" / ".archive" / "inbox_reconciliation"
+            ).glob("*.md"))
+            self.assertEqual(len(archived), 1)
+            task = parse_markdown(archived[0]).frontmatter
+            self.assertEqual(task["current"]["stage"], "evidence")
+            self.assertEqual(task["current"]["status"], "completed")
+            self.assertTrue(task["transitions"])
+
     def test_reprocessing_review_uses_intake_uuid_when_legacy_checksum_is_stale(self):
         with tempfile.TemporaryDirectory() as temp_directory:
             knowledge_root = Path(temp_directory) / "knowledge"
@@ -73,7 +194,11 @@ class IngestEvidenceTests(unittest.TestCase):
                 idempotency_key="uuid-queue-reconciliation",
             )
             complete_inbox_sensitivity_review(
-                knowledge_root, captured.intake_id, "human-reviewer", "completed"
+                knowledge_root, captured.intake_id, "human-reviewer", "completed",
+                policy_ref="inbox-sensitivity/v1",
+                checks=["source_access_scope", "personal_context", "confidential_business_context", "publication_scope"],
+                matched_categories=["internal_business_context"],
+                rationale="내부 보존 범위와 접근 제한 조치를 적용한다.",
             )
             queue_path = next((knowledge_root.parent / "workspace" / "task" / "inbox_reconciliation").glob("*.md"))
             queue = parse_markdown(queue_path)
@@ -128,6 +253,9 @@ class IngestEvidenceTests(unittest.TestCase):
             )
             self.assertEqual(blocked["review_queue"]["status"], "awaiting_user")
             self.assertEqual(list_inbox_review_queue(knowledge_root)[0]["current_stage"], "pii_scan")
+            self.assertEqual(
+                parse_markdown(captured.inbox_path).frontmatter["status"], "accepted"
+            )
             self.assertEqual(ingest_accepted_inbox(knowledge_root)["ingested_count"], 0)
 
             resumed = record_inbox_pii_scan_receipt(
@@ -143,12 +271,21 @@ class IngestEvidenceTests(unittest.TestCase):
             self.assertEqual(len(archived), 1)
             archived_task = parse_markdown(archived[0])
             self.assertEqual(archived_task.frontmatter["type"], "contract_task")
-            self.assertEqual(archived_task.frontmatter["current"], {"stage": "evidence", "status": "completed"})
+            self.assertEqual(
+                archived_task.frontmatter["current"],
+                {
+                    "stage": "evidence", "status": "completed",
+                    "actor": "evidence-ingest-agent",
+                },
+            )
             evidence = parse_markdown(knowledge_root.parent / result["items"][0]["evidence_path"])
             self.assertEqual(evidence.frontmatter["extensions"]["pii_scan"]["result"], "masked")
-            self.assertEqual(evidence.frontmatter["extensions"]["inbox_review"]["reason_codes"], ["pii_needs_review"])
             self.assertEqual(
-                evidence.frontmatter["extensions"]["inbox_review"]["decisions"][0]["decision"],
+                evidence.frontmatter["extensions"]["inbox_review"]["reason_codes"],
+                ["sensitivity_review_required", "pii_needs_review"],
+            )
+            self.assertEqual(
+                evidence.frontmatter["extensions"]["inbox_review"]["decisions"][1]["decision"],
                 "pii_scan_masked",
             )
 
@@ -451,7 +588,11 @@ class IngestEvidenceTests(unittest.TestCase):
             )
             self.assertEqual(outcome["next_action"], "inspect_and_accept_outcome_inbox")
             service.review_inbox_sensitivity(
-                outcome["intake_id"], "simulated-human-reviewer", "completed"
+                outcome["intake_id"], "simulated-human-reviewer", "completed",
+                policy_ref="inbox-sensitivity/v1",
+                checks=["source_access_scope", "personal_context", "confidential_business_context", "publication_scope"],
+                matched_categories=["workflow_outcome"],
+                rationale="내부 업무 결과로 보존하며 접근 범위를 제한한다.",
             )
             service.accept_inbox(outcome["intake_id"], "simulated-human-owner")
             service.record_inbox_pii_scan(
@@ -652,7 +793,7 @@ class IngestEvidenceTests(unittest.TestCase):
             repeated = service.capture_conversation(
                 "preserved transcript", "codex", title="Lifecycle idempotency",
                 why_collected="lifecycle test", intended_use=["capture-test"],
-                idempotency_key="lifecycle-key", sensitivity_review="completed",
+                idempotency_key="lifecycle-key",
             )
             self.assertTrue(repeated["reused"])
             self.assertEqual(repeated["status"], "ingested")
@@ -663,7 +804,7 @@ class IngestEvidenceTests(unittest.TestCase):
                 service.capture_conversation(
                     "changed transcript", "codex", title="Lifecycle idempotency",
                     why_collected="lifecycle test", intended_use=["capture-test"],
-                    idempotency_key="lifecycle-key", sensitivity_review="completed",
+                    idempotency_key="lifecycle-key",
                 )
             payload = raised.exception.as_dict(knowledge_root.parent)
             self.assertEqual(payload["existing_evidence_id"], ingested["evidence_id"])
@@ -836,17 +977,17 @@ class IngestEvidenceTests(unittest.TestCase):
             inbox.mkdir(parents=True)
             (inbox / "policy.txt").write_text("approved source", encoding="utf-8")
             service = KnowledgeService(knowledge_root)
-
-            with self.assertRaisesRegex(ValueError, "stay inside"):
-                service.ingest_evidence(
-                    "../outside.txt", "manual",
-                    why_collected="경로 제한 검증", intended_use=["policy"],
-                )
-            evidence = service.ingest_evidence(
-                "policy.txt", "manual",
+            evidence_result = ingest_evidence(
+                knowledge_root, inbox / "policy.txt", "manual",
                 why_collected="운영 정책 초안 근거", intended_use=["operations-policy"],
             )
-            evidence_path = knowledge_root.parent / str(evidence["manifest_path"])
+            evidence = {
+                "evidence_id": evidence_result.evidence_id,
+                "manifest_path": evidence_result.manifest_path.relative_to(
+                    knowledge_root.resolve().parent
+                ).as_posix(),
+            }
+            evidence_path = evidence_result.manifest_path
             evidence_before_bundle = evidence_path.read_bytes()
             draft = service.create_draft_bundle(
                 domain="operations", slug="operations-policy", title="Operations Policy",
@@ -911,28 +1052,27 @@ class IngestEvidenceTests(unittest.TestCase):
                     evidence_id=evidence.evidence_id,
                 )
 
-    def test_batch_idempotency_reuses_same_evidence_and_rejects_changed_content(self):
+    def test_internal_ingest_idempotency_reuses_same_evidence_and_rejects_changed_content(self):
         with tempfile.TemporaryDirectory() as temp_directory:
             knowledge_root = Path(temp_directory) / "knowledge"
             inbox = knowledge_root / "inbox"
             inbox.mkdir(parents=True)
-            service = KnowledgeService(knowledge_root)
             source = inbox / "batch.txt"
             source.write_text("version one", encoding="utf-8")
-            first = service.ingest_evidence(
-                "batch.txt", "batch", why_collected="정기 Batch 수집",
+            first = ingest_evidence(
+                knowledge_root, source, "batch", why_collected="정기 Batch 수집",
                 intended_use=["batch-policy"], captured_from="sync",
                 idempotency_key="notion:page-123:revision-1",
             )
             source.write_text("version one", encoding="utf-8")
-            repeated = service.ingest_evidence(
-                "batch.txt", "batch", why_collected="정기 Batch 재실행",
+            repeated = ingest_evidence(
+                knowledge_root, source, "batch", why_collected="정기 Batch 재실행",
                 intended_use=["batch-policy"], captured_from="sync",
                 idempotency_key="notion:page-123:revision-1",
             )
 
-            self.assertEqual(repeated["evidence_id"], first["evidence_id"])
-            self.assertTrue(repeated["reused"])
+            self.assertEqual(repeated.evidence_id, first.evidence_id)
+            self.assertTrue(repeated.reused)
             self.assertFalse(source.exists())
             self.assertEqual(
                 len(list((knowledge_root / "evidence" / "batch").rglob("*.md"))), 1
@@ -940,8 +1080,8 @@ class IngestEvidenceTests(unittest.TestCase):
 
             source.write_text("changed content", encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "different checksum"):
-                service.ingest_evidence(
-                    "batch.txt", "batch", why_collected="잘못된 키 재사용",
+                ingest_evidence(
+                    knowledge_root, source, "batch", why_collected="잘못된 키 재사용",
                     intended_use=["batch-policy"], captured_from="sync",
                     idempotency_key="notion:page-123:revision-1",
                 )

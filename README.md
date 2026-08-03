@@ -81,14 +81,14 @@ PYTHONPATH=src python3 -m circled_wiki.cli validate
 
 ### 1. 원본을 Evidence로 보존
 
-1. 처리할 원본 파일을 `knowledge/inbox/<provider>/`에 소스별로 넣는다.
-2. 아래 명령을 실행한다. `provider`에는 수기 입력이면 `manual`을 사용한다.
-3. 출력된 Evidence URI를 다음 단계에서 사용한다.
+1. `capture-document`, `capture-file`, 또는 `capture-conversation`으로 원본을 Inbox에 수집한다.
+2. Agent가 민감성 검토와 acceptance를 처리한다. 사용자만 판단할 수 있을 때만 Review Queue가 열린다.
+3. `reconcile-inbox`가 Evidence 생성 직전 최종 후보를 PII Scan하고 Receipt를 확정한 뒤 Evidence를 만든다.
 
 ```sh
-PYTHONPATH=src python3 -m circled_wiki.cli ingest-evidence \
+PYTHONPATH=src python3 -m circled_wiki.cli capture-document \
   --provider manual \
-  --file knowledge/inbox/manual/refund-policy.txt \
+  --file refund-policy.txt \
   --title "예약 환불 정책 원본" \
   --why-collected "환불 정책 Bundle을 갱신하기 위한 근거" \
   --intended-use refund-policy \
@@ -96,7 +96,7 @@ PYTHONPATH=src python3 -m circled_wiki.cli ingest-evidence \
   --source-locator "page=12;section=Refund"
 ```
 
-`--source-url`과 `--source-locator`를 알면 반드시 기록한다. 이후 Hermes와 MCP는 외부 원문 URL과
+`--source-url`과 `--source-locator`를 알면 반드시 기록한다. `ingest-evidence`는 직접 실행하지 않는다. 이후 Hermes와 MCP는 외부 원문 URL과
 위치를 1차 근거로, 로컬 Evidence URI·보존 원본을 검증용 보조 근거로 반환한다. 성공하면 원본은 `knowledge/evidence/<provider>/<YYYY>/<MM>/<DD>/`로 이동하고, 같은 basename의
 `.md` External-file Evidence Manifest가 생성된다. 처리 중에는 `.raw/`를 거치며, 10MiB를 넘는 원본은 Git에 넣지 않고
 `.raw/`에 보존한다. 외부 저장소에 보관한 후 External-file Evidence Manifest를 별도로 처리해야 한다.
