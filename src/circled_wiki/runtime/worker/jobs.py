@@ -13,7 +13,7 @@ from circled_wiki.config.settings import load_settings
 from circled_wiki.core.frontmatter import FrontmatterError, parse_markdown
 from circled_wiki.core.ingest import (
     accept_ready_inbox, ingest_evidence, iter_active_inbox_items,
-    read_conversation_intake,
+    read_conversation_intake, run_automatic_pii_scan,
 )
 from circled_wiki.core.inbox_contracts import (
     CONTRACT_NAME,
@@ -509,6 +509,8 @@ def reconcile_inbox(knowledge_root: Path, actor: str, limit: int = 100) -> Dict[
     accepted_action = stages["accepted"]["action"]
     if pending_action != "accept_ready_inbox" or accepted_action != "ingest_accepted":
         raise ValueError("Inbox reconciliation contract action is unsupported")
+    for intake_id in sorted(intake_ids):
+        run_automatic_pii_scan(knowledge_root, intake_id)
     accepted = accept_ready_inbox(knowledge_root, actor, limit=limit, intake_ids=intake_ids)
     ingested = ingest_accepted_inbox(
         knowledge_root, limit=limit, intake_ids=intake_ids, require_pii_scan=True,

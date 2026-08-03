@@ -217,7 +217,7 @@ OPERATING_RULES
 
 ## 8. Security and Authorization
 
-- **RB-SEC-001** 주민등록번호·계좌번호·카드번호·전화번호와 API key·token·password·private key 등 자격증명을 Bundle, Evidence, Task, Log, Prompt에 기록하지 않는다. 모든 Inbox 수집 주체는 공통 Capture 단계의 민감정보 사전 점검을 거치며, PII Scan 모듈은 정책 대상과 필요한 마스킹을 단일 기준으로 판정한다. 이름·이메일처럼 정책 대상이 아닌 정보는 별도 조직 정책 또는 사람 검토로 다룬다.
+- **RB-SEC-001** 주민등록번호·계좌번호·카드번호·`010` 또는 `+82 10` 형식의 휴대전화 번호와 API key·token·password·private key 등 자격증명을 Bundle, Evidence, Task, Log, Prompt에 기록하지 않는다. 지역번호·대표번호는 이 자동 마스킹 정책의 대상이 아니다. 모든 Inbox 수집 주체는 공통 Capture 단계의 민감정보 사전 점검을 거치며, PII Scan 모듈은 정책 대상과 필요한 마스킹을 단일 기준으로 판정한다. 이름·이메일처럼 정책 대상이 아닌 정보는 별도 조직 정책 또는 사람 검토로 다룬다.
 - **RB-SEC-002** 판단과 실행을 분리한다.
 - **RB-SEC-003** 외부 전송·게시·Commit·계약·가격 확정에는 명시적 권한을 적용한다.
 - **RB-SEC-004** `restricted` Knowledge와 권한 없는 Tool을 우회하지 않는다.

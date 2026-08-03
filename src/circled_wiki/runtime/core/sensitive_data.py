@@ -50,6 +50,7 @@ _KNOWN_TOKEN = re.compile(
     r"xox[baprs]-[A-Za-z0-9-]{20,})(?![A-Za-z0-9_-])"
 )
 _CARD_CANDIDATE = re.compile(r"(?<!\d)(?:\d[ -]?){12,18}\d(?!\d)")
+_MOBILE_PHONE_NUMBER = re.compile(r"(?<!\d)(?:010|\+82[ -]?10)[ -]?\d{3,4}[ -]?\d{4}(?!\d)")
 _HTML_LAYOUT_NUMBER = re.compile(r'(?P<attribute>\b(?:width|height)\s*=\s*["\'])(?P<value>\d+(?:\.\d+)?)(?P<end>["\'])', re.I)
 
 
@@ -103,6 +104,10 @@ def redact_sensitive_data(content: str) -> SensitiveDataPrecheckResult:
             return REDACTED_VALUE
         return match.group(0)
 
+    def redact_mobile_phone(match: re.Match[str]) -> str:
+        categories.add("mobile_phone_number")
+        return REDACTED_VALUE
+
     redacted = _PRIVATE_KEY_BLOCK.sub(REDACTED_VALUE, content)
     if redacted != content:
         categories.add("credential")
@@ -112,6 +117,7 @@ def redact_sensitive_data(content: str) -> SensitiveDataPrecheckResult:
     redacted = _RESIDENT_REGISTRATION_NUMBER.sub(redact_resident_registration, redacted)
     redacted = _ACCOUNT_NUMBER.sub(redact_account, redacted)
     redacted = _CARD_CANDIDATE.sub(redact_card, redacted)
+    redacted = _MOBILE_PHONE_NUMBER.sub(redact_mobile_phone, redacted)
     for index, value in enumerate(protected):
         redacted = redacted.replace(f"__CW_LAYOUT_{index}__", value)
     return SensitiveDataPrecheckResult(redacted, tuple(sorted(categories)))

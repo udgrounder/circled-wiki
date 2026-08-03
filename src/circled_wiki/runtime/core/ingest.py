@@ -346,7 +346,9 @@ def _accept_inbox_document(
         return {"intake_id": intake_id, "status": "accepted", "reused": True}
     if data.get("status") != "pending":
         raise ValueError("only pending Inbox items can be accepted")
-    if data.get("sensitivity_review") == "required":
+    precheck = data.get("capture_details", {}).get("sensitive_data_precheck", {}) if isinstance(data.get("capture_details"), dict) else {}
+    categories = precheck.get("categories", []) if isinstance(precheck, dict) else []
+    if data.get("sensitivity_review") == "required" and categories != ["mobile_phone_number"]:
         raise ValueError("sensitivity review must be completed before acceptance")
     if has_blocking_inbox_review(
         knowledge_root, intake_id, str(data.get("checksum", ""))
@@ -371,6 +373,28 @@ def _accept_inbox_document(
         "inbox_path": path.relative_to(knowledge_root.parent.resolve()).as_posix(),
         "reused": False,
     }
+
+
+def run_automatic_pii_scan(knowledge_root: Path, intake_id: str) -> Dict[str, object]:
+    """Record the canonical automated PII receipt for an Inbox candidate."""
+    for path in iter_active_inbox_items(knowledge_root):
+        try:
+            data, _content = read_conversation_intake(path)
+        except (FrontmatterError, OSError, ValueError):
+            continue
+        if data.get("id") != intake_id:
+            continue
+        details = data.get("capture_details")
+        precheck = details.get("sensitive_data_precheck") if isinstance(details, dict) else None
+        categories = precheck.get("categories") if isinstance(precheck, dict) else []
+        result = "masked" if categories else "passed"
+        return record_inbox_pii_scan_receipt(
+            knowledge_root, intake_id, scanner="circled-wiki-pii-scan",
+            scanner_version="mobile-phone-v1", result=result,
+            reviewed_by="circled-wiki-pii-scan",
+            receipt=f"runtime://pii-scan/{data['checksum']}",
+        )
+    raise ValueError("intake_id must refer to an existing Inbox item")
 
 
 def complete_inbox_sensitivity_review(
@@ -836,7 +860,7 @@ def capture_conversation(
         ),
         encoding="utf-8",
     )
-    if sensitivity_review == "required":
+    if sensitivity_review == "required" and masked_categories != ["mobile_phone_number"]:
         enqueue_inbox_review(
             knowledge_root, intake_id=intake_id, inbox_path=capture_path,
             source_checksum=checksum, current_stage="sensitivity_review",
@@ -957,7 +981,7 @@ def capture_document(
         ),
         encoding="utf-8",
     )
-    if sensitivity_review == "required":
+    if sensitivity_review == "required" and masked_categories != ["mobile_phone_number"]:
         enqueue_inbox_review(
             knowledge_root, intake_id=intake_id, inbox_path=path,
             source_checksum=checksum, current_stage="sensitivity_review",

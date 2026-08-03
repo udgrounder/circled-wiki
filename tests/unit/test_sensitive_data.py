@@ -20,12 +20,13 @@ class SensitiveDataPrecheckTests(unittest.TestCase):
             {"resident_registration_number", "account_number", "card_number", "credential"},
         )
 
-    def test_does_not_automatically_mask_general_contact_information(self):
+    def test_masks_only_mobile_contact_information(self):
         content = "홍길동 / gildong@example.com / 010-1234-5678 / https://intranet.example.test"
         result = redact_sensitive_data(content)
 
-        self.assertEqual(result.content, content)
-        self.assertEqual(result.categories, ())
+        self.assertNotIn("010-1234-5678", result.content)
+        self.assertIn("gildong@example.com", result.content)
+        self.assertEqual(result.categories, ("mobile_phone_number",))
 
     def test_masks_credential_before_text_capture_is_written(self):
         from pathlib import Path
