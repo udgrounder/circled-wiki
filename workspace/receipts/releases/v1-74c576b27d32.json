@@ -1,0 +1,32 @@
+{
+  "receipt_type": "release",
+  "release_id": "v1-74c576b27d32",
+  "source_revision": "055932fec5e4cc1fb7e5cb0e0da9d38f933475c7",
+  "runtime_checksum": "sha256:745dceb5aee02934e627e495cb438f13b4316273ca085ef88ce859d928f57d5c",
+  "router_checksum": "sha256:2ad390b3da847ba87656acfb77882e52abfb67e1a442d1ff64f1bc2f5dc51e89",
+  "runtime_profiles": [
+    "evidence-ingest.md",
+    "inbox-capture.md",
+    "inbox-disposition.md",
+    "inbox-inspection.md",
+    "knowledge-curation.md",
+    "knowledge-query.md",
+    "publication.md",
+    "runtime-upgrade-verification.md",
+    "system-observation.md",
+    "workflow-execution.md"
+  ],
+  "included_issue_ids": [],
+  "validation": {
+    "unit": "passed",
+    "integration": "passed",
+    "repository_validator": "passed"
+  },
+  "verified_by": "codex-release-verifier",
+  "verified_at": "2026-08-03T11:01:19.120384+00:00",
+  "source_commit_check": {
+    "revision": "055932fec5e4cc1fb7e5cb0e0da9d38f933475c7",
+    "subject": "Create v1-74c576b27d32.json",
+    "worktree_clean": true
+  }
+}
