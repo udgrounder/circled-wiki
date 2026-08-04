@@ -228,6 +228,9 @@ def main() -> int:
     reconcile_inbox = subparsers.add_parser("reconcile-inbox")
     reconcile_inbox.add_argument("--actor", required=True)
     reconcile_inbox.add_argument("--limit", type=int, default=100)
+    reconcile_inbox_curation = subparsers.add_parser("reconcile-inbox-then-curation")
+    reconcile_inbox_curation.add_argument("--actor", required=True)
+    reconcile_inbox_curation.add_argument("--limit", type=int, default=100)
     reconcile_curation = subparsers.add_parser("reconcile-curation")
     reconcile_curation.add_argument("--limit", type=int, default=100)
     review_inbox = subparsers.add_parser("review-inbox-sensitivity")
@@ -602,6 +605,11 @@ def main() -> int:
         return 0
     if args.command == "reconcile-inbox":
         print(json.dumps(service.reconcile_inbox(args.actor, args.limit), ensure_ascii=False, indent=2))
+        return 0
+    if args.command == "reconcile-inbox-then-curation":
+        print(json.dumps(service.reconcile_inbox_then_curation(
+            args.actor, args.limit,
+        ), ensure_ascii=False, indent=2))
         return 0
     if args.command == "reconcile-curation":
         print(json.dumps(service.reconcile_curation(args.limit), ensure_ascii=False, indent=2))

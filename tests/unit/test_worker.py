@@ -3,6 +3,7 @@ import unittest
 import subprocess
 import shutil
 from pathlib import Path
+from unittest.mock import patch
 
 from circled_wiki.core.ingest import (
     accept_conversation_intake,
@@ -16,6 +17,7 @@ from circled_wiki.worker.jobs import (
     inspect_inbox,
     reconcile_curation,
     reconcile_inbox,
+    reconcile_inbox_then_curation,
     run_curation_batch,
     run_maintenance,
 )
@@ -99,6 +101,53 @@ class WorkerJobTests(unittest.TestCase):
             self.assertEqual(result["before"]["item_count"], 0)
             self.assertEqual(result["actions"]["attempted"], 0)
             self.assertEqual(result["blocked"], [])
+
+    def test_reconcile_inbox_then_curation_starts_only_after_all_ready_inbox_is_evidence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "knowledge"
+            contract_root = root.parent / "agent-rules" / "contracts"
+            contract_root.mkdir(parents=True)
+            for name in ("index.yaml", "inbox.yaml", "curation.yaml"):
+                shutil.copyfile(
+                    Path(__file__).resolve().parents[2] / "agent-rules" / "contracts" / name,
+                    contract_root / name,
+                )
+            capture_conversation(
+                root, "safe source", "test", title="Ready", why_collected="test",
+                intended_use=["test"], idempotency_key="pipeline-ready",
+                sensitivity_review="completed",
+            )
+
+            with patch("circled_wiki.worker.jobs.reconcile_curation", return_value={"status": "processed"}) as curation:
+                result = reconcile_inbox_then_curation(root, "contract-worker")
+
+            self.assertEqual(result["status"], "curation_started")
+            self.assertEqual(result["queue"]["item_count"], 1)
+            self.assertEqual(result["inbox"]["runs"][0]["ingested"]["ingested_count"], 1)
+            curation.assert_called_once_with(root, limit=100)
+
+    def test_reconcile_inbox_then_curation_skips_curation_when_inbox_is_blocked(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "knowledge"
+            contract_root = root.parent / "agent-rules" / "contracts"
+            contract_root.mkdir(parents=True)
+            for name in ("index.yaml", "inbox.yaml", "curation.yaml"):
+                shutil.copyfile(
+                    Path(__file__).resolve().parents[2] / "agent-rules" / "contracts" / name,
+                    contract_root / name,
+                )
+            capture_conversation(
+                root, "review source", "test", title="Blocked", why_collected="test",
+                intended_use=["test"], idempotency_key="pipeline-blocked",
+                sensitivity_review="required",
+            )
+
+            with patch("circled_wiki.worker.jobs.reconcile_curation") as curation:
+                result = reconcile_inbox_then_curation(root, "contract-worker")
+
+            self.assertEqual(result["status"], "inbox_blocked")
+            self.assertEqual(result["curation"]["status"], "skipped")
+            curation.assert_not_called()
 
     def test_reconcile_curation_rejects_an_incomplete_outcome_contract(self):
         with tempfile.TemporaryDirectory() as directory:

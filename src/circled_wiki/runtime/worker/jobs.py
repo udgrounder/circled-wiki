@@ -550,3 +550,63 @@ def reconcile_inbox(knowledge_root: Path, actor: str, limit: int = 100) -> Dict[
         "blocked": blocked,
         "after": {"items": sorted(after, key=lambda item: item["intake_id"])},
     }
+
+
+def reconcile_inbox_then_curation(
+    knowledge_root: Path, actor: str, limit: int = 100,
+) -> Dict[str, object]:
+    """Finish safe Inbox reconciliation before starting one Curation batch.
+
+    A scheduler can use this as its single entry point without treating an
+    arbitrary Agent conversation as proof that Inbox work completed.  Any
+    unresolved Inbox gate or ingestion failure prevents Curation from running.
+    """
+    if not isinstance(actor, str) or not actor.strip():
+        raise ValueError("actor must be non-empty")
+    if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 1000:
+        raise ValueError("limit must be an integer between 1 and 1000")
+
+    inbox_runs: List[Dict[str, object]] = []
+    while True:
+        inbox = reconcile_inbox(knowledge_root, actor, limit=limit)
+        inbox_runs.append(inbox)
+        failures = list(inbox["ingested"]["failures"])
+        blocked = list(inbox["blocked"])
+        if blocked or failures:
+            return {
+                "status": "inbox_blocked",
+                "inbox": {"runs": inbox_runs, "blocked": blocked, "failures": failures},
+                "curation": {
+                    "status": "skipped",
+                    "reason": "inbox_reconciliation_incomplete",
+                },
+            }
+        if inbox["before"]["item_count"] == 0:
+            break
+        incomplete = [
+            item for item in inbox["after"]["items"]
+            if item.get("status") in {"pending", "accepted"}
+        ]
+        if incomplete:
+            return {
+                "status": "inbox_incomplete",
+                "inbox": {"runs": inbox_runs, "remaining": incomplete},
+                "curation": {
+                    "status": "skipped",
+                    "reason": "inbox_reconciliation_incomplete",
+                },
+            }
+
+    queue = list_curation_queue(knowledge_root)
+    if not queue:
+        return {
+            "status": "no_curation_work",
+            "inbox": {"runs": inbox_runs},
+            "curation": {"status": "skipped", "reason": "curation_queue_empty"},
+        }
+    return {
+        "status": "curation_started",
+        "inbox": {"runs": inbox_runs},
+        "queue": {"item_count": len(queue), "items": queue},
+        "curation": reconcile_curation(knowledge_root, limit=limit),
+    }

@@ -137,6 +137,10 @@ PYTHONPATH=src python3 -m circled_wiki.cli propose-pending --limit 100
 `no_bundle_recorded`, `review_handoff`, `published`, `draft_created`, 재시도 `queued`로 구분하고 Queue 완료·유지를
 검증한다. 의미 변경 승인이나 Bundle revision 적용은 수행하지 않는다.
 
+외부 scheduler는 `reconcile-inbox-then-curation --actor <operator> --limit 100`을 사용해 모든 처리 가능한 Inbox
+항목을 Evidence로 전환한 뒤, Inbox 차단·실패가 없고 Curation Queue가 1건이라도 있으면 Curation batch를 시작할 수 있다.
+민감도 또는 PII 검토가 남아 있으면 Curation은 실행하지 않고 안전한 다음 조치를 반환한다.
+
 변환된 Embedded Evidence는 Frontmatter와 원문을 한 `.md` 파일에 저장한다. 신규 Embedded Evidence의
 Frontmatter 뒤 전체 본문이 보존 원문이자 checksum 검증 대상이다. 기존 `ORIGINAL_CONTENT` 마커 형식은 읽기
 호환만 유지한다. PDF·이미지·스프레드시트와 외부에서 받은 기존
