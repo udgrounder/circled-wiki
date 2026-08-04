@@ -2,6 +2,7 @@
 
 import json
 from datetime import datetime, timezone
+import hashlib
 from pathlib import Path
 import re
 from typing import Dict, List, Optional, Tuple
@@ -108,6 +109,7 @@ def _candidate_metadata(knowledge_root: Path, hit) -> Dict[str, object]:
         "domain": _bundle_domain(knowledge_root, hit.path),
         "tags": [str(tag) for tag in tags] if isinstance(tags, list) else [],
         "evidence_ids": [str(item) for item in evidence_ids] if isinstance(evidence_ids, list) else [],
+        "body_checksum": "sha256:" + hashlib.sha256(document.body.encode("utf-8")).hexdigest() if document is not None else None,
         "latest_evidence_at": _latest_evidence_at(knowledge_root, evidence_ids),
     }
 

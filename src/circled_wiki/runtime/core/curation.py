@@ -148,6 +148,12 @@ def run_configured_curation(
             "Evidence. If no existing Bundle is a match, create a new Bundle; do not turn "
             "an ambiguous match into a Review card."
         ),
+        "update_body_rule": (
+            "For update_existing, provide the selected target's body_checksum as "
+            "base_body_checksum. Use update_mode=append for additive content; its body is "
+            "a delta that Runtime appends without deleting existing text. replace_full is "
+            "reserved for a human-reviewed whole-document replacement and requires a reason."
+        ),
         "bundle_taxonomy": curation_taxonomy(),
         "pre_creation_review_types": sorted(PRE_CREATION_REVIEW_TYPES),
         "content": original[:config.max_input_bytes].decode("utf-8", errors="replace"),
@@ -379,6 +385,8 @@ def _is_eligible_automatic_update(
 ) -> bool:
     """Permit receipt-bound updates for every Bundle type except runbook/manual."""
     if output.action not in AUTOMATIC_UPDATE_TYPES or not output.existing_bundle_candidates:
+        return False
+    if output.update_mode != "append":
         return False
     candidates = proposal.get("candidate_bundles", [])
     proposed_ids = {

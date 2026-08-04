@@ -6,6 +6,7 @@ import hashlib
 import multiprocessing
 import threading
 from datetime import datetime, timezone
+from dataclasses import replace
 from uuid import UUID
 from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import patch
@@ -26,6 +27,7 @@ from circled_wiki.core.candidates import promote_curation_candidate, review_cura
 from circled_wiki.core.curation_reviews import (
     AUTOMATIC_UPDATE_TYPES,
     apply_approved_curation_update,
+    apply_automatic_curation_update,
     decide_curation_review,
     generate_curation_review,
     list_curation_reviews,
@@ -116,6 +118,8 @@ class CurationMaterializationTests(unittest.TestCase):
                 "title": "Campaign policy", "summary": "New policy.", "body": "# Policy",
                 "evidence_ids": [new_evidence.evidence_id],
                 "existing_bundle_candidates": [target.frontmatter["id"]],
+                "update_mode": "append",
+                "base_body_checksum": "sha256:" + hashlib.sha256(target.body.encode("utf-8")).hexdigest(),
                 "tags": ["campaign", "policy"],
             }, [new_evidence.evidence_id])
             self.assertTrue(_is_eligible_automatic_update(root, output, proposal))
@@ -482,6 +486,9 @@ class CurationMaterializationTests(unittest.TestCase):
                 "title": "Reviewed update", "summary": "Updated summary.",
                 "body": "# Reviewed update\n", "evidence_ids": [evidence_id],
                 "existing_bundle_candidates": [target.frontmatter["id"]],
+                "update_mode": "replace_full",
+                "base_body_checksum": "sha256:" + hashlib.sha256(target.body.encode("utf-8")).hexdigest(),
+                "replace_reason": "Reviewer approved a complete rewrite.",
                 "tags": ["marketing", "reviewed-update"],
             }, [evidence_id])
             review = generate_curation_review(
@@ -570,6 +577,9 @@ class CurationMaterializationTests(unittest.TestCase):
                 "title": "Reviewed update", "summary": "Updated summary.",
                 "body": "# Reviewed update\n", "evidence_ids": [evidence_id],
                 "existing_bundle_candidates": [target.frontmatter["id"]],
+                "update_mode": "replace_full",
+                "base_body_checksum": "sha256:" + hashlib.sha256(target.body.encode("utf-8")).hexdigest(),
+                "replace_reason": "Reviewer approved a complete rewrite.",
                 "tags": ["marketing", "reviewed-update"],
             }, [evidence_id])
             review = generate_curation_review(
@@ -606,6 +616,60 @@ class CurationMaterializationTests(unittest.TestCase):
                 errors,
             )
 
+    def test_append_update_preserves_the_existing_bundle_body(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, evidence_id = self._evidence(directory)
+            target = create_bundle(
+                root, domain="marketing", slug="existing-guide", title="Existing",
+                bundle_type="guide", summary="Existing summary.", evidence_id=evidence_id,
+                body="# Existing guidance\n\nKeep this section.\n",
+            )
+            output = validate_curation_output({
+                "action": "guide", "domain": "marketing", "bundle_type": "guide",
+                "title": "Existing", "summary": "Updated summary.",
+                "body": "## New evidence\n\nAdd this section.",
+                "evidence_ids": [evidence_id],
+                "existing_bundle_candidates": [target.frontmatter["id"]],
+                "update_mode": "append",
+                "base_body_checksum": "sha256:" + hashlib.sha256(target.body.encode("utf-8")).hexdigest(),
+                "tags": ["marketing", "guide"],
+            }, [evidence_id])
+            review = generate_curation_review(
+                root, evidence_id, output, generated_by="curator",
+                curation_receipt="test://curation", user_review_request="user-request://test/append",
+            )
+            decide_curation_review(root, review["review_id"], action="approve", actor="reviewer")
+            apply_approved_curation_update(root, review["review_id"], actor="editor")
+
+            updated = find_document_by_id(root, target.frontmatter["id"])
+            self.assertIn("Keep this section.", updated.body)
+            self.assertIn("## New evidence", updated.body)
+
+    def test_automatic_update_rejects_full_body_replacement(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, evidence_id = self._evidence(directory)
+            target = create_bundle(
+                root, domain="marketing", slug="existing-guide", title="Existing",
+                bundle_type="guide", summary="Existing summary.", evidence_id=evidence_id,
+                body="# Existing guidance\n\nKeep this section.\n",
+            )
+            output = validate_curation_output({
+                "action": "guide", "domain": "marketing", "bundle_type": "guide",
+                "title": "Existing", "summary": "Replacement.", "body": "# Replacement",
+                "evidence_ids": [evidence_id],
+                "existing_bundle_candidates": [target.frontmatter["id"]],
+                "update_mode": "replace_full",
+                "base_body_checksum": "sha256:" + hashlib.sha256(target.body.encode("utf-8")).hexdigest(),
+                "replace_reason": "A complete rewrite was proposed.",
+                "tags": ["marketing", "guide"],
+            }, [evidence_id])
+            with self.assertRaisesRegex(ValueError, "requires append update_mode"):
+                apply_automatic_curation_update(
+                    root, evidence_id, output, actor="curator",
+                    curation_receipt="test://curation", security_receipt="test://security",
+                )
+            self.assertIn("Keep this section.", find_document_by_id(root, target.frontmatter["id"]).body)
+
     def test_configured_curation_automatically_updates_existing_reference(self):
         with tempfile.TemporaryDirectory() as directory:
             root, evidence_id = self._evidence(directory)
@@ -637,6 +701,8 @@ class CurationMaterializationTests(unittest.TestCase):
                 "action": "reference", "domain": "marketing", "bundle_type": "reference",
                 "title": "Updated reference", "summary": "After update.", "body": "# Updated reference",
                 "evidence_ids": [update_evidence_id], "existing_bundle_candidates": [target.frontmatter["id"]],
+                "update_mode": "append",
+                "base_body_checksum": "sha256:" + hashlib.sha256(target.body.encode("utf-8")).hexdigest(),
                 "tags": ["updated", "reference"],
             }
             completed = type("Completed", (), {"stdout": json.dumps(output)})()
@@ -688,6 +754,8 @@ class CurationMaterializationTests(unittest.TestCase):
                 "action": "report", "domain": "marketing", "bundle_type": "report",
                 "title": "Updated report", "summary": "After update.", "body": "# Updated report",
                 "evidence_ids": [update_evidence_id], "existing_bundle_candidates": [target.frontmatter["id"]],
+                "update_mode": "append",
+                "base_body_checksum": "sha256:" + hashlib.sha256(target.body.encode("utf-8")).hexdigest(),
                 "tags": ["updated", "report"],
             }
             completed = type("Completed", (), {"stdout": json.dumps(output)})()
@@ -734,6 +802,8 @@ class CurationMaterializationTests(unittest.TestCase):
                 "action": "guide", "domain": "marketing", "bundle_type": "guide",
                 "title": "Updated guide", "summary": "After update.", "body": "# Updated guide",
                 "evidence_ids": [update_evidence_id], "existing_bundle_candidates": [target.frontmatter["id"]],
+                "update_mode": "append",
+                "base_body_checksum": "sha256:" + hashlib.sha256(target.body.encode("utf-8")).hexdigest(),
                 "tags": ["updated", "guide"],
             }
             completed = type("Completed", (), {"stdout": json.dumps(output)})()
@@ -1325,6 +1395,9 @@ class CurationMaterializationTests(unittest.TestCase):
                 "body": "# Update",
                 "evidence_ids": [evidence_id],
                 "existing_bundle_candidates": [target.frontmatter["id"]],
+                "update_mode": "replace_full",
+                "base_body_checksum": "sha256:" + hashlib.sha256(target.body.encode("utf-8")).hexdigest(),
+                "replace_reason": "Reviewer approved a complete rewrite.",
                 "tags": ["marketing", "update"],
             }, [evidence_id])
             review = generate_curation_review(
@@ -1354,6 +1427,12 @@ class CurationMaterializationTests(unittest.TestCase):
             self.assertEqual(list_curation_queue(root)[0]["evidence_id"], evidence_id)
             refreshed = refresh_curation_queue(root)
             self.assertEqual(refreshed["pending_count"], 1)
+
+            current = find_document_by_id(root, target.frontmatter["id"])
+            output = replace(
+                output,
+                base_body_checksum="sha256:" + hashlib.sha256(current.body.encode("utf-8")).hexdigest(),
+            )
 
             replacement = generate_curation_review(
                 root, evidence_id, output,
@@ -1385,6 +1464,9 @@ class CurationMaterializationTests(unittest.TestCase):
                 "body": "# Update",
                 "evidence_ids": [evidence_id],
                 "existing_bundle_candidates": [target.frontmatter["id"]],
+                "update_mode": "replace_full",
+                "base_body_checksum": "sha256:" + hashlib.sha256(target.body.encode("utf-8")).hexdigest(),
+                "replace_reason": "Reviewer approved a complete rewrite.",
                 "tags": ["marketing", "update"],
             }, [evidence_id])
             review = generate_curation_review(

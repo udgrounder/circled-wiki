@@ -27,6 +27,9 @@ class CurationOutput:
     rationale: str = ""
     limitations: str = ""
     existing_bundle_candidates: Tuple[str, ...] = ()
+    update_mode: str = ""
+    base_body_checksum: str = ""
+    replace_reason: str = ""
     confidence: str = ""
     recheck_condition: str = ""
     tags: Tuple[str, ...] = ()
@@ -64,6 +67,19 @@ def validate_curation_output(
     if set(evidence_ids) != set(allowed) or len(evidence_ids) != len(set(evidence_ids)):
         raise ValueError("curation evidence_ids must exactly match the allowed Evidence IDs")
     existing = _string_list(payload.get("existing_bundle_candidates", []), "existing_bundle_candidates")
+    update_mode = ""
+    base_body_checksum = ""
+    replace_reason = ""
+    if existing:
+        update_mode = _required_string(payload, "update_mode")
+        if update_mode not in {"append", "replace_full"}:
+            raise ValueError("curation update_mode must be append or replace_full")
+        base_body_checksum = _required_string(payload, "base_body_checksum")
+        if not re.fullmatch(r"sha256:[0-9a-f]{64}", base_body_checksum):
+            raise ValueError("curation base_body_checksum must be a sha256 checksum")
+        replace_reason = _optional_string(payload, "replace_reason")
+        if update_mode == "replace_full" and not replace_reason:
+            raise ValueError("curation replace_full requires a replace_reason")
     tags = _string_list(payload.get("tags"), "tags")
     if not tags:
         raise ValueError("curation tags must contain at least one topical tag")
@@ -78,6 +94,9 @@ def validate_curation_output(
         rationale=_optional_string(payload, "rationale"),
         limitations=_optional_string(payload, "limitations"),
         existing_bundle_candidates=tuple(existing),
+        update_mode=update_mode,
+        base_body_checksum=base_body_checksum,
+        replace_reason=replace_reason,
         confidence=_optional_string(payload, "confidence"),
         tags=tuple(tags),
     )

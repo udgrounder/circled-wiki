@@ -1,6 +1,7 @@
 """Git-tracked review cards between external curation and Bundle mutation."""
 
 from datetime import datetime, timezone
+import hashlib
 from pathlib import Path
 import re
 from copy import deepcopy
@@ -79,6 +80,7 @@ def generate_curation_review(
     checksum = str(evidence.frontmatter.get("checksum", ""))
     evidence_path = evidence.path.relative_to(knowledge_root).as_posix()
     target_bundle_id, expected_revision = _target_bundle(knowledge_root, output)
+    _require_update_body_basis(knowledge_root, output, target_bundle_id)
     recommendation = "no_bundle" if output.action == "no_bundle" else (
         "update_existing" if target_bundle_id else "create_draft_bundle"
     )
@@ -299,6 +301,7 @@ def apply_approved_curation_update(
     output = validate_curation_output(payload, [evidence_ref["evidence_id"]])
     if output.action != target.frontmatter.get("type"):
         raise ValueError("review Bundle type does not match the target Bundle")
+    _require_update_body_basis(knowledge_root, output, target_id)
 
     proposed = deepcopy(target.frontmatter)
     proposed["title"] = output.title
@@ -328,7 +331,7 @@ def apply_approved_curation_update(
     original_bundle = target.path.read_text(encoding="utf-8")
     updated = _apply_bundle_revision(
         knowledge_root, bundle_id=target_id, expected_revision=expected_revision,
-        proposed_frontmatter=proposed, body=output.body, actor=actor,
+        proposed_frontmatter=proposed, body=_updated_body(target.body, output), actor=actor,
         allow_active_curation_revision=True,
     )
     data["status"] = "applied"
@@ -361,6 +364,8 @@ def apply_automatic_curation_update(
         raise ValueError("actor, curation_receipt, and security_receipt must be non-empty")
     if output.action not in AUTOMATIC_UPDATE_TYPES:
         raise ValueError("automatic update is not allowed for runbook or manual Bundles")
+    if output.update_mode != "append":
+        raise ValueError("automatic update requires append update_mode")
     if output.evidence_ids != (evidence_id,):
         raise ValueError("automatic update requires exactly its Evidence")
     if curation_body_safety_errors(output.body):
@@ -374,6 +379,7 @@ def apply_automatic_curation_update(
         raise ValueError("automatic update requires an existing revisioned Bundle")
     if target.frontmatter.get("type") != output.action:
         raise ValueError("automatic update Bundle type does not match the target Bundle")
+    _require_update_body_basis(knowledge_root, output, str(target_id))
     if not validate_document(target.path, knowledge_root).is_valid:
         raise ValueError("target Bundle must pass Validator before automatic update")
 
@@ -404,7 +410,7 @@ def apply_automatic_curation_update(
     proposed["extensions"] = extensions
     updated = _apply_bundle_revision(
         knowledge_root, bundle_id=str(target_id), expected_revision=expected_revision,
-        proposed_frontmatter=proposed, body=output.body, actor=actor,
+        proposed_frontmatter=proposed, body=_updated_body(target.body, output), actor=actor,
         allow_active_curation_revision=True,
     )
     return {
@@ -421,6 +427,32 @@ def _target_bundle(knowledge_root: Path, output: CurationOutput):
         if bundle is not None and isinstance(revision, int):
             return bundle_id, revision
     return None, None
+
+
+def _require_update_body_basis(
+    knowledge_root: Path, output: CurationOutput, target_bundle_id: Optional[str],
+) -> None:
+    """Bind update content to the exact Bundle body the Curator inspected."""
+    if not output.existing_bundle_candidates:
+        return
+    if not target_bundle_id:
+        raise ValueError("update_existing requires an existing target Bundle")
+    target = find_document_by_id(knowledge_root, target_bundle_id)
+    if target is None:
+        raise ValueError("update_existing target Bundle is unavailable")
+    actual = _body_checksum(target.body)
+    if output.base_body_checksum != actual:
+        raise ValueError("update_existing base_body_checksum does not match the target Bundle")
+
+
+def _updated_body(current_body: str, output: CurationOutput) -> str:
+    if output.update_mode == "append":
+        return current_body.rstrip() + "\n\n" + output.body.strip() + "\n"
+    return output.body
+
+
+def _body_checksum(body: str) -> str:
+    return "sha256:" + hashlib.sha256(body.encode("utf-8")).hexdigest()
 
 
 def _find_reusable_review(

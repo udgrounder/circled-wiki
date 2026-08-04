@@ -48,7 +48,7 @@ Evidence를 기존 Bundle과 비교하거나 신규 Draft를 작성한다.
 
 ## Output
 
-정제 제안 또는 Evidence를 참조하는 Draft Bundle. `no_bundle`은 결정 Receipt를 남겨 자동 종결한다. `runbook`·`manual`을 제외한 기존 Bundle의 갱신은 후보의 `type`·도메인·태그·Evidence 참조 Frontmatter가 제안과 맞고 현재 Evidence가 대상의 최신 Evidence보다 같거나 최신일 때 Evidence·Security·Validator·revision Gate 및 자동 갱신 Receipt를 통과하면 자동 적용한다. 일치 후보가 없으면 신규 Bundle로 생성한다. `runbook`·`manual`의 `update_existing`처럼 승인이 필요한 제안은 Review Queue handoff 결과를 반환한다. 그 외 Review handoff는 사용자의 명시 요청 식별자가 있는 경우에만 가능하다. Curator는 대화형 승인 선택지를 만들지 않는다. 제안은 `suggested_bundle_type`을 힌트로 제공하되 Curator가
+정제 제안 또는 Evidence를 참조하는 Draft Bundle. `no_bundle`은 결정 Receipt를 남겨 자동 종결한다. `update_existing`는 대상 Bundle 본문 전체를 교체하는 일반 `body`가 아니라, 대상 본문 checksum과 함께 `update_mode`를 명시한다. `append`의 `body`는 추가분이며 Runtime이 기존 본문을 보존해 병합한다. `replace_full`의 `body`만 전체 신규 본문이며 교체 사유와 사용자·검토 경로가 필수다. 자동 갱신은 `append`만 허용한다. `runbook`·`manual`을 제외한 기존 Bundle의 갱신은 후보의 `type`·도메인·태그·Evidence 참조 Frontmatter가 제안과 맞고 현재 Evidence가 대상의 최신 Evidence보다 같거나 최신일 때 Evidence·Security·Validator·revision Gate 및 자동 갱신 Receipt를 통과하면 자동 적용한다. 일치 후보가 없으면 신규 Bundle로 생성한다. `runbook`·`manual`의 `update_existing`처럼 승인이 필요한 제안은 Review Queue handoff 결과를 반환한다. 그 외 Review handoff는 사용자의 명시 요청 식별자가 있는 경우에만 가능하다. Curator는 대화형 승인 선택지를 만들지 않는다. 제안은 `suggested_bundle_type`을 힌트로 제공하되 Curator가
 원문을 검토해 `no_bundle` 또는 전체 Bundle 타입(`policy`, `guide`, `runbook`, `manual`, `decision`,
 `spec`, `reference`, `report`) 중 적절한 결과를 선택한다. 시점 기준 현황·평가·주기 보고는 `report`,
 제품·시스템 사용 절차는 `manual`, 반복 운영·장애 대응 절차는 `runbook`으로 구분한다. Business Rulebook은
