@@ -5,13 +5,15 @@ import json
 import hashlib
 import multiprocessing
 import threading
+from datetime import datetime, timezone
 from uuid import UUID
 from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import patch
 from pathlib import Path
 
-from circled_wiki.core.curation import materialize_curation_candidate
+from circled_wiki.core.curation import _is_eligible_automatic_update, materialize_curation_candidate
 from circled_wiki.core.curation import run_configured_curation, run_configured_curation_batch
+from circled_wiki.core.curator import propose_update
 from circled_wiki.core.curation_contract import validate_curation_output
 from circled_wiki.core.ingest import ingest_evidence
 from circled_wiki.core.frontmatter import parse_markdown, render_markdown
@@ -22,11 +24,13 @@ from circled_wiki.core.repository import apply_bundle_revision, create_bundle, f
 from circled_wiki.core.validator import validate_document
 from circled_wiki.core.candidates import promote_curation_candidate, review_curation_candidate
 from circled_wiki.core.curation_reviews import (
+    AUTOMATIC_UPDATE_TYPES,
     apply_approved_curation_update,
     decide_curation_review,
     generate_curation_review,
     list_curation_reviews,
 )
+from circled_wiki.core.bundle_types import DIRECT_DRAFT_TYPES
 from circled_wiki.core.curation_queue import (
     curation_queue_transaction,
     enqueue_curation_work,
@@ -44,6 +48,80 @@ def _acquire_queue_transaction(knowledge_root, started, acquired):
 
 
 class CurationMaterializationTests(unittest.TestCase):
+    def test_automatic_update_policy_excludes_only_runbook_and_manual(self):
+        self.assertEqual(AUTOMATIC_UPDATE_TYPES, DIRECT_DRAFT_TYPES)
+        self.assertNotIn("runbook", AUTOMATIC_UPDATE_TYPES)
+        self.assertNotIn("manual", AUTOMATIC_UPDATE_TYPES)
+
+    def test_non_runbook_manual_review_requires_explicit_user_request(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, evidence_id = self._evidence(directory)
+            with self.assertRaisesRegex(ValueError, "explicit user_review_request"):
+                generate_curation_review(
+                    root, evidence_id, self._output(evidence_id, "guide"),
+                    generated_by="curator", curation_receipt="test://curation",
+                )
+
+            review = generate_curation_review(
+                root, evidence_id, self._output(evidence_id, "guide"),
+                generated_by="curator", curation_receipt="test://curation",
+                user_review_request="user-request://test/123",
+            )
+            metadata = parse_markdown(root.parent / review["path"]).frontmatter["extensions"]["curation_review"]
+            self.assertEqual(metadata["review_route"], "explicit_user_request")
+            self.assertEqual(metadata["user_review_request"], "user-request://test/123")
+
+    def test_frontmatter_candidate_uses_latest_evidence_for_automatic_update(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "knowledge"
+            old_source = root / "inbox" / "manual" / "old.txt"
+            old_source.parent.mkdir(parents=True)
+            old_source.write_text("old campaign policy", encoding="utf-8")
+            old_checksum = "sha256:" + hashlib.sha256(old_source.read_bytes()).hexdigest()
+            old_evidence = ingest_evidence(
+                root, old_source, "manual", title="Campaign policy",
+                why_collected="old policy", intended_use=["campaign", "policy"],
+                captured_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+                pii_scan_receipt=build_pii_scan_receipt(
+                    old_checksum, scanner="test", scanner_version="1", result="passed",
+                    reviewed_by="security", receipt="test://pii-old",
+                ),
+            )
+            target = create_bundle(
+                root, domain="marketing", slug="campaign-policy", title="Campaign policy",
+                bundle_type="guide", summary="Current campaign policy.",
+                evidence_id=old_evidence.evidence_id, tags=["campaign", "policy"],
+            )
+            new_source = root / "inbox" / "manual" / "new.txt"
+            new_source.write_text("new campaign policy", encoding="utf-8")
+            new_checksum = "sha256:" + hashlib.sha256(new_source.read_bytes()).hexdigest()
+            new_evidence = ingest_evidence(
+                root, new_source, "manual", title="Campaign policy",
+                why_collected="new policy", intended_use=["campaign", "policy"],
+                captured_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+                pii_scan_receipt=build_pii_scan_receipt(
+                    new_checksum, scanner="test", scanner_version="1", result="passed",
+                    reviewed_by="security", receipt="test://pii-new",
+                ),
+            )
+            proposal = propose_update(root, new_evidence.evidence_id)
+            candidate = next(item for item in proposal["candidate_bundles"] if item["id"] == target.frontmatter["id"])
+            self.assertEqual(candidate["domain"], "marketing")
+            self.assertEqual(candidate["tags"], ["bundles", "guide", "marketing", "campaign", "policy"])
+            self.assertEqual(candidate["latest_evidence_at"], "2025-01-01T00:00:00+00:00")
+            self.assertEqual(proposal["evidence_freshness"]["effective_at"], "2026-01-01T00:00:00+00:00")
+
+            output = validate_curation_output({
+                "action": "guide", "domain": "marketing", "bundle_type": "guide",
+                "title": "Campaign policy", "summary": "New policy.", "body": "# Policy",
+                "evidence_ids": [new_evidence.evidence_id],
+                "existing_bundle_candidates": [target.frontmatter["id"]],
+                "tags": ["campaign", "policy"],
+            }, [new_evidence.evidence_id])
+            self.assertTrue(_is_eligible_automatic_update(root, output, proposal))
+            proposal["evidence_freshness"]["effective_at"] = "2024-01-01T00:00:00+00:00"
+            self.assertFalse(_is_eligible_automatic_update(root, output, proposal))
+
     def _install_curation_contract(self, root):
         source = Path(__file__).resolve().parents[2] / "agent-rules" / "contracts"
         target = root.parent / "agent-rules" / "contracts"
@@ -209,6 +287,7 @@ class CurationMaterializationTests(unittest.TestCase):
             review = generate_curation_review(
                 root, evidence_id, self._output(evidence_id, "guide"),
                 generated_by="curator", curation_receipt="test://curation",
+                user_review_request="user-request://test/guide",
             )
             applied = decide_curation_review(
                 root, review["review_id"], action="approve", actor="reviewer",
@@ -224,6 +303,7 @@ class CurationMaterializationTests(unittest.TestCase):
             review = generate_curation_review(
                 root, evidence_id, self._output(evidence_id, "guide"),
                 generated_by="curator", curation_receipt="test://curation",
+                user_review_request="user-request://test/guide",
             )
             created = decide_curation_review(
                 root, review["review_id"], action="approve", actor="reviewer",
@@ -241,6 +321,7 @@ class CurationMaterializationTests(unittest.TestCase):
             review = generate_curation_review(
                 root, evidence_id, self._output(evidence_id, "guide"),
                 generated_by="curator", curation_receipt="test://curation",
+                user_review_request="user-request://test/guide",
             )
             created = decide_curation_review(
                 root, review["review_id"], action="approve", actor="reviewer",
@@ -405,6 +486,7 @@ class CurationMaterializationTests(unittest.TestCase):
             }, [evidence_id])
             review = generate_curation_review(
                 root, evidence_id, output, generated_by="curator", curation_receipt="test://curation",
+                user_review_request="user-request://test/update",
             )
             decide_curation_review(root, review["review_id"], action="approve", actor="verifier")
 
@@ -492,6 +574,7 @@ class CurationMaterializationTests(unittest.TestCase):
             }, [evidence_id])
             review = generate_curation_review(
                 root, evidence_id, output, generated_by="curator", curation_receipt="test://curation",
+                user_review_request="user-request://test/update",
             )
             decided = decide_curation_review(root, review["review_id"], action="approve", actor="verifier")
             self.assertEqual(decided["result"]["action"], "approved_update")
@@ -615,11 +698,62 @@ class CurationMaterializationTests(unittest.TestCase):
                     result = run_configured_curation(root, update_evidence_id)
 
             self.assertEqual(result["action"], "updated")
+            self.assertEqual(result["promotion_mode"], "automatic_update")
             updated = find_document_by_id(root, target.frontmatter["id"])
             self.assertEqual(updated.frontmatter["title"], "Updated report")
             self.assertEqual(updated.frontmatter["extensions"]["knowledge_revision"], 2)
             self.assertTrue(validate_document(updated.path, root).is_valid)
             self.assertEqual(list_curation_queue(root), [])
+
+    def test_configured_curation_automatically_updates_existing_guide(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, evidence_id = self._evidence(directory)
+            target = create_bundle(
+                root, domain="marketing", slug="existing-guide", title="Existing guide",
+                bundle_type="guide", summary="Before update.", evidence_id=evidence_id,
+            )
+            source = root / "inbox" / "manual" / "guide-update.txt"
+            source.parent.mkdir(parents=True, exist_ok=True)
+            source.write_text("new guide source", encoding="utf-8")
+            checksum = "sha256:" + hashlib.sha256(source.read_bytes()).hexdigest()
+            update_evidence_id = ingest_evidence(
+                root, source, "manual", why_collected="update", intended_use=["marketing"],
+                pii_scan_receipt=build_pii_scan_receipt(
+                    checksum, scanner="test", scanner_version="1", result="passed",
+                    reviewed_by="security", receipt="test://pii-guide-update",
+                ),
+            ).evidence_id
+            config = root.parent / ".circled-wiki" / "config.yaml"
+            config.parent.mkdir(exist_ok=True)
+            config.write_text(
+                "schema_version: 1\ncuration:\n"
+                "  enabled: true\n  provider: test\n  model: guide\n  command: adapter\n",
+                encoding="utf-8",
+            )
+            output = {
+                "action": "guide", "domain": "marketing", "bundle_type": "guide",
+                "title": "Updated guide", "summary": "After update.", "body": "# Updated guide",
+                "evidence_ids": [update_evidence_id], "existing_bundle_candidates": [target.frontmatter["id"]],
+                "tags": ["updated", "guide"],
+            }
+            completed = type("Completed", (), {"stdout": json.dumps(output)})()
+            proposal = {"recommended_action": "update_existing", "blocking_conditions": [], "candidate_bundles": [{"id": target.frontmatter["id"]}]}
+
+            with patch("circled_wiki.core.curation.propose_update", return_value=proposal):
+                with patch("circled_wiki.core.curation.subprocess.run", return_value=completed):
+                    with patch(
+                        "circled_wiki.core.curation_reviews.validate_document",
+                        wraps=validate_document,
+                    ) as validate_input:
+                        result = run_configured_curation(root, update_evidence_id)
+
+            self.assertEqual(result["action"], "updated")
+            self.assertEqual(result["promotion_mode"], "automatic_update")
+            self.assertEqual(find_document_by_id(root, target.frontmatter["id"]).frontmatter["title"], "Updated guide")
+            self.assertEqual(list_curation_reviews(root), [])
+            validated_paths = [call.args[0] for call in validate_input.call_args_list]
+            self.assertNotIn(find_document_by_id(root, update_evidence_id).path, validated_paths)
+            self.assertIn(target.path, validated_paths)
 
     def test_configured_curation_batch_reports_bounded_needs_review_outcomes(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -806,6 +940,7 @@ class CurationMaterializationTests(unittest.TestCase):
             created = generate_curation_review(
                 root, evidence_id, output,
                 generated_by="curator", curation_receipt="test://curation",
+                user_review_request="user-request://test/guide",
             )
             review_path = root.parent / created["path"]
 
@@ -827,6 +962,7 @@ class CurationMaterializationTests(unittest.TestCase):
             review = generate_curation_review(
                 root, evidence_id, self._output(evidence_id),
                 generated_by="curator", curation_receipt="test://curation",
+                user_review_request="user-request://test/guide",
             )
             evidence_path = find_document_by_id(root, evidence_id).path
             evidence_before = evidence_path.read_bytes()
@@ -1194,6 +1330,7 @@ class CurationMaterializationTests(unittest.TestCase):
             review = generate_curation_review(
                 root, evidence_id, output,
                 generated_by="curator", curation_receipt="test://curation",
+                user_review_request="user-request://test/update",
             )
             proposed = dict(target.frontmatter)
             apply_bundle_revision(
@@ -1221,6 +1358,7 @@ class CurationMaterializationTests(unittest.TestCase):
             replacement = generate_curation_review(
                 root, evidence_id, output,
                 generated_by="curator", curation_receipt="test://curation",
+                user_review_request="user-request://test/update",
             )
             self.assertNotEqual(replacement["review_id"], review["review_id"])
             self.assertEqual(list_curation_queue(root), [])
@@ -1255,6 +1393,7 @@ class CurationMaterializationTests(unittest.TestCase):
                 output,
                 generated_by="curator",
                 curation_receipt="test://curation",
+                user_review_request="user-request://test/update",
             )
             apply_bundle_revision(
                 root,

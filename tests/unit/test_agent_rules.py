@@ -256,8 +256,8 @@ class AgentRuleProfileTests(unittest.TestCase):
         contract = (ROOT / "agent-rules" / "contracts" / "curation.yaml").read_text(encoding="utf-8")
 
         self.assertIn("RB-ROUTE-016", operating)
-        self.assertIn("의미 변경 승인", operating)
-        self.assertIn("revision 적용", operating)
+        self.assertIn("`runbook`·`manual`을 제외한 기존 Bundle의 갱신", operating)
+        self.assertIn("자동 갱신 Receipt", operating)
         self.assertIn("run_configured_curation_batch", contract)
         self.assertIn("api_version: circled-wiki.reconciliation-contract/v1", contract)
         self.assertIn("kind: reconciliation_contract", contract)

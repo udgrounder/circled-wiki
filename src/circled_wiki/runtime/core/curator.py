@@ -1,6 +1,7 @@
 """Deterministic, non-writing curation proposals for Evidence review."""
 
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 import re
 from typing import Dict, List, Optional, Tuple
@@ -58,15 +59,9 @@ def propose_update(
         "source_uuid": evidence.frontmatter["source_uuid"],
         "original_available": original_bytes is not None,
         "excerpt": excerpt,
+        "evidence_freshness": _evidence_freshness(evidence),
         "candidate_bundles": [
-            {
-                "id": hit.document_id,
-                "title": hit.title,
-                "summary": hit.summary,
-                "status": hit.status,
-                "owners": hit.owners,
-                "review_requested": hit.review_requested,
-            }
+            _candidate_metadata(knowledge_root, hit)
             for hit in candidates
         ],
         "capture_context": capture_context,
@@ -94,6 +89,79 @@ def _cached_search(
     if key not in cache:
         cache[key] = search_knowledge(knowledge_root, query, filters)
     return cache[key]
+
+
+def _candidate_metadata(knowledge_root: Path, hit) -> Dict[str, object]:
+    """Expose safe Bundle frontmatter needed for deterministic target selection."""
+    document = find_document_by_id(knowledge_root, hit.document_id)
+    data = document.frontmatter if document is not None else {}
+    tags = data.get("tags", [])
+    evidence_ids = data.get("evidence", [])
+    return {
+        "id": hit.document_id,
+        "title": hit.title,
+        "summary": hit.summary,
+        "status": hit.status,
+        "owners": hit.owners,
+        "review_requested": hit.review_requested,
+        "bundle_type": data.get("type"),
+        "domain": _bundle_domain(knowledge_root, hit.path),
+        "tags": [str(tag) for tag in tags] if isinstance(tags, list) else [],
+        "evidence_ids": [str(item) for item in evidence_ids] if isinstance(evidence_ids, list) else [],
+        "latest_evidence_at": _latest_evidence_at(knowledge_root, evidence_ids),
+    }
+
+
+def _bundle_domain(knowledge_root: Path, path: Path) -> str:
+    try:
+        relative = path.relative_to(knowledge_root / "bundles")
+    except ValueError:
+        return ""
+    return relative.parts[0] if relative.parts else ""
+
+
+def _evidence_freshness(evidence) -> Dict[str, object]:
+    data = evidence.frontmatter
+    source_ref = data.get("source_ref")
+    snapshot_at = source_ref.get("snapshot_at") if isinstance(source_ref, dict) else None
+    captured_at = data.get("captured_at")
+    effective_at = _normalized_timestamp(snapshot_at) or _normalized_timestamp(captured_at)
+    return {
+        "effective_at": effective_at,
+        "captured_at": captured_at if isinstance(captured_at, str) else None,
+        "source_snapshot_at": snapshot_at if isinstance(snapshot_at, str) else None,
+        "provider": data.get("provider"),
+    }
+
+
+def _latest_evidence_at(knowledge_root: Path, evidence_ids: object) -> Optional[str]:
+    if not isinstance(evidence_ids, list):
+        return None
+    timestamps = []
+    for evidence_id in evidence_ids:
+        evidence = find_document_by_id(knowledge_root, str(evidence_id))
+        if evidence is None or evidence.frontmatter.get("type") != "evidence":
+            continue
+        effective_at = _evidence_freshness(evidence).get("effective_at")
+        if isinstance(effective_at, str):
+            timestamps.append(effective_at)
+    return max(timestamps, key=_timestamp_sort_key) if timestamps else None
+
+
+def _normalized_timestamp(value: object) -> Optional[str]:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return None
+    return parsed.astimezone(timezone.utc).isoformat(timespec="seconds")
+
+
+def _timestamp_sort_key(value: str) -> datetime:
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
 def _is_semantically_related(

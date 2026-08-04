@@ -16,7 +16,6 @@ from .curation_contract import CurationOutput
 from .curation_contract import validate_curation_output
 from .evidence import evidence_original_bytes
 from .frontmatter import parse_markdown, render_markdown
-from .pii import pii_scan_receipt_errors
 from .repository import create_bundle, find_document_by_id, iter_documents
 from .validator import validate_document
 from .curation_safety import curation_body_safety_errors
@@ -45,7 +44,7 @@ def materialize_curation_candidate(
         raise ValueError("Evidence title must be available before candidate creation")
     if output.evidence_ids != (evidence_id,):
         raise ValueError("single-Evidence materialization requires exactly its Evidence ID")
-    _require_curation_safe_evidence(evidence, knowledge_root)
+    _require_curation_eligible_evidence(evidence)
     if output.action == "no_bundle":
         # A no-bundle conclusion belongs to its review-card receipt.  Evidence
         # remains the fixed source record and carries no workflow state.
@@ -140,7 +139,15 @@ def run_configured_curation(
         "proposal": {
             "recommended_action": proposal.get("recommended_action"),
             "candidate_bundles": proposal.get("candidate_bundles", []),
+            "evidence_freshness": proposal.get("evidence_freshness", {}),
         },
+        "target_selection_rule": (
+            "Use Bundle frontmatter (type, domain, tags, evidence references) for the "
+            "new-versus-update decision. If sources conflict, prefer the current Evidence "
+            "only when its effective_at is at least as recent as the target Bundle's latest "
+            "Evidence. If no existing Bundle is a match, create a new Bundle; do not turn "
+            "an ambiguous match into a Review card."
+        ),
         "bundle_taxonomy": curation_taxonomy(),
         "pre_creation_review_types": sorted(PRE_CREATION_REVIEW_TYPES),
         "content": original[:config.max_input_bytes].decode("utf-8", errors="replace"),
@@ -179,6 +186,16 @@ def run_configured_curation(
                 )
                 complete_curation_work(knowledge_root, evidence_id)
                 return updated
+            if (
+                output.action in AUTOMATIC_UPDATE_TYPES
+                and output.existing_bundle_candidates
+            ):
+                return _record_curation_failure(
+                    evidence, knowledge_root, provider=config.provider, model=config.model,
+                    profile_version=config.profile_version,
+                    failure_kind="contract_or_gate_rejected",
+                    receipt_metadata=_completed_receipt(receipt_metadata, "contract_or_gate_rejected"),
+                )
             if output.action != "no_bundle" and output.bundle_type not in PRE_CREATION_REVIEW_TYPES:
                 materialized = materialize_curation_candidate(
                     knowledge_root, evidence_id, output,
@@ -296,7 +313,7 @@ def run_configured_curation_batch(
         action = str(result.get("action", "needs_review"))
         reason = str(result.get("reason", ""))
         promotion = result.get("promotion")
-        if action == "updated" and result.get("promotion_mode") == "automatic_limited_update":
+        if action == "updated" and result.get("promotion_mode") == "automatic_update":
             counts["auto_updated"] += 1
         elif isinstance(promotion, dict) and promotion.get("status") == "active":
             counts["auto_promoted"] += 1
@@ -360,7 +377,7 @@ def _automatic_security_receipt(config, evidence) -> str:
 def _is_eligible_automatic_update(
     knowledge_root: Path, output: CurationOutput, proposal: Dict[str, object],
 ) -> bool:
-    """Keep automatic mutations to existing low-structural-risk Bundle types."""
+    """Permit receipt-bound updates for every Bundle type except runbook/manual."""
     if output.action not in AUTOMATIC_UPDATE_TYPES or not output.existing_bundle_candidates:
         return False
     candidates = proposal.get("candidate_bundles", [])
@@ -371,7 +388,25 @@ def _is_eligible_automatic_update(
     if target_id not in proposed_ids:
         return False
     target = find_document_by_id(knowledge_root, target_id)
-    return target is not None and target.frontmatter.get("type") == output.action
+    if target is None or target.frontmatter.get("type") != output.action:
+        return False
+    candidate = next(
+        (item for item in candidates if isinstance(item, dict) and item.get("id") == target_id),
+        {},
+    )
+    domain = candidate.get("domain")
+    if isinstance(domain, str) and domain and domain != output.domain:
+        return False
+    candidate_tags = candidate.get("tags")
+    if isinstance(candidate_tags, list) and candidate_tags:
+        if not set(map(str, candidate_tags)) & set(output.tags):
+            return False
+    freshness = proposal.get("evidence_freshness")
+    new_at = freshness.get("effective_at") if isinstance(freshness, dict) else None
+    existing_at = candidate.get("latest_evidence_at")
+    if isinstance(new_at, str) and isinstance(existing_at, str) and new_at < existing_at:
+        return False
+    return True
 
 
 def _auto_promote_materialized_candidate(
@@ -393,7 +428,7 @@ def _auto_promote_materialized_candidate(
         result["promotion"] = {
             "bundle_id": bundle_id,
             "status": "active",
-            "promotion_mode": "automatic",
+        "promotion_mode": "automatic",
             "reused": True,
         }
         return result
@@ -416,9 +451,13 @@ def _auto_promote_materialized_candidate(
     return result
 
 
-def _require_curation_safe_evidence(evidence, knowledge_root: Path) -> None:
-    if not validate_document(evidence.path, knowledge_root).is_valid:
-        raise ValueError("Evidence must pass Validator before curation")
+def _require_curation_eligible_evidence(evidence) -> None:
+    """Enforce Curation-only eligibility after Evidence ingest has completed.
+
+    Inbox reconciliation already binds sensitivity and PII decisions to an
+    immutable Evidence record.  Do not repeat those checks here; publication's
+    final repository validation remains the integrity backstop.
+    """
     extensions = evidence.frontmatter.get("extensions", {})
     if not isinstance(extensions, dict) or extensions.get("visibility") == "restricted":
         raise ValueError("restricted Evidence cannot be auto-curated")

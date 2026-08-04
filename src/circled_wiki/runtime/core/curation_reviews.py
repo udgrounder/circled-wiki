@@ -17,10 +17,13 @@ from .curation_safety import curation_body_safety_errors
 from .frontmatter import parse_markdown, render_markdown
 from .repository import _apply_bundle_revision, find_document_by_id
 from .validator import validate_document
+from .bundle_types import DIRECT_DRAFT_TYPES, PRE_CREATION_REVIEW_TYPES
 
 
 REVIEW_STATUSES = {"pending", "approved", "no_bundle", "needs_changes", "needs_review", "stale", "applied", "archived"}
-AUTOMATIC_UPDATE_TYPES = frozenset({"reference", "report"})
+# The automated Curation path may mutate every non-operational Bundle type.
+# Runbooks and manuals always remain on the owner- and review-gated path.
+AUTOMATIC_UPDATE_TYPES = DIRECT_DRAFT_TYPES
 
 
 def list_curation_reviews(knowledge_root: Path, *, include_resolved: bool = False) -> List[Dict[str, object]]:
@@ -52,10 +55,19 @@ def list_curation_reviews(knowledge_root: Path, *, include_resolved: bool = Fals
 def generate_curation_review(
     knowledge_root: Path, evidence_id: str, output: CurationOutput, *, generated_by: str,
     curation_receipt: str, receipt_metadata: Optional[Dict[str, object]] = None,
+    user_review_request: Optional[str] = None,
 ) -> Dict[str, object]:
-    """Persist a safe, checksum-bound review card; never writes a Bundle."""
+    """Persist a safe, checksum-bound Review card only on an allowed route."""
     if not generated_by.strip() or not curation_receipt.strip():
         raise ValueError("generated_by and curation_receipt must be non-empty")
+    requested_review = (user_review_request or "").strip()
+    requires_type_review = (
+        output.action != "no_bundle" and output.bundle_type in PRE_CREATION_REVIEW_TYPES
+    )
+    if output.action != "no_bundle" and not requires_type_review and not requested_review:
+        raise ValueError(
+            "non-runbook/manual Curation Reviews require an explicit user_review_request"
+        )
     evidence = find_document_by_id(knowledge_root, evidence_id)
     if evidence is None or evidence.frontmatter.get("type") != "evidence":
         raise ValueError("evidence_id must refer to an existing Evidence Record")
@@ -79,7 +91,13 @@ def generate_curation_review(
         "generated_by": generated_by.strip(),
         "curation_receipt": curation_receipt.strip(), "output": payload,
         "verification_attempt_id": "verification-" + str(uuid4()),
+        "review_route": (
+            "no_bundle_decision" if output.action == "no_bundle" else
+            "required_type" if requires_type_review else "explicit_user_request"
+        ),
     }
+    if requested_review:
+        metadata["user_review_request"] = requested_review
     if receipt_metadata is not None:
         metadata["receipt"] = receipt_metadata
     data: Dict[str, object] = {
@@ -333,16 +351,16 @@ def apply_automatic_curation_update(
     knowledge_root: Path, evidence_id: str, output: CurationOutput, *, actor: str,
     curation_receipt: str, security_receipt: str,
 ) -> Dict[str, object]:
-    """Apply a narrow, receipt-bound update for an existing reference or report.
+    """Apply a receipt-bound update for an existing non-operational Bundle.
 
     This path never changes identity, classification, ownership, workflow, rule
-    metadata, or approval metadata.  All other Bundle types remain on the
+    metadata, or approval metadata.  Runbooks and manuals remain on the
     review-card path.
     """
     if not actor.strip() or not curation_receipt.strip() or not security_receipt.strip():
         raise ValueError("actor, curation_receipt, and security_receipt must be non-empty")
     if output.action not in AUTOMATIC_UPDATE_TYPES:
-        raise ValueError("automatic update is limited to reference and report Bundles")
+        raise ValueError("automatic update is not allowed for runbook or manual Bundles")
     if output.evidence_ids != (evidence_id,):
         raise ValueError("automatic update requires exactly its Evidence")
     if curation_body_safety_errors(output.body):
@@ -350,8 +368,6 @@ def apply_automatic_curation_update(
     evidence = find_document_by_id(knowledge_root, evidence_id)
     if evidence is None or evidence.frontmatter.get("type") != "evidence":
         raise ValueError("evidence_id must refer to an existing Evidence Record")
-    if not validate_document(evidence.path, knowledge_root).is_valid:
-        raise ValueError("Evidence must pass Validator before automatic update")
     target_id, expected_revision = _target_bundle(knowledge_root, output)
     target = find_document_by_id(knowledge_root, str(target_id or ""))
     if target is None or not isinstance(expected_revision, int):
@@ -394,7 +410,7 @@ def apply_automatic_curation_update(
     return {
         "action": "updated", "bundle_id": str(target_id),
         "knowledge_revision": updated.frontmatter["extensions"]["knowledge_revision"],
-        "promotion_mode": "automatic_limited_update",
+        "promotion_mode": "automatic_update",
     }
 
 

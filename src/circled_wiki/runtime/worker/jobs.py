@@ -202,7 +202,7 @@ def _curation_outcome_name(result: object) -> str:
         return "no_bundle"
     if action in {"created_review", "reused_review"}:
         return "review_handoff"
-    if action == "updated" and result.get("promotion_mode") == "automatic_limited_update":
+    if action == "updated" and result.get("promotion_mode") == "automatic_update":
         return "published"
     promotion = result.get("promotion")
     if isinstance(promotion, dict):

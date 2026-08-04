@@ -151,11 +151,14 @@ class KnowledgeService:
     def apply_approved_curation_update(self, review_id: str, *, actor: str) -> Dict[str, object]:
         return apply_approved_curation_update(self.knowledge_root, review_id, actor=actor)
 
-    def create_curation_review(self, evidence_id: str, output: Dict[str, object], *, generated_by: str, curation_receipt: str) -> Dict[str, object]:
+    def create_curation_review(
+        self, evidence_id: str, output: Dict[str, object], *, generated_by: str,
+        curation_receipt: str, user_review_request: Optional[str] = None,
+    ) -> Dict[str, object]:
         return generate_curation_review(
             self.knowledge_root, evidence_id,
             validate_curation_output(output, [evidence_id]), generated_by=generated_by,
-            curation_receipt=curation_receipt,
+            curation_receipt=curation_receipt, user_review_request=user_review_request,
         )
 
     def review_curation_candidate(

@@ -37,6 +37,7 @@ class KoreanQueryQualityTests(unittest.TestCase):
             review = generate_curation_review(
                 root, evidence.evidence_id, output,
                 generated_by="curator", curation_receipt="test://curation",
+                user_review_request="user-request://test/query-quality",
             )
             created = decide_curation_review(
                 root, review["review_id"], action="approve", actor="reviewer",

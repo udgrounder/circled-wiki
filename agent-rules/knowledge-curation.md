@@ -42,13 +42,13 @@ Evidence를 기존 Bundle과 비교하거나 신규 Draft를 작성한다.
 - Bundle 생성·갱신의 파일명과 Frontmatter `id`가 RB-KNW-026 canonical 형식에 맞을 것. legacy 형식의 일괄 정규화는 Publication Profile의 검토·발행 Gate로 넘길 것
 - `runbook`·`manual` Review 또는 직접 생성 가능 유형의 자동 Promotion Gate를 수행할 실행 주체 존재
 - RB-SEC-001·005와 RB-PUB-002의 보안 Gate. Draft와 active 전환의 차이는 RB-CUR-006을 적용
-- `runbook`과 `manual`은 `knowledge/curation-reviews/`의 checksum 결합 Review 카드 존재. `policy`, `guide`, `decision`, `spec`, `reference`, `report`는 Evidence·PII Gate 통과 후 Draft 직접 생성 가능
-- `runbook`과 `manual`의 Review는 사용자 또는 검증 Agent의 별도 검증 시도·주체·시각·Evidence checksum·결과 기록. Review 카드 생성 뒤 Curator는 현재 대화에서 승인 선택지를 묻지 않고 `knowledge/curation-reviews/` Queue에 handoff. 직접 생성 가능한 유형은 RB-CUR-006의 Evidence·PII·참조 무결성·전체 Validator Gate를 통과하면 별도 사람 Review 없이 자동 active 전환 가능
+- `runbook`과 `manual`은 `knowledge/curation-reviews/`의 checksum 결합 Review 카드 존재. `policy`, `guide`, `decision`, `spec`, `reference`, `report`는 확정된 Evidence를 입력으로 Draft 직접 생성 가능
+- `runbook`과 `manual`의 Review는 사용자 또는 검증 Agent의 별도 검증 시도·주체·시각·Evidence checksum·결과 기록. 운영 Agent는 이 두 유형 외에는 Review 카드를 만들지 않으며, 직접 생성 가능한 유형의 Review는 Runtime이 기록한 사용자의 명시 요청 식별자가 있을 때만 예외적으로 가능. Review 카드 생성 뒤 Curator는 현재 대화에서 승인 선택지를 묻지 않고 `knowledge/curation-reviews/` Queue에 handoff. 직접 생성 가능한 유형은 RB-CUR-006의 확정된 Evidence·참조 무결성·전체 Validator Gate를 통과하면 별도 사람 Review 없이 자동 active 전환 가능하며, 자동 Gate 실패는 Review가 아니라 재시도 차단 상태로 남긴다. Curation은 Evidence 생성 시 끝난 PII Scan이나 민감도 판단을 재실행하지 않음
 - active Runbook은 사람이 읽는 비어 있지 않은 `## Workflow Summary` 본문 section과 `extensions.workflow` 실행 정의를 함께 가질 것
 
 ## Output
 
-정제 제안 또는 Evidence를 참조하는 Draft Bundle. `no_bundle`은 결정 Receipt를 남겨 자동 종결한다. 기존 `reference`·`report`의 갱신은 configured Curator의 후보가 제안 대상과 일치하고 Evidence·Security·Validator·revision Gate 및 자동 갱신 Receipt를 통과하면 자동 적용할 수 있다. 그 외 `update_existing`처럼 승인이 필요한 제안은 Review Queue handoff 결과를 반환한다. Curator는 대화형 승인 선택지를 만들지 않는다. 제안은 `suggested_bundle_type`을 힌트로 제공하되 Curator가
+정제 제안 또는 Evidence를 참조하는 Draft Bundle. `no_bundle`은 결정 Receipt를 남겨 자동 종결한다. `runbook`·`manual`을 제외한 기존 Bundle의 갱신은 후보의 `type`·도메인·태그·Evidence 참조 Frontmatter가 제안과 맞고 현재 Evidence가 대상의 최신 Evidence보다 같거나 최신일 때 Evidence·Security·Validator·revision Gate 및 자동 갱신 Receipt를 통과하면 자동 적용한다. 일치 후보가 없으면 신규 Bundle로 생성한다. `runbook`·`manual`의 `update_existing`처럼 승인이 필요한 제안은 Review Queue handoff 결과를 반환한다. 그 외 Review handoff는 사용자의 명시 요청 식별자가 있는 경우에만 가능하다. Curator는 대화형 승인 선택지를 만들지 않는다. 제안은 `suggested_bundle_type`을 힌트로 제공하되 Curator가
 원문을 검토해 `no_bundle` 또는 전체 Bundle 타입(`policy`, `guide`, `runbook`, `manual`, `decision`,
 `spec`, `reference`, `report`) 중 적절한 결과를 선택한다. 시점 기준 현황·평가·주기 보고는 `report`,
 제품·시스템 사용 절차는 `manual`, 반복 운영·장애 대응 절차는 `runbook`으로 구분한다. Business Rulebook은
@@ -58,7 +58,7 @@ Evidence를 기존 Bundle과 비교하거나 신규 Draft를 작성한다.
 Evidence 정제 결과와 Curation Queue 소비는 RB-EVD-003·023을 적용한다. Queue 재처리 시에는 같은 Evidence의 미완료 Review 카드를 먼저 재사용하고, 카드가 없을 때만 새 UUID 카드를 만든다. Curator가 Review 카드를 만들면 해당 카드가
 검토 handoff를 표현한다. Review 카드는 Evidence ID·상대
 경로·checksum·제목·수집 목적·intended use의 안전한 snapshot을 보존하며, 실제 Evidence 링크를 기준으로 검토한다. 신규 Draft 승인 또는
-`no_bundle` 결정으로 작업을 소비하면 카드를 숨김 archive로 이동해 기본 목록에서는 제거하되 결정 receipt는 보존한다. 자동 갱신 대상이 아닌 `update_existing` 승인 카드는
+`no_bundle` 결정으로 작업을 소비하면 카드를 숨김 archive로 이동해 기본 목록에서는 제거하되 결정 receipt는 보존한다. `runbook`·`manual`의 `update_existing` 승인 카드는
 전용 적용 전까지 `approved`로 유지하고, 적용 직전 checksum·대상 revision을 다시 확인한다. 적용되면 최초 생성 Review를 유지한 채
 `extensions.curation.review_receipts`에 보완 이력을 누적하고 카드를 archive한다.
 Evidence 원문은 카드에 복사하지 않는다. stale 카드는 RB-CUR-004에 따라 archive하고 다시 큐잉한다. Adapter 실패는

@@ -374,6 +374,10 @@ def main() -> int:
     create_review.add_argument("--output", required=True, help="Validated CurationOutput JSON")
     create_review.add_argument("--generated-by", required=True)
     create_review.add_argument("--curation-receipt", required=True)
+    create_review.add_argument(
+        "--user-review-request",
+        help="Runtime-captured ID for a user's explicit Review request; required for types other than manual/runbook.",
+    )
     curation_batch = subparsers.add_parser("run-configured-curation-batch")
     curation_batch.add_argument("--limit", type=int, default=100)
     review_candidate = subparsers.add_parser("review-curation-candidate")
@@ -777,7 +781,7 @@ def main() -> int:
     if args.command == "apply-approved-curation-update":
         print(json.dumps(service.apply_approved_curation_update(args.review, actor=args.actor), ensure_ascii=False, indent=2)); return 0
     if args.command == "create-curation-review":
-        print(json.dumps(service.create_curation_review(args.evidence, json.loads(args.output), generated_by=args.generated_by, curation_receipt=args.curation_receipt), ensure_ascii=False, indent=2)); return 0
+        print(json.dumps(service.create_curation_review(args.evidence, json.loads(args.output), generated_by=args.generated_by, curation_receipt=args.curation_receipt, user_review_request=args.user_review_request), ensure_ascii=False, indent=2)); return 0
     if args.command == "run-configured-curation-batch":
         print(json.dumps(service.run_configured_curation_batch(args.limit), ensure_ascii=False, indent=2)); return 0
     if args.command == "review-curation-candidate":

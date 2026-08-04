@@ -225,7 +225,7 @@ PYTHONPATH=src python3 -m circled_wiki.cli review-curation-candidate \
   --actor <reviewer-id>
 ```
 
-외부 Curator가 야간에 처리한 결과 중 Review가 필요한 항목은 Bundle 대신 Git 추적 검토카드 `knowledge/curation-reviews/`에 먼저 저장된다.
+외부 Curator가 야간에 처리한 결과 중 `manual`·`runbook`만 Bundle 대신 Git 추적 검토카드 `knowledge/curation-reviews/`에 먼저 저장된다. 그 밖의 유형은 자동 Gate를 통과하면 자동 처리하고, Gate 실패는 Review 카드가 아니라 Curation Queue의 재시도 차단으로 남긴다. 사용자가 명시적으로 Review를 요청한 경우에만 해당 요청 식별자를 기록해 예외적으로 카드를 생성할 수 있다.
 카드는 Evidence ID·상대 경로·checksum을 함께 기록하며, `approve` 전에는 Bundle을 만들지 않는다.
 신규 Draft Bundle 생성 승인이 성공하면 승인 정보는 Bundle의 Curation metadata로 옮기고 소비된 검토카드는 삭제한다.
 카드가 생성된 Curator 작업은 Review Queue handoff로 종료하며, 현재 대화에서 승인 선택지를 묻지 않는다. 계약을 충족한
@@ -424,7 +424,7 @@ printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' \
 1. 사용자·지정 Batch·Hermes가 원본을 `knowledge/inbox/<provider>/`에 넣는다.
 2. 대화는 `capture_conversation`, URL에서 가져온 텍스트·HTML은 `capture_document`, PDF·Word·기타 파일은 `capture_file`로 적재한 뒤 `inspect_inbox`, 필요 시 `review_inbox_sensitivity`, `accept_inbox`, `ingest_accepted`를 순서대로 실행한다. URL만 저장하지 않고, 수집기가 실제로 읽은 원문과 URL·locator를 함께 보존한다.
 3. `propose_pending` 또는 `propose_update`로 기존 Bundle 후보와 신규 초안을 검토한다.
-4. LLM/하위 Agent Curation 결과는 먼저 UUID 기반 Git 추적 검토카드로 저장한다. Queue 재처리 시 같은 Evidence의 미완료 카드를 먼저 재사용하며, 카드가 없을 때만 새 카드를 생성한다. 사용자 또는 검증 Agent가 `decide_curation_review`로 별도 검증 시도를 기록한 신규 후보만 PII-cleared Draft를 만들며, 생성 성공 후 승인 기록은 Draft로 이동하고 소비된 검토카드는 archive로 이동한다. 기존 Bundle 보완은 승인된 `update_existing` Review의 `apply_approved_curation_update`로만 적용한다.
+4. `runbook`·`manual` Curation 결과는 UUID 기반 Git 추적 검토카드로 저장한다. Queue 재처리 시 같은 Evidence의 미완료 카드를 먼저 재사용하며, 카드가 없을 때만 새 카드를 생성한다. 사용자 또는 검증 Agent가 `decide_curation_review`로 별도 검증 시도를 기록한 신규 후보만 Evidence 생성 시 PII 처리가 확정된 Draft를 만들며, 생성 성공 후 승인 기록은 Draft로 이동하고 소비된 검토카드는 archive로 이동한다. 그 외 Bundle type의 신규 생성과 기존 보완은 확정된 Evidence·보안·checksum·revision·Validator Gate와 자동 갱신 Receipt를 통과하면 자동 적용한다. Curation은 PII Scan이나 민감도 검토를 다시 수행하지 않는다.
 5. 미처리 검토카드는 `list_curation_reviews`로 확인하고, Curation Adapter의 실패·중단은 `list_curation_queue`의 `reason`·`next_action`으로 확인한다. 이미 생성된 Draft 후보는 `list_curation_candidates`와 `review_curation_candidate`로 검토한다. Active 전환은 전용 `promote_curation_candidate` Gate와 Security receipt로만 수행한다.
 6. `validate_result` 또는 CLI `validate`와 보안 게이트가 통과하면 Hermes가 변경된 `knowledge/`를 자동 Git commit하고 결과를 로그에 남긴다.
 7. 사용자 작업 요청은 `find_workflow`와 `prepare_task`로 실행하고, 종료 결과는 `record_outcome`으로 `pending` Inbox에 환류한다. 이후에도 같은 `inspect_inbox -> review_inbox_sensitivity -> accept_inbox -> ingest_accepted -> propose_pending` 흐름을 적용한다.

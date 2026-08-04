@@ -7,7 +7,6 @@ from typing import Any, Dict, List, Optional
 from circled_wiki.config.settings import load_settings
 
 from .frontmatter import parse_markdown, render_markdown
-from .pii import pii_scan_receipt_errors
 from .repository import bundle_references_by_evidence, find_document_by_id, iter_documents
 from .curation_queue import list_curation_queue
 from .validator import validate_repository
