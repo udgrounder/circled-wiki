@@ -25,7 +25,10 @@ class DataProtectionPolicyTests(unittest.TestCase):
         self.assertIn("employee_business_contact", policy.non_sensitive_categories)
         self.assertEqual(
             set(policy.agent_mask_categories),
-            {"compensation", "performance_review", "disciplinary_action", "unlawful_content"},
+            {
+                "compensation", "performance_review", "disciplinary_action",
+                "unpublished_business_information", "security_configuration", "unlawful_content",
+            },
         )
         self.assertEqual(policy.missing_policy_action, "awaiting_user")
 

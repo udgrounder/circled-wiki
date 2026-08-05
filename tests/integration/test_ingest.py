@@ -284,6 +284,40 @@ class IngestEvidenceTests(unittest.TestCase):
         self.assertNotIn(unlawful_text, content)
         self.assertIn("정상적인 법률 검토", content)
 
+    def test_data_protection_review_masks_unpublished_business_and_security_details(self):
+        with tempfile.TemporaryDirectory() as temp_directory:
+            knowledge_root = Path(temp_directory) / "knowledge"
+            revenue = "미공개 매출·정산 금액은 12억원"
+            security = "보안 솔루션 구성 상세는 내부 정책에 따라 비공개"
+            captured = _capture_conversation(
+                knowledge_root, f"{revenue}; {security}; 일반 입사·퇴사 일정", "manual",
+                title="사업·보안 정책 경계", why_collected="정책 경계 검증",
+                intended_use=["내부 검토"], idempotency_key="business-security-boundary",
+            )
+            from circled_wiki.core.ingest import read_conversation_intake, review_data_protection
+
+            review = review_data_protection(
+                knowledge_root, captured.intake_id, "inspector", context="",
+                checks=["source_access_scope", "personal_context", "confidential_business_context", "publication_scope"],
+                rationale="미공개 사업정보와 보안 구성 상세만 해당 범위로 마스킹한다.",
+                findings=[
+                    {"category": "unpublished_business_information", "value": revenue},
+                    {"category": "security_configuration", "value": security},
+                ],
+            )
+            _, content = read_conversation_intake(captured.inbox_path)
+
+        self.assertEqual(
+            review["data_protection"]["agent_masked_findings"],
+            [
+                {"category": "unpublished_business_information", "count": 1},
+                {"category": "security_configuration", "count": 1},
+            ],
+        )
+        self.assertNotIn(revenue, content)
+        self.assertNotIn(security, content)
+        self.assertIn("일반 입사·퇴사 일정", content)
+
     def test_data_protection_review_scans_before_and_after_agent_masking(self):
         with tempfile.TemporaryDirectory() as temp_directory:
             knowledge_root = Path(temp_directory) / "knowledge"

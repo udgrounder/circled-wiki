@@ -29,6 +29,8 @@ DEFAULT_AGENT_MASK_CATEGORIES = (
     "compensation",
     "performance_review",
     "disciplinary_action",
+    "unpublished_business_information",
+    "security_configuration",
     "unlawful_content",
 )
 DEFAULT_AGENT_MASK_GUIDANCE = {
@@ -46,6 +48,16 @@ DEFAULT_AGENT_MASK_GUIDANCE = {
         "description": "개인에 대한 징계 사유·절차·결정·조치 기록",
         "include": ["징계 사유", "징계 절차·결정", "개인 조치 기록"],
         "exclude": ["일반 행동강령", "징계 절차 안내", "비식별 교육 자료"],
+    },
+    "unpublished_business_information": {
+        "description": "공개되지 않은 매출·정산·가격·수익성 또는 사업 전략 정보",
+        "include": ["미공개 매출·정산 금액", "미공개 가격·수익성", "비공개 사업 전략"],
+        "exclude": ["공개 재무 수치", "집계·비식별 예산", "일반 사업 계획"],
+    },
+    "security_configuration": {
+        "description": "내부 보안 솔루션 구성·접근통제·탐지 규칙·사고 대응 기술 상세",
+        "include": ["보안 솔루션 구성 상세", "접근통제·탐지 규칙 상세", "사고 대응 기술 상세"],
+        "exclude": ["공개 보안 정책", "일반 보안 모범사례", "비식별 아키텍처 설명"],
     },
     "unlawful_content": {
         "description": "명시적인 불법 행위의 실행·조장·은폐 또는 타인의 권리·안전을 침해하는 구체적 지시",

@@ -49,7 +49,7 @@ Launcher는 현재 작업 디렉터리에 관계없이 이 프로젝트 root와 
    `agent-rules/contracts/inbox.yaml`을 적용해 이미 충족한 Inbox 검사·Evidence 변환 Gate만 순서대로 재수행한다.
    `review-data-protection`이 PII Scan과 Data Protection Review를 하나의 단계로 실행한다. 먼저 실제 Inbox 후보에서
    `hard_mask_categories: true`인 하드 PII를 마스킹하고, 민감도 판단 단계에서 같은 활성 범주를 다시 확인해
-   놓친 값을 보완하며 Agent가 판단 가능한 급여·평가·징계와 명시적인 불법 행위 실행·조장·은폐 또는 타인의
+   놓친 값을 보완하며 Agent가 판단 가능한 급여·평가·징계·미공개 사업정보·보안 구성과 명시적인 불법 행위 실행·조장·은폐 또는 타인의
    권리·안전을 침해하는 구체적 지시만 선택적으로 마스킹한 뒤
    최종 후보를 다시 스캔해 본문 checksum과 본문·복사 메타데이터 fingerprint에 결합된 하나의
    checksum-bound `data_protection_receipt`를 기록한다. `false`인 하드 스캔 범주는 이 자동 보호 경로에서
