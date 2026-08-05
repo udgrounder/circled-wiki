@@ -29,7 +29,7 @@ Knowledge MCP는 여러 AI Agent가 공통으로 사용하는 외부 인터페�
 - `capture_document`
 - `capture_file`
 - `inspect_inbox`
-- `review_inbox_sensitivity`
+- `review_data_protection`
 - `accept_inbox`
 - `ingest_accepted`
 - `create_draft_bundle`
@@ -91,10 +91,10 @@ Knowledge MCP는 여러 AI Agent가 공통으로 사용하는 외부 인터페�
 - 변경: `knowledge/inbox/<provider>/`만 변경하며 Evidence 변환이나 정제를 함께 수행하지 않는다.
 - `capture_file` payload는 base64로 전달하고 파일명·경로·idempotency를 검증한다.
 
-### inspect_inbox / review_inbox_sensitivity / accept_inbox / ingest_accepted
+### inspect_inbox / review_data_protection / accept_inbox / ingest_accepted
 
 - `inspect_inbox`: pending 항목의 checksum·경로·필수 메타데이터·민감정보 Gate를 읽기 전용 검사
-- `review_inbox_sensitivity`: 식별된 사람의 민감정보 검토 결정을 기록
+- `review_data_protection`: 실제 Inbox 후보에 PII Scan과 Agent 민감도 판단·선택적 마스킹을 함께 적용하고 단일 Receipt를 기록
 - `accept_inbox`: inspector actor와 함께 검사 통과 항목을 accepted로 전환
 - `ingest_accepted`: accepted 항목만 Evidence로 변환하며 정제는 수행하지 않음
 

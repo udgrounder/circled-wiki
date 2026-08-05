@@ -102,6 +102,17 @@ def complete_curation_work(knowledge_root: Path, evidence_id: str) -> bool:
         return _complete_curation_work_unlocked(knowledge_root, evidence_id)
 
 
+def rollback_curation_work(knowledge_root: Path, evidence_id: str) -> bool:
+    """Remove a newly-created pending Queue item during Inbox ingest rollback."""
+    knowledge_root = knowledge_root.resolve()
+    with curation_queue_transaction(knowledge_root):
+        target = _item_path(knowledge_root, evidence_id)
+        if not target.is_file():
+            return False
+        target.unlink(missing_ok=True)
+        return True
+
+
 def _complete_curation_work_unlocked(
     knowledge_root: Path, evidence_id: str
 ) -> bool:

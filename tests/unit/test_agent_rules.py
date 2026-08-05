@@ -137,10 +137,10 @@ class AgentRuleProfileTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
 
         self.assertIn("1차 마스킹", capture)
-        self.assertIn("2차 확인", inspection)
+        self.assertIn("통합 Receipt", inspection)
         self.assertIn("불변 파일 원본", capture)
         self.assertIn("pii_scanned: true", inspection)
-        self.assertIn("PII Scan Receipt를 대신하지 않는다", policy)
+        self.assertIn("data_protection_receipt", policy)
 
     def test_pii_receipt_contract_is_canonical_and_ingest_references_it(self):
         operating = (ROOT / "OPERATING_RULES.md").read_text(encoding="utf-8")
@@ -149,7 +149,7 @@ class AgentRuleProfileTests(unittest.TestCase):
         )
 
         self.assertIn("후보 checksum", operating)
-        self.assertIn("Evidence 최초 생성 입력", operating)
+        self.assertIn("Evidence 변환을 허용", operating)
         self.assertIn("needs_review", operating)
         self.assertIn("RB-EVD-020·RB-SEC-005", ingest)
         self.assertNotIn("scanner·version·시각·결과·검토자", ingest)
@@ -166,7 +166,7 @@ class AgentRuleProfileTests(unittest.TestCase):
         }
 
         self.assertIn("2차 마스킹 확인", profiles["inbox-inspection.md"])
-        self.assertIn("Receipt의 후보 checksum", profiles["evidence-ingest.md"])
+        self.assertIn("통합 Receipt의 `source_checksum`", profiles["evidence-ingest.md"])
         self.assertIn("다시 확인", profiles["knowledge-curation.md"])
         self.assertIn("응답 전 최종 마스킹 확인", profiles["knowledge-query.md"])
         for name, content in profiles.items():
@@ -235,7 +235,7 @@ class AgentRuleProfileTests(unittest.TestCase):
         self.assertIn("세부 전이·차단 사유·재처리는 등록된 Inbox 계약", operating)
         self.assertIn("`awaiting_user`", operating)
         self.assertIn("`review_handoff`", operating)
-        self.assertIn("Evidence 직전 PII Scan·Receipt 확정", operating)
+        self.assertIn("통합 Data Protection Receipt", operating)
         self.assertIn("`needs_review` 뒤 안전 처리", operating)
         self.assertIn("on_blocked:", contract)
         self.assertIn("Block reasons are", contract)
@@ -243,12 +243,12 @@ class AgentRuleProfileTests(unittest.TestCase):
         self.assertIn("sensitivity_review_required", contract)
         self.assertIn("pii_needs_review", contract)
         self.assertIn("Capture starts with sensitivity_review: required", contract)
-        self.assertIn("Scan processes policy-target PII including mobile phone", contract)
+        self.assertIn("first masks enabled hard-scan values", contract)
         self.assertIn("`agent-rules/contracts/inbox.yaml`", router)
         self.assertIn("`agent-rules/contracts/curation.yaml`", router)
-        self.assertIn("자동 PII Scan은 전화번호를 포함한 정책 대상 PII를 실제 후보에서 검사·마스킹해 `passed` 또는 `masked` Receipt", bootstrap)
-        self.assertIn("`needs_review` 뒤 안전 처리", bootstrap)
-        self.assertIn("전화번호를 포함한 정책 대상 PII", rules)
+        self.assertIn("checksum-bound `data_protection_receipt`", bootstrap)
+        self.assertIn("안전한 다음 행동만 기존 Review Queue에 기록", bootstrap)
+        self.assertIn("정책에서 활성화된 범주", rules)
         self.assertIn("`needs_review`는 단계별 판정", rules)
 
     def test_curation_contract_preserves_review_and_revision_gates(self):

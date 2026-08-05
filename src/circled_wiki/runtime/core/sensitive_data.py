@@ -1,16 +1,15 @@
-"""Conservative pre-Inbox redaction for high-risk identifiers and credentials.
+"""Configurable detection and masking for supported high-confidence categories.
 
-This is intentionally not a general PII classifier.  It only handles the
-small, high-confidence set that must never be copied into a Wiki capture:
-Korean resident registration numbers, financial account/card numbers, and
-credentials.  Names, email addresses, telephone numbers, and ordinary internal
-URLs and landline/representative telephone numbers are outside this automatic
-rule and remain subject to the normal reviewer judgment.  Korean mobile
-numbers beginning with ``010`` (including ``+82 10`` notation) are masked.
+This is intentionally not a general PII classifier.  The scanner supports a
+small set of high-confidence identifiers, credentials, mobile phone numbers,
+and email addresses.  The active hard-mask categories are supplied by the
+installation policy; the caller decides whether an omitted or disabled
+category should be processed elsewhere.
 """
 
 from dataclasses import dataclass
 import re
+from typing import Iterable, Optional
 
 
 REDACTED_VALUE = "********"
@@ -22,6 +21,7 @@ class SensitiveDataPrecheckResult:
 
     content: str
     categories: tuple[str, ...]
+    policy_categories: tuple[str, ...] = ()
 
 
 _RESIDENT_REGISTRATION_NUMBER = re.compile(
@@ -50,12 +50,26 @@ _KNOWN_TOKEN = re.compile(
     r"github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9_]{20,}|"
     r"xox[baprs]-[A-Za-z0-9-]{20,})(?![A-Za-z0-9_-])"
 )
+_EMAIL_ADDRESS = re.compile(
+    r"(?<![A-Za-z0-9.!#$%&'*+/=?^_`{|}~-])"
+    r"[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@"
+    r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?"
+    r"(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+"
+    r"(?![A-Za-z0-9.!#$%&'*+/=?^_`{|}~-])"
+)
 _CARD_CANDIDATE = re.compile(r"(?<!\d)(?:\d[ -]?){12,18}\d(?!\d)")
 # Hyphenated UUIDs and identifiers can contain a digit sequence that looks
 # like a phone number.  Do not match when either edge remains part of such an
 # identifier.
 _MOBILE_PHONE_NUMBER = re.compile(r"(?<![\d-])(?:010|\+82[ -]?10)[ -]?\d{3,4}[ -]?\d{4}(?![\d-])")
 _HTML_LAYOUT_NUMBER = re.compile(r'(?P<attribute>\b(?:width|height)\s*=\s*["\'])(?P<value>\d+(?:\.\d+)?)(?P<end>["\'])', re.I)
+
+_DEFAULT_HARD_MASK_CATEGORIES = frozenset({
+    "resident_registration_number",
+    "account_number",
+    "card_number",
+    "credential",
+})
 
 
 def _luhn_valid(number: str) -> bool:
@@ -70,7 +84,10 @@ def _luhn_valid(number: str) -> bool:
     return total % 10 == 0
 
 
-def redact_sensitive_data(content: str) -> SensitiveDataPrecheckResult:
+def redact_sensitive_data(
+    content: str, *, mask_policy_categories: bool = False,
+    hard_mask_categories: Optional[Iterable[str]] = None,
+) -> SensitiveDataPrecheckResult:
     """Mask only high-confidence identifiers and credentials in ``content``.
 
     The function does not claim that a text is free of all personal information;
@@ -79,6 +96,12 @@ def redact_sensitive_data(content: str) -> SensitiveDataPrecheckResult:
     """
     if not isinstance(content, str):
         raise TypeError("content must be a string")
+
+    active_hard_categories = set(
+        _DEFAULT_HARD_MASK_CATEGORIES if hard_mask_categories is None else hard_mask_categories
+    )
+    if mask_policy_categories:
+        active_hard_categories.add("mobile_phone_number")
 
     categories: set[str] = set()
     protected: list[str] = []
@@ -90,41 +113,63 @@ def redact_sensitive_data(content: str) -> SensitiveDataPrecheckResult:
     content = _HTML_LAYOUT_NUMBER.sub(protect_layout, content)
 
     def redact_resident_registration(match: re.Match[str]) -> str:
+        if "resident_registration_number" not in active_hard_categories:
+            return match.group(0)
         categories.add("resident_registration_number")
         return REDACTED_VALUE
 
     def redact_account(match: re.Match[str]) -> str:
+        if "account_number" not in active_hard_categories:
+            return match.group(0)
         categories.add("account_number")
         return f"{match.group('label')}{match.group('separator')}{REDACTED_VALUE}"
 
     def redact_credential(match: re.Match[str]) -> str:
+        if "credential" not in active_hard_categories:
+            return match.group(0)
         categories.add("credential")
         return f"{match.group('label')}{REDACTED_VALUE}"
 
+    def redact_email(match: re.Match[str]) -> str:
+        if "email_address" not in active_hard_categories:
+            return match.group(0)
+        categories.add("email_address")
+        return REDACTED_VALUE
+
     def redact_card(match: re.Match[str]) -> str:
+        if "card_number" not in active_hard_categories:
+            return match.group(0)
         digits = re.sub(r"[ -]", "", match.group(0))
         if 13 <= len(digits) <= 19 and _luhn_valid(digits):
             categories.add("card_number")
             return REDACTED_VALUE
         return match.group(0)
 
-    def redact_mobile_phone(match: re.Match[str]) -> str:
-        categories.add("mobile_phone_number")
-        return REDACTED_VALUE
-
-    redacted = _PRIVATE_KEY_BLOCK.sub(REDACTED_VALUE, content)
+    redacted = (
+        _PRIVATE_KEY_BLOCK.sub(REDACTED_VALUE, content)
+        if "credential" in active_hard_categories else content
+    )
     if redacted != content:
         categories.add("credential")
     redacted = _PRESIGNED_URL_CREDENTIAL.sub(redact_credential, redacted)
     redacted = _CREDENTIAL_ASSIGNMENT.sub(redact_credential, redacted)
-    redacted = _KNOWN_TOKEN.sub(lambda _match: _redact_token(categories), redacted)
+    redacted = _KNOWN_TOKEN.sub(
+        lambda _match: _redact_token(categories)
+        if "credential" in active_hard_categories else _match.group(0),
+        redacted,
+    )
     redacted = _RESIDENT_REGISTRATION_NUMBER.sub(redact_resident_registration, redacted)
     redacted = _ACCOUNT_NUMBER.sub(redact_account, redacted)
     redacted = _CARD_CANDIDATE.sub(redact_card, redacted)
-    redacted = _MOBILE_PHONE_NUMBER.sub(redact_mobile_phone, redacted)
+    redacted = _EMAIL_ADDRESS.sub(redact_email, redacted)
+    policy_categories = (
+        ("mobile_phone_number",) if _MOBILE_PHONE_NUMBER.search(redacted) else ()
+    )
+    if mask_policy_categories and policy_categories:
+        redacted = _MOBILE_PHONE_NUMBER.sub(REDACTED_VALUE, redacted)
     for index, value in enumerate(protected):
         redacted = redacted.replace(f"__CW_LAYOUT_{index}__", value)
-    return SensitiveDataPrecheckResult(redacted, tuple(sorted(categories)))
+    return SensitiveDataPrecheckResult(redacted, tuple(sorted(categories)), policy_categories)
 
 
 def detect_sensitive_data_categories(content: str) -> tuple[str, ...]:

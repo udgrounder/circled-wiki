@@ -31,7 +31,7 @@
 - 공식 지식 발행은 승인 상태와 발행 권한, Queue·Review·Draft 상태 공유는 configured publication policy
 - 기존 staged 변경 없음
 - 현재 Evidence checksum과 승격 provenance 기록. `runbook`·`manual`은 생성 전 Review ID와 별도 검증 시도 기록이 필수이며, 최초 생성·보완 Review는 `extensions.curation.review_receipts`에 누적 보존한다. 직접 생성 가능한 유형은 RB-CUR-006 자동 Gate의 provenance를 남긴다
-- active 전환이면 전용 Promotion Gate의 Security Receipt와 PII Scan Receipt
+- active 전환이면 전용 Promotion Gate의 Security Receipt와 Evidence에 보존된 통합 `data_protection_receipt`
 - 처리 주체 전이 또는 종료면 이전 결과, 대상 checksum, 다음 처리 주체와 `next_action`을 기록. Push Receipt는 Commit·Push 성공 뒤 이 전이를 완료 처리하는 결과물
 
 ## Output

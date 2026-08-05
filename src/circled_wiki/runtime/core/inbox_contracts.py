@@ -26,35 +26,40 @@ SUPPORTED_TRANSITIONS = {
             "reasons": {
                 "sensitivity_review_required": {
                     "current_stage": "sensitivity_review",
-                    "requested_action": "complete_sensitivity_review",
+                    "requested_action": "review_data_protection",
                     "resolved_next_action": "reprocess_inbox",
                 },
             },
         },
         "requires": {
-            "required_metadata", "provider_folder", "content_checksum", "sensitivity_review_resolved",
+            "required_metadata", "provider_folder", "content_checksum", "data_protection_resolved",
         },
     },
     "accepted": {
         "profile": "evidence-ingest",
-        "action": "scan_pii_then_ingest",
+        "action": "ingest_accepted",
         "next_stage": "evidence",
         "on_blocked": {
             "task_contract": "inbox_reconciliation",
             "reasons": {
                 "pii_scan_required": {
-                    "current_stage": "pii_scan",
-                    "requested_action": "record_inbox_pii_scan",
+                    "current_stage": "data_protection",
+                    "requested_action": "review_data_protection",
                     "resolved_next_action": "reprocess_inbox",
                 },
                 "pii_needs_review": {
-                    "current_stage": "pii_scan",
-                    "requested_action": "decide_safe_handling",
+                    "current_stage": "data_protection",
+                    "requested_action": "review_data_protection",
+                    "resolved_next_action": "reprocess_inbox",
+                },
+                "data_protection_required": {
+                    "current_stage": "data_protection",
+                    "requested_action": "review_data_protection",
                     "resolved_next_action": "reprocess_inbox",
                 },
             },
         },
-        "requires": {"accepted_inspection", "pii_review_not_blocking"},
+        "requires": {"accepted_inspection", "data_protection_receipt"},
     },
 }
 SUPPORTED_INBOX_REVIEW_REQUIREMENTS = {

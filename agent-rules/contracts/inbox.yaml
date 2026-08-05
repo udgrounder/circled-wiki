@@ -7,14 +7,14 @@ metadata:
     Reconcile normal Inbox items toward Evidence. non_business_confirmed
     disposition is handled outside this contract through reversible quarantine;
     ambiguous or unclassified items remain in the normal inspection flow.
-    Capture starts with sensitivity_review: required. The Agent resolves it
-    from the selected Inbox policy or procedure and recorded evidence; only a
-    missing procedure or insufficient evidence awaits the user. Automatic PII
-    Scan processes policy-target PII including mobile phone numbers for
-    accepted candidates, but PII categories do not resolve sensitivity_review
-    decisions or safe handling after a needs_review result. Block reasons are
-    requirements; only user-only actions move the contract work to
-    awaiting_user.
+    Capture starts with sensitivity_review: required. The integrated
+    Data Protection Review first masks enabled hard-scan values, rechecks those
+    categories for misses, masks approved restricted values, and records
+    one checksum-bound data_protection_receipt. Only an unresolvable scope,
+    masking boundary, or business context awaits the user. The accepted stage
+    verifies the Receipt, checksum, Evidence schema, and transition artifacts
+    before Evidence conversion. Block reasons are
+    requirements; only user-only actions move the contract work to awaiting_user.
 spec:
   stages:
     pending:
@@ -25,29 +25,33 @@ spec:
         - required_metadata
         - provider_folder
         - content_checksum
-        - sensitivity_review_resolved
+        - data_protection_resolved
       on_blocked:
         task_contract: inbox_reconciliation
         reasons:
           sensitivity_review_required:
             current_stage: sensitivity_review
-            requested_action: complete_sensitivity_review
+            requested_action: review_data_protection
             resolved_next_action: reprocess_inbox
     accepted:
       profile: evidence-ingest
-      action: scan_pii_then_ingest
+      action: ingest_accepted
       next_stage: evidence
       requires:
         - accepted_inspection
-        - pii_review_not_blocking
+        - data_protection_receipt
       on_blocked:
         task_contract: inbox_reconciliation
         reasons:
           pii_scan_required:
-            current_stage: pii_scan
-            requested_action: record_inbox_pii_scan
+            current_stage: data_protection
+            requested_action: review_data_protection
             resolved_next_action: reprocess_inbox
           pii_needs_review:
-            current_stage: pii_scan
-            requested_action: decide_safe_handling
+            current_stage: data_protection
+            requested_action: review_data_protection
+            resolved_next_action: reprocess_inbox
+          data_protection_required:
+            current_stage: data_protection
+            requested_action: review_data_protection
             resolved_next_action: reprocess_inbox

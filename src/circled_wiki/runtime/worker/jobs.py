@@ -10,10 +10,10 @@ from uuid import uuid4
 
 from circled_wiki.core.curator import propose_update
 from circled_wiki.config.settings import load_settings
-from circled_wiki.core.frontmatter import FrontmatterError, parse_markdown
+from circled_wiki.core.frontmatter import FrontmatterError, parse_markdown, render_markdown
 from circled_wiki.core.ingest import (
     accept_ready_inbox, ingest_evidence, iter_active_inbox_items,
-    read_conversation_intake, run_automatic_pii_scan,
+    read_conversation_intake, rollback_evidence_ingest,
 )
 from circled_wiki.core.inbox_contracts import (
     CONTRACT_NAME,
@@ -26,7 +26,14 @@ from circled_wiki.core.inbox_review_queue import (
     complete_inbox_review,
     enqueue_inbox_review,
     has_blocking_inbox_review,
+    inbox_review_is_resolved,
+    reopen_inbox_data_protection_review,
+    reopen_inbox_review_after_ingest_failure,
     review_context,
+)
+from circled_wiki.core.data_protection_receipt import (
+    data_protection_candidate_checksum,
+    data_protection_receipt_errors,
 )
 from circled_wiki.core.repository import iter_documents
 from circled_wiki.core.curation_queue import (
@@ -147,11 +154,16 @@ def reconcile_curation(knowledge_root: Path, limit: int = 100) -> Dict[str, obje
         outcome = queued_stage["outcomes"][outcome_name]
         evidence_id = item.get("evidence_id")
         if outcome["queue_disposition"] == "complete" and isinstance(evidence_id, str):
-            record_curation_contract_outcome(
+            recorded = record_curation_contract_outcome(
                 knowledge_root, evidence_id, outcome=outcome_name,
                 next_stage=str(outcome["next_stage"]),
                 artifact=_curation_result_artifact(result),
             )
+            if not recorded:
+                raise ValueError(
+                    "Curation result exists but its contract archive receipt is missing: "
+                    + evidence_id
+                )
         outcomes.append({
             "evidence_id": evidence_id,
             "outcome": outcome_name,
@@ -259,6 +271,7 @@ def inspect_inbox(knowledge_root: Path, limit: int = 100) -> Dict[str, object]:
     for path in iter_active_inbox_items(knowledge_root):
         if len(items) + len(invalid) >= limit:
             break
+        result = None
         try:
             data, _ = read_conversation_intake(path)
         except FrontmatterError:
@@ -272,6 +285,12 @@ def inspect_inbox(knowledge_root: Path, limit: int = 100) -> Dict[str, object]:
         issues = []
         if data.get("sensitivity_review") == "required":
             issues.append("sensitivity_review_required")
+        receipt_errors = data_protection_receipt_errors(
+            data.get("data_protection_receipt"),
+            checksum=str(data.get("checksum", "")), require_resolved=True,
+        )
+        if receipt_errors and data.get("sensitivity_review") != "required":
+            issues.append("data_protection_required")
         items.append({
             "intake_id": data["id"],
             "path": path.relative_to(knowledge_root).as_posix(),
@@ -282,7 +301,7 @@ def inspect_inbox(knowledge_root: Path, limit: int = 100) -> Dict[str, object]:
             "issues": issues,
             "checks": [
                 "required_metadata", "provider_folder", "content_checksum",
-                "sensitivity_review",
+                "sensitivity_review", "data_protection_receipt",
             ],
         })
     return {
@@ -319,10 +338,110 @@ def _link_workflow_outcome(
     return True
 
 
+def _unlink_workflow_outcome(
+    knowledge_root: Path, intake: Dict[str, object], evidence_id: str,
+) -> None:
+    """Undo an outcome link when the surrounding Inbox transition rolls back."""
+    details = intake.get("capture_details")
+    if not isinstance(details, dict) or details.get("capture_type") != "workflow_outcome":
+        return
+    task_id = details.get("task_id")
+    if not isinstance(task_id, str) or not task_id:
+        return
+    try:
+        store = TaskStore(knowledge_root.parent / ".runtime")
+        task = store.read(task_id)
+    except (OSError, ValueError):
+        return
+    if task.get("outcome_evidence_id") != evidence_id:
+        return
+    task.pop("outcome_evidence_id", None)
+    store.update(task)
+
+
+def _verify_inbox_evidence_transition(
+    knowledge_root: Path, intake_path: Path, intake_id: str, evidence_id: str,
+    *, queue_expected: bool, source_absent: bool = True,
+) -> None:
+    """Verify only the transition artifacts; Evidence content was validated at creation."""
+    if source_absent and intake_path.exists():
+        raise ValueError("Inbox source remained after Evidence transition")
+    task_name = intake_id.rsplit("/", 1)[-1] + ".md"
+    archive = knowledge_root.parent / "workspace" / "task" / ".archive" / "inbox_reconciliation" / task_name
+    if not archive.is_file():
+        raise ValueError("Inbox contract archive is missing after Evidence transition")
+    task = parse_markdown(archive).frontmatter
+    current = task.get("current")
+    if task.get("evidence_id") != evidence_id or not isinstance(current, dict) or current.get("status") != "completed":
+        raise ValueError("Inbox contract archive does not reference completed Evidence")
+    if queue_expected and not any(
+        str(item.get("evidence_id")) == evidence_id for item in list_curation_queue(knowledge_root)
+    ):
+        raise ValueError("Curation Queue item is missing after Evidence transition")
+
+
+def _stage_inbox_source_for_removal(
+    intake_path: Path, payload: object, *, is_file: bool,
+) -> List[Path]:
+    """Move Inbox source files to non-active staging names before cleanup.
+
+    The staged names do not end in ``.md`` and therefore cannot be picked up by
+    Inbox reconciliation.  If the second move fails, the first move is
+    restored so a retry still has the complete source.
+    """
+    staged: List[Path] = []
+    staged_envelope = intake_path.parent / f".ingest-removed-{uuid4()}.envelope"
+    intake_path.replace(staged_envelope)
+    staged.append(staged_envelope)
+    if is_file:
+        payload_path = Path(payload)
+        staged_payload = payload_path.parent / f".ingest-removed-{uuid4()}.payload"
+        try:
+            payload_path.replace(staged_payload)
+        except OSError:
+            staged_envelope.replace(intake_path)
+            raise
+        staged.append(staged_payload)
+    return staged
+
+
+def _restore_staged_inbox_source(
+    intake_path: Path, payload: object, staged: List[Path], *, is_file: bool,
+) -> None:
+    """Restore staged Inbox files after a pre-cleanup transition failure."""
+    if is_file and len(staged) > 1 and staged[1].exists():
+        Path(payload).parent.mkdir(parents=True, exist_ok=True)
+        staged[1].replace(Path(payload))
+    if staged and staged[0].exists():
+        intake_path.parent.mkdir(parents=True, exist_ok=True)
+        staged[0].replace(intake_path)
+
+
+def _rewind_accepted_inbox_to_data_protection(path: Path, data: Dict[str, object]) -> Dict[str, object]:
+    """Reopen an accepted candidate when its unified security receipt is absent."""
+    if data.get("status") != "accepted":
+        return data
+    document = parse_markdown(path)
+    updated = dict(data)
+    updated["status"] = "pending"
+    updated.pop("inspection", None)
+    updated["sensitivity_review"] = "required"
+    updated.pop("data_protection_receipt", None)
+    updated.pop("sensitivity_inspection", None)
+    updated.pop("pii_scan_receipt", None)
+    path.write_text(render_markdown(updated, document.body), encoding="utf-8")
+    return updated
+
+
 def ingest_accepted_inbox(
     knowledge_root: Path, limit: int = 100, *, intake_ids: Optional[Set[str]] = None,
 ) -> Dict[str, object]:
-    """Run the final PII Scan, then convert accepted Inbox items to Evidence."""
+    """Convert accepted, data-protection-reviewed Inbox items to Evidence.
+
+    The integrated Data Protection stage has already scanned and decided the
+    exact candidate.  This worker only validates that receipt and performs the
+    transition; it never re-runs or reinterprets PII or sensitivity decisions.
+    """
     if isinstance(limit, bool) or not isinstance(limit, int) or limit < 1 or limit > 1000:
         raise ValueError("limit must be an integer between 1 and 1000")
     knowledge_root = knowledge_root.resolve()
@@ -342,17 +461,30 @@ def ingest_accepted_inbox(
             continue
         if data.get("status") != "accepted":
             continue
-        # PII Scan is intentionally adjacent to Evidence creation.  This
-        # makes every public and internal ingest path use the same candidate
-        # and prevents an accepted item from bypassing its security decision.
-        pii_outcome = run_automatic_pii_scan(knowledge_root, str(data["id"]))
-        data, content = read_conversation_intake(path)
-        if data.get("status") != "accepted":
+        # PII Scan and sensitivity review are one completed Data Protection
+        # stage. Evidence creation verifies that single checksum-bound Receipt;
+        # it does not re-run or reinterpret the security decision.
+        receipt = data.get("data_protection_receipt")
+        receipt_errors = data_protection_receipt_errors(
+            receipt, checksum=str(data.get("checksum", "")),
+            candidate_checksum=data_protection_candidate_checksum(data, content),
+            require_resolved=True,
+        )
+        if receipt_errors:
+            data = _rewind_accepted_inbox_to_data_protection(path, data)
+            reopen_inbox_data_protection_review(
+                knowledge_root, intake_id=str(data["id"]), actor="evidence-ingest-agent",
+            )
+            if not isinstance(receipt, dict) or receipt.get("status") != "awaiting_user":
+                enqueue_inbox_review(
+                    knowledge_root, intake_id=str(data["id"]), inbox_path=path,
+                    current_stage="data_protection", reason_code="data_protection_required",
+                )
             failed.append({
                 "intake_id": str(data["id"]),
                 "path": path.relative_to(knowledge_root).as_posix(),
-                "error": "Inbox candidate changed during PII Scan and requires acceptance",
-                "reason_code": "accepted_inspection",
+                "error": "Data Protection Receipt is required before Evidence ingestion",
+                "reason_code": "data_protection_required",
             })
             continue
         if has_blocking_inbox_review(knowledge_root, str(data["id"])):
@@ -362,35 +494,26 @@ def ingest_accepted_inbox(
                 "error": "inbox review must be resolved before Evidence ingestion",
             })
             continue
-        if not isinstance(data.get("pii_scan_receipt"), dict):
-            enqueue_inbox_review(
-                knowledge_root,
-                intake_id=str(data["id"]),
-                inbox_path=path,
-                current_stage="pii_scan",
-                reason_code="pii_scan_required",
-            )
-            failed.append({
-                "intake_id": str(data["id"]),
-                "path": path.relative_to(knowledge_root).as_posix(),
-                "error": "PII Scan Receipt is required before Evidence ingestion",
-                "reason_code": "pii_scan_required",
-            })
-            continue
         is_file = data.get("content_type") == "file"
-        if is_file:
-            payload_path = Path(content)
-            temporary_path = path.parent / f".ingest-{uuid4()}{payload_path.suffix.lower()}"
-            # Keep the Inbox payload intact until Evidence validation succeeds so a
-            # failed batch remains retryable.
-            shutil.copy2(payload_path, temporary_path)
-        else:
-            temporary_path = path.parent / f".ingest-{uuid4()}.md"
-            temporary_path.write_text(str(content), encoding="utf-8")
+        temporary_path: Optional[Path] = None
+        staged_source: List[Path] = []
+        result = None
         try:
+            if is_file:
+                payload_path = Path(content)
+                temporary_path = path.parent / f".ingest-{uuid4()}{payload_path.suffix.lower()}"
+                # Keep the Inbox payload intact until Evidence validation succeeds so a
+                # failed batch remains retryable.
+                shutil.copy2(payload_path, temporary_path)
+            else:
+                temporary_path = path.parent / f".ingest-{uuid4()}.md"
+                temporary_path.write_text(str(content), encoding="utf-8")
             captured_at = datetime.fromisoformat(str(data["captured_at"]).replace("Z", "+00:00"))
             capture_details = data.get("capture_details")
             inbox_review = review_context(knowledge_root, str(data["id"]))
+            if inbox_review is None:
+                raise ValueError("resolved Data Protection Receipt and Inbox contract record are required")
+            pii_scan = dict(receipt["pii_scan"])
             result = ingest_evidence(
                 knowledge_root,
                 temporary_path,
@@ -408,10 +531,8 @@ def ingest_accepted_inbox(
                 idempotency_key=str(data["idempotency_key"]),
                 content_mode="external_file" if is_file else "embedded",
                 capture_fidelity="verbatim",
-                pii_scan_receipt=(
-                    data.get("pii_scan_receipt")
-                    if isinstance(data.get("pii_scan_receipt"), dict) else None
-                ),
+                pii_scan_receipt=pii_scan,
+                data_protection_receipt=dict(receipt),
                 inbox_review=inbox_review,
                 capture_details=(
                     capture_details if data.get("content_type") == "conversation" and isinstance(capture_details, dict) else None
@@ -430,9 +551,25 @@ def ingest_accepted_inbox(
                 evidence_id=result.evidence_id,
             )
             outcome_linked = _link_workflow_outcome(knowledge_root, data, result.evidence_id)
-            path.unlink()
-            if is_file:
-                Path(content).unlink(missing_ok=True)
+            if (
+                isinstance(capture_details, dict)
+                and capture_details.get("capture_type") == "workflow_outcome"
+                and not outcome_linked
+            ):
+                raise ValueError("workflow outcome Evidence linkage failed; Inbox remains retryable")
+            staged_source = _stage_inbox_source_for_removal(path, content, is_file=is_file)
+            _verify_inbox_evidence_transition(
+                knowledge_root, path, str(data["id"]), result.evidence_id,
+                queue_expected=not result.reused,
+            )
+            cleanup_pending: List[str] = []
+            for staged_path in staged_source:
+                try:
+                    staged_path.unlink(missing_ok=True)
+                except OSError:
+                    # Evidence and the contract transition are already durable;
+                    # leave the non-active staging file for a later cleanup pass.
+                    cleanup_pending.append(staged_path.name)
             ingested.append({
                 "intake_id": data["id"],
                 "evidence_id": result.evidence_id,
@@ -441,14 +578,48 @@ def ingest_accepted_inbox(
                 ).as_posix(),
                 "reused": result.reused,
                 "outcome_linked": outcome_linked,
-                "pii_scan_result": (
-                    str(data["pii_scan_receipt"].get("result"))
-                    if isinstance(data.get("pii_scan_receipt"), dict) else None
-                ),
+                "data_protection_status": str(receipt["status"]),
+                "pii_scan_result": str(pii_scan.get("result", "")),
+                **({"cleanup_pending": cleanup_pending} if cleanup_pending else {}),
             })
         except (OSError, ValueError, KeyError, TypeError) as error:
-            temporary_path.unlink(missing_ok=True)
-            failed.append({"path": path.relative_to(knowledge_root).as_posix(), "error": str(error)})
+            cleanup_errors: List[str] = []
+            if staged_source:
+                try:
+                    _restore_staged_inbox_source(path, content, staged_source, is_file=is_file)
+                except (OSError, ValueError) as cleanup_error:
+                    cleanup_errors.append("source restore failed: " + str(cleanup_error))
+            if result is not None:
+                try:
+                    _unlink_workflow_outcome(knowledge_root, data, result.evidence_id)
+                except (OSError, ValueError) as cleanup_error:
+                    cleanup_errors.append("workflow outcome rollback failed: " + str(cleanup_error))
+            if result is not None:
+                try:
+                    rollback_evidence_ingest(knowledge_root, result)
+                except (OSError, ValueError) as cleanup_error:
+                    cleanup_errors.append("Evidence rollback failed: " + str(cleanup_error))
+            try:
+                reopen_inbox_review_after_ingest_failure(
+                    knowledge_root, intake_id=str(data.get("id", "")),
+                    reason=str(error),
+                )
+            except (OSError, ValueError) as cleanup_error:
+                cleanup_errors.append("Inbox retry transition failed: " + str(cleanup_error))
+            if temporary_path is not None:
+                try:
+                    temporary_path.unlink(missing_ok=True)
+                except OSError as cleanup_error:
+                    cleanup_errors.append("temporary source cleanup failed: " + str(cleanup_error))
+            failure_error = str(error)
+            if cleanup_errors:
+                failure_error += " (" + "; ".join(cleanup_errors) + ")"
+            failed.append({
+                "intake_id": str(data.get("id", "")),
+                "path": path.relative_to(knowledge_root).as_posix(),
+                "error": failure_error,
+                "reason_code": "evidence_ingest_retry",
+            })
     return {
         "ingested_count": len(ingested),
         "failed_count": len(failed),
@@ -506,7 +677,7 @@ def reconcile_inbox(knowledge_root: Path, actor: str, limit: int = 100) -> Dict[
     stages = contract["contract"]["stages"]
     pending_action = stages["pending"]["action"]
     accepted_action = stages["accepted"]["action"]
-    if pending_action != "accept_ready_inbox" or accepted_action != "scan_pii_then_ingest":
+    if pending_action != "accept_ready_inbox" or accepted_action != "ingest_accepted":
         raise ValueError("Inbox reconciliation contract action is unsupported")
     accepted = accept_ready_inbox(knowledge_root, actor, limit=limit, intake_ids=intake_ids)
     ingested = ingest_accepted_inbox(
@@ -530,7 +701,10 @@ def reconcile_inbox(knowledge_root: Path, actor: str, limit: int = 100) -> Dict[
         }
         for failure in ingested["failures"]
         if failure["error"] == "inbox review must be resolved before Evidence ingestion"
-        or failure.get("reason_code") in {"pii_scan_required", "pii_needs_review"}
+        or failure.get("reason_code") in {
+            "pii_scan_required", "pii_needs_review", "data_protection_required",
+            "evidence_ingest_retry",
+        }
     )
     evidence_ids = {str(item["intake_id"]): str(item["evidence_id"]) for item in ingested["items"]}
     after = _reconciliation_after_state(knowledge_root, intake_ids)

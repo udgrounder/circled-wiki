@@ -32,7 +32,7 @@ Evidence를 기존 Bundle과 비교하거나 신규 Draft를 작성한다.
 - 여러 단계 정제 작업에서 독립·제한된 조사 또는 검증 작업을 위임할 수 있는지와, 위임해도 Owner 승인·Security Gate·최종 책임이 유지되는지
 - 후보의 제목·요약과 Evidence 제목·intended use 간 의미 관련성, 그리고 적합한 Bundle type
 - Bundle 태그는 구조 태그(`bundles`, Bundle type, domain)만으로 끝내지 않는다. Evidence·제목·요약·본문에서 확인한 (1) 핵심 주제·개념, (2) 적용 대상 또는 업무 영역, (3) 주요 행위·산출물·결정 특성 중 해당하는 것을 태그로 함께 사용해, 태그만으로도 문서의 성격을 빠르게 파악할 수 있게 한다. 서로 중복하거나 근거가 약한 태그를 채우기 위해 만들지 않으며, 원문에 없는 사실·민감정보·자격증명을 태그로 만들지 않는다. 태그의 표기 언어는 원문 표현을 따르며, 한글 개념·용어를 별도로 영어로 번역한 태그를 추가로 만들지 않는다.
-- Evidence 본문·excerpt·생성할 Bundle 내용을 읽을 때 민감정보·PII를 복사하지 않고, 확정된 PII Receipt와 Evidence checksum의 결합만 확인
+- Evidence 본문·excerpt·생성할 Bundle 내용을 읽을 때 활성 하드 PII와 `agent_mask_categories`에 따라 마스킹된 값을 복사하지 않고, 확정된 Data Protection Receipt와 Evidence checksum의 결합만 확인한다. 계약·법률 자문·분쟁·소송·규제 대응과 그 결정은 이 마스킹 규칙만으로 제한하지 않는다. `non_sensitive_categories`로 분류된 업무 연락처는 승인된 내부 운영 기록에 필요한 경우 보존할 수 있으며 외부 발행에는 Publication Gate를 적용한다.
 
 ## Gates
 
@@ -76,5 +76,5 @@ Curation 실행 실패는 Curation Queue 항목과 시도 Receipt를 유지한�
 - 테스트·가상 데이터라는 이유로 Review가 필요한 유형 또는 active 전환의 Review 카드, 별도 검증 시도 기록, Security Receipt 또는 Validator 생략
 - 한 번의 Outcome 자동 일반화
 - RB-EVD-023을 위반하는 Evidence 변경
-- Evidence의 평문 자격증명·PII를 Bundle·요약·제안·로그에 복사
+- Evidence의 평문 자격증명·활성 하드 PII·`agent_mask_categories` 마스킹 전 값을 Bundle·요약·제안·로그에 복사
 - Scan Receipt 없이 마스킹 확인만으로 Evidence가 발행 가능하다고 판단

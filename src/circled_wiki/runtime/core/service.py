@@ -15,7 +15,7 @@ from .ingest import (
     capture_conversation,
     capture_document,
     capture_file,
-    complete_inbox_sensitivity_review,
+    review_data_protection,
     record_inbox_pii_scan_receipt,
     request_inbox_sensitivity_decision,
 )
@@ -250,10 +250,17 @@ class KnowledgeService:
         self, intake_id: str, actor: str, decision: str, *, policy_ref: str,
         checks: List[str], matched_categories: List[str], rationale: str,
     ) -> Dict[str, object]:
-        return complete_inbox_sensitivity_review(
-            self.knowledge_root, intake_id, actor, decision,
-            policy_ref=policy_ref, checks=checks,
-            matched_categories=matched_categories, rationale=rationale,
+        raise ValueError(
+            "review_inbox_sensitivity is retired; use review_data_protection so PII and sensitivity share one receipt"
+        )
+
+    def review_data_protection(
+        self, intake_id: str, actor: str, *, context: str, checks: List[str],
+        rationale: str, findings: Optional[List[Dict[str, str]]] = None,
+    ) -> Dict[str, object]:
+        return review_data_protection(
+            self.knowledge_root, intake_id, actor, context=context, checks=checks,
+            rationale=rationale, findings=findings,
         )
 
     def request_inbox_sensitivity_decision(

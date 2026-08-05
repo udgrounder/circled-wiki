@@ -21,13 +21,35 @@ class SensitiveDataPrecheckTests(unittest.TestCase):
             {"resident_registration_number", "account_number", "card_number", "credential"},
         )
 
-    def test_masks_only_mobile_contact_information(self):
+    def test_detects_mobile_contact_information_for_policy_review(self):
         content = "홍길동 / gildong@example.com / 010-1234-5678 / https://intranet.example.test"
         result = redact_sensitive_data(content)
 
-        self.assertNotIn("010-1234-5678", result.content)
+        self.assertIn("010-1234-5678", result.content)
         self.assertIn("gildong@example.com", result.content)
-        self.assertEqual(result.categories, ("mobile_phone_number",))
+        self.assertEqual(result.categories, ())
+        self.assertEqual(result.policy_categories, ("mobile_phone_number",))
+
+    def test_supported_email_feature_is_off_by_default_and_masks_when_enabled(self):
+        content = "담당자 gildong@example.com"
+        default_result = redact_sensitive_data(content)
+        enabled_result = redact_sensitive_data(
+            content, hard_mask_categories={"email_address"},
+        )
+
+        self.assertEqual(default_result.content, content)
+        self.assertEqual(default_result.categories, ())
+        self.assertNotIn("gildong@example.com", enabled_result.content)
+        self.assertEqual(enabled_result.categories, ("email_address",))
+
+    def test_disabling_credential_hard_mask_leaves_candidate_untouched(self):
+        result = redact_sensitive_data(
+            "password: visible-secret",
+            hard_mask_categories=set(),
+        )
+
+        self.assertEqual(result.content, "password: visible-secret")
+        self.assertEqual(result.categories, ())
 
     def test_does_not_mask_uuid_that_contains_a_phone_like_digit_sequence(self):
         task_id = "c2f29370-e7d6-0100-1234-56789abcdef0"
@@ -87,6 +109,69 @@ class SensitiveDataPrecheckTests(unittest.TestCase):
             data["capture_details"]["sensitive_data_precheck"]["categories"], ["credential"]
         )
 
+    def test_data_protection_review_preserves_partner_contact_with_explicit_context(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+
+        from circled_wiki.core.frontmatter import parse_markdown
+        from circled_wiki.core.ingest import capture_conversation, review_data_protection
+
+        with TemporaryDirectory() as directory:
+            knowledge_root = Path(directory) / "knowledge"
+            (knowledge_root / "organization.yaml").parent.mkdir(parents=True)
+            (knowledge_root / "organization.yaml").write_text(
+                "organization_id: test-org\n", encoding="utf-8"
+            )
+            captured = capture_conversation(
+                knowledge_root, "협력업체 담당자 010-1234-5678", "test", title="partner",
+                why_collected="unit test", intended_use=["test"], idempotency_key="partner-contact",
+            )
+            review = review_data_protection(
+                knowledge_root, captured.intake_id, "inspector", context="partner_business_contact",
+                checks=["source_access_scope", "personal_context", "confidential_business_context", "publication_scope"],
+                rationale="승인된 협력업체 업무용 연락처다.",
+            )
+            data, content = __import__("circled_wiki.core.ingest", fromlist=["read_conversation_intake"]).read_conversation_intake(captured.inbox_path)
+
+        self.assertIn("010-1234-5678", content)
+        self.assertEqual(
+            data["capture_details"]["sensitive_data_precheck"]["policy_categories"],
+            ["mobile_phone_number"],
+        )
+        self.assertEqual(review["data_protection"]["resolution"], "preserve_internal")
+        self.assertEqual(data["sensitivity_inspection"]["data_protection"]["context"], "partner_business_contact")
+
+    def test_data_protection_review_transitions_unknown_context_to_user_contract(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        from circled_wiki.core.ingest import capture_conversation, review_data_protection
+        from circled_wiki.core.inbox_review_queue import get_inbox_review
+
+        with TemporaryDirectory() as directory:
+            knowledge_root = Path(directory) / "knowledge"
+            (knowledge_root / "organization.yaml").parent.mkdir(parents=True)
+            (knowledge_root / "organization.yaml").write_text(
+                "organization_id: test-org\n", encoding="utf-8"
+            )
+            captured = capture_conversation(
+                knowledge_root, "담당자 연락처 010-2222-3333", "test", title="unknown",
+                why_collected="unit test", intended_use=["test"], idempotency_key="unknown-context",
+            )
+            result = review_data_protection(
+                knowledge_root, captured.intake_id, "inspector", context="unknown_context",
+                checks=["source_access_scope", "personal_context", "confidential_business_context", "publication_scope"],
+                rationale="승인된 업무 맥락을 확인할 수 없다.",
+            )
+            review = get_inbox_review(knowledge_root, captured.intake_id)
+
+        self.assertEqual(result["status"], "awaiting_user")
+        self.assertEqual(review["current"]["status"], "awaiting_user")
+        requirement = next(
+            item for item in review["requirements"]
+            if item["reason_code"] == "sensitivity_review_required"
+        )
+        self.assertEqual(requirement["requested_action"], "review_data_protection")
+
     def test_masks_presigned_url_credential_parameters(self):
         result = redact_sensitive_data(
             "https://example.test/file?X-Amz-Security-Token=synthetic-token&"
@@ -123,7 +208,7 @@ class SensitiveDataPrecheckTests(unittest.TestCase):
                 idempotency_key="legacy-sensitive-data-test",
             )
             document = parse_markdown(captured.inbox_path)
-            unsafe_text = "010-1234-5678"
+            unsafe_text = "password=unsafe-test-value"
             unsafe_content = "<!-- INBOX_CONTENT_START -->" + unsafe_text + "<!-- INBOX_CONTENT_END -->"
             document.frontmatter["checksum"] = (
                 "sha256:" + __import__("hashlib").sha256(unsafe_text.encode("utf-8")).hexdigest()
@@ -147,7 +232,7 @@ class SensitiveDataPrecheckTests(unittest.TestCase):
             item = result["items"][0]
             self.assertEqual(item["pii_scan_result"], "masked")
             evidence = Path(knowledge_root.parent / item["evidence_path"])
-            self.assertNotIn("010-1234-5678", evidence.read_text(encoding="utf-8"))
+            self.assertNotIn("unsafe-test-value", evidence.read_text(encoding="utf-8"))
             evidence_data = parse_markdown(evidence).frontmatter
             self.assertEqual(evidence_data["extensions"]["pii_scan"]["result"], "masked")
             self.assertEqual(evidence_data["extensions"]["pii_scan"]["source_checksum"], evidence_data["checksum"])

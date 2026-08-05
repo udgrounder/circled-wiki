@@ -233,14 +233,13 @@ def main() -> int:
     reconcile_inbox_curation.add_argument("--limit", type=int, default=100)
     reconcile_curation = subparsers.add_parser("reconcile-curation")
     reconcile_curation.add_argument("--limit", type=int, default=100)
-    review_inbox = subparsers.add_parser("review-inbox-sensitivity")
-    review_inbox.add_argument("--intake", required=True)
-    review_inbox.add_argument("--actor", required=True)
-    review_inbox.add_argument("--decision", choices=("completed", "not_applicable"), required=True)
-    review_inbox.add_argument("--policy-ref", default="inbox-sensitivity/v1")
-    review_inbox.add_argument("--checks", required=True, help="JSON array of four inbox sensitivity checks")
-    review_inbox.add_argument("--matched-categories", required=True, help="JSON array of observed policy categories")
-    review_inbox.add_argument("--rationale", required=True)
+    review_protection = subparsers.add_parser("review-data-protection")
+    review_protection.add_argument("--intake", required=True)
+    review_protection.add_argument("--actor", required=True)
+    review_protection.add_argument("--context", required=True)
+    review_protection.add_argument("--checks", required=True, help="JSON array of four data-protection checks")
+    review_protection.add_argument("--rationale", required=True)
+    review_protection.add_argument("--findings", default="[]", help="JSON array of Agent-identified restricted text findings")
     request_sensitivity = subparsers.add_parser("request-inbox-sensitivity-decision")
     request_sensitivity.add_argument("--intake", required=True)
     request_sensitivity.add_argument("--actor", required=True)
@@ -618,15 +617,12 @@ def main() -> int:
     if args.command == "reconcile-curation":
         print(json.dumps(service.reconcile_curation(args.limit), ensure_ascii=False, indent=2))
         return 0
-    if args.command == "review-inbox-sensitivity":
-        print(json.dumps(
-            service.review_inbox_sensitivity(
-                args.intake, args.actor, args.decision,
-                policy_ref=args.policy_ref, checks=json.loads(args.checks),
-                matched_categories=json.loads(args.matched_categories), rationale=args.rationale,
-            ),
-            ensure_ascii=False, indent=2,
-        ))
+    if args.command == "review-data-protection":
+        print(json.dumps(service.review_data_protection(
+            args.intake, args.actor, context=args.context,
+            checks=json.loads(args.checks), rationale=args.rationale,
+            findings=json.loads(args.findings),
+        ), ensure_ascii=False, indent=2))
         return 0
     if args.command == "request-inbox-sensitivity-decision":
         print(json.dumps(

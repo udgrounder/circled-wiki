@@ -53,7 +53,7 @@ place. It blocks unsafe use, creates a corrected replacement when appropriate, a
 ## Completion evidence
 
 - Read-only inventory of affected Evidence and referring Bundles.
-- New Evidence ID and checksum-bound PII Scan receipt, when a replacement is appropriate.
+- New Evidence ID and checksum-bound Data Protection Receipt, when a replacement is appropriate.
 - Validator output, Bundle revision or Review decision, and publication decision.
 - Independent reviewer identity and verification note.
 - System issue fixed release and verification artifact before `resolved`.

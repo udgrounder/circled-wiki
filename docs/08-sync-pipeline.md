@@ -40,7 +40,7 @@
 ### 단계 2: Inbox 검사와 승인
 
 - `inspect_inbox`가 checksum, 필수 메타데이터, provider 폴더와 Inbox Sensitive Data Review 상태를 검사한다.
-- `sensitivity_review: required`는 식별된 사람이 `review_inbox_sensitivity`로 완료·비해당 결정을 기록한다.
+- `sensitivity_review: required`는 Agent가 `review-data-protection`으로 PII Scan과 민감도 판단을 통합 수행해 완료·비해당 결정을 기록한다.
 - 모든 Gate를 통과한 Inbox Item만 `accept_inbox`로 `accepted` 상태가 된다.
 - Capture Agent는 자신이 수집한 항목을 자동 승인하지 않는다.
 

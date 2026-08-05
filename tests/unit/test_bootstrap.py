@@ -133,6 +133,9 @@ class BootstrapKnowledgeRootTests(unittest.TestCase):
             self.assertTrue((target / ".circled-wiki" / "AUTONOMOUS_AGENT_STARTUP.md").is_file())
             self.assertTrue((target / ".circled-wiki" / "GRAPHIFY.md").is_file())
             self.assertTrue((target / ".circled-wiki" / "config.yaml").is_file())
+            data_protection = target / ".circled-wiki" / "data-protection.yaml"
+            self.assertTrue(data_protection.is_file())
+            self.assertIn("employee_business_contact", data_protection.read_text(encoding="utf-8"))
             agent_entrypoint = target / "AGENTS.md"
             self.assertTrue(agent_entrypoint.is_file())
             entrypoint_content = agent_entrypoint.read_text(encoding="utf-8")
@@ -158,6 +161,7 @@ class BootstrapKnowledgeRootTests(unittest.TestCase):
             self.assertIn(".circled-wiki-backups/", gitignore)
             self.assertIn("**/.obsidian/graph.json", gitignore)
             self.assertEqual(applied["configuration_action"], "create")
+            self.assertEqual(applied["data_protection_action"], "create")
             self.assertEqual(applied["configuration"]["organization_id"], "example-org")
             installed_config = (target / ".circled-wiki" / "config.yaml").read_text(
                 encoding="utf-8"
@@ -340,6 +344,17 @@ class BootstrapKnowledgeRootTests(unittest.TestCase):
                 (target / ".circled-wiki" / "config.yaml").read_text(encoding="utf-8"),
                 config,
             )
+            data_protection = target / ".circled-wiki" / "data-protection.yaml"
+            data_protection.write_text(
+                data_protection.read_text(encoding="utf-8").replace(
+                    "  - disciplinary_action", "  - disciplinary_action\n  - internal_audit"
+                ),
+                encoding="utf-8",
+            )
+            custom_policy = data_protection.read_text(encoding="utf-8")
+            repeated = bootstrap_circled_wiki(target, ROOT, apply=True)
+            self.assertEqual(repeated["data_protection_action"], "preserve_existing")
+            self.assertEqual(data_protection.read_text(encoding="utf-8"), custom_policy)
 
     def test_installed_runtime_runs_the_cli_without_the_source_repository(self):
         with tempfile.TemporaryDirectory() as directory:

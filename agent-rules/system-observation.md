@@ -26,12 +26,12 @@ Circled Wiki 운영 중 개별 오류·비정상 결과를 업무 지침의 부�
 ## Checks
 
 - 운영 규칙·정책·CLI·Runtime·Workflow 중 영향 영역
-- 개인정보, credential, 고객 원문, 민감한 로그가 기록에서 제외되었는지
+- 활성 하드 PII, credential, 고객 원문, 민감한 로그가 기록에서 제외되었는지. `non_sensitive_categories`로 분류된 회사·협력업체 업무 연락처는 내부 운영 기록에 필요한 경우 보존할 수 있다.
 - 관찰 사실과 원인 가설이 분리되었는지
 
 ## Gates
 
-- 민감정보가 남아 있으면 기록을 생성하거나 공유하지 않고 마스킹·사람 검토로 전환
+- 활성 하드 PII·credential·`agent_mask_categories` 마스킹 대상이 남아 있으면 기록을 생성하거나 공유하지 않고 마스킹·사람 검토로 전환. 계약·법률 자문·분쟁·소송·규제 대응과 그 결정은 이 Gate만으로 차단하지 않으며, 비민감 업무 연락처도 이 Gate만으로 차단하지 않는다. 외부 공유 시 Publication Gate를 적용
 - 이슈 기록만으로 OS·정책·Bundle·Runbook을 자동 변경하거나 발행하지 않음
 - 일시적 입력 오류와 이미 안내된 Gate 거부는 이슈를 만들지 않고 현재 요청의 오류·다음 행동으로만 반환. 근거가 부족한 오류는 결함 또는 지침 부재로 추정하지 않음
 - 이슈 기록만으로 기존 절차를 변경·차단하거나 새로운 확인 단계를 추가하지 않음
@@ -50,7 +50,7 @@ Circled Wiki 운영 중 개별 오류·비정상 결과를 업무 지침의 부�
 
 ## Prohibited
 
-- API key, token, password, PII, 고객 원문 기록
+- API key, token, password, 활성 하드 PII, `agent_mask_categories` 마스킹 전 값, 고객 원문 기록
 - 이슈를 근거로 한 자동 코드·정책·Runbook 변경
 - 기존 이슈의 해결 상태를 승인 없이 `resolved`로 변경
 - 제품 수정, config 변경 또는 upgrade 자동 시작

@@ -34,7 +34,9 @@ from circled_wiki.worker.jobs import ingest_accepted_inbox, inspect_inbox
 def _capture_with_resolved_sensitivity(capture, *args, **kwargs):
     decision = kwargs.pop("sensitivity_review", None)
     result = capture(*args, **kwargs)
-    if decision in {"completed", "not_applicable"}:
+    # A file has no generic text candidate for the integrated scanner.  The
+    # test supplies an explicit external scan receipt before resolving it.
+    if decision in {"completed", "not_applicable"} and capture.__name__ != "capture_file":
         complete_inbox_sensitivity_review(
             args[0], result.intake_id, "test-inspection-agent", decision,
             policy_ref="inbox-sensitivity/v1",
@@ -142,8 +144,11 @@ class IngestEvidenceTests(unittest.TestCase):
             self.assertEqual(requirement["blocked_step"], "sensitivity_review")
             self.assertEqual(requirement["facts"], ["담당자 연락처는 ********이며 원문에 접근 제한 표시가 있다."])
             self.assertEqual(requirement["hypotheses"], ["internal 보존이 가능할 수 있다."])
-            self.assertEqual(requirement["pii_scan"]["result"], "masked")
-            self.assertEqual(requirement["pii_scan"]["categories"], ["mobile_phone_number"])
+            self.assertEqual(requirement["pii_scan"]["result"], "passed")
+            self.assertEqual(requirement["pii_scan"]["categories"], [])
+            self.assertEqual(
+                requirement["pii_scan"]["policy_candidates"], ["mobile_phone_number"]
+            )
 
             task_path = knowledge_root.parent / "workspace" / "task" / "inbox_reconciliation" / (
                 captured.intake_id.rsplit("/", 1)[-1] + ".md"
@@ -158,23 +163,35 @@ class IngestEvidenceTests(unittest.TestCase):
             self.assertEqual(invalid[0]["status"], "invalid_receipt")
             self.assertEqual(invalid[0]["safe_next_action"], "repair_inbox_task_receipt")
 
-    def test_mobile_phone_number_uses_standard_automatic_pii_scan(self):
+    def test_mobile_phone_number_is_preserved_only_after_data_protection_review(self):
         with tempfile.TemporaryDirectory() as temp_directory:
             knowledge_root = Path(temp_directory) / "knowledge"
             captured = capture_document(
                 knowledge_root, "담당자 연락처는 010-1234-5678", "manual",
                 title="전화번호 포함", why_collected="PII 처리 회귀 검증",
                 intended_use=["test"], idempotency_key="mobile-phone-standard-scan",
-                sensitivity_review="not_applicable",
             )
-
+            with self.assertRaisesRegex(ValueError, "requires review-data-protection"):
+                complete_inbox_sensitivity_review(
+                    knowledge_root, captured.intake_id, "inspector", "completed",
+                    policy_ref="inbox-sensitivity/v1",
+                    checks=["source_access_scope", "personal_context", "confidential_business_context", "publication_scope"],
+                    matched_categories=["partner_business_contact"],
+                    rationale="업무용 연락처라고만 판단해서는 보존할 수 없다.",
+                )
+            from circled_wiki.core.ingest import review_data_protection
+            review_data_protection(
+                knowledge_root, captured.intake_id, "inspector", context="partner_business_contact",
+                checks=["source_access_scope", "personal_context", "confidential_business_context", "publication_scope"],
+                rationale="승인된 협력업체 업무용 연락처다.",
+            )
             accept_conversation_intake(knowledge_root, captured.intake_id, "inspector")
             result = ingest_accepted_inbox(knowledge_root)
 
             self.assertEqual(result["ingested_count"], 1)
-            self.assertEqual(result["items"][0]["pii_scan_result"], "masked")
+            self.assertEqual(result["items"][0]["pii_scan_result"], "passed")
             evidence = (knowledge_root.parent / result["items"][0]["evidence_path"])
-            self.assertNotIn("010-1234-5678", evidence.read_text(encoding="utf-8"))
+            self.assertIn("010-1234-5678", evidence.read_text(encoding="utf-8"))
             self.assertEqual(list_inbox_review_queue(knowledge_root), [])
             archived = list((
                 knowledge_root.parent / "workspace" / "task" / ".archive" / "inbox_reconciliation"
@@ -184,6 +201,119 @@ class IngestEvidenceTests(unittest.TestCase):
             self.assertEqual(task["current"]["stage"], "evidence")
             self.assertEqual(task["current"]["status"], "completed")
             self.assertTrue(task["transitions"])
+
+    def test_data_protection_review_masks_agent_identified_compensation_and_preserves_contact(self):
+        with tempfile.TemporaryDirectory() as temp_directory:
+            knowledge_root = Path(temp_directory) / "knowledge"
+            compensation = "월 급여는 5,000,000원"
+            captured = capture_document(
+                knowledge_root, f"협력업체 담당자 연락처는 010-1234-5678이고 {compensation}이다.",
+                "manual", title="협력업체 계약 정보", why_collected="민감정보 마스킹 회귀 검증",
+                intended_use=["test"], idempotency_key="compensation-with-contact",
+            )
+            from circled_wiki.core.ingest import review_data_protection
+            review = review_data_protection(
+                knowledge_root, captured.intake_id, "inspector", context="partner_business_contact",
+                checks=["source_access_scope", "personal_context", "confidential_business_context", "publication_scope"],
+                rationale="협력업체 업무 연락처는 보존하고 Agent가 식별한 급여 문구만 마스킹한다.",
+                findings=[{"category": "compensation", "value": compensation}],
+            )
+
+            self.assertEqual(
+                review["data_protection"]["agent_masked_findings"],
+                [{"category": "compensation", "count": 1}],
+            )
+            inspected = parse_markdown(captured.inbox_path)
+            self.assertNotIn(compensation, inspected.body)
+            self.assertIn("010-1234-5678", inspected.body)
+            self.assertNotIn(compensation, str(inspected.frontmatter["sensitivity_inspection"]))
+            accept_conversation_intake(knowledge_root, captured.intake_id, "inspector")
+            result = ingest_accepted_inbox(knowledge_root)
+            evidence = knowledge_root.parent / result["items"][0]["evidence_path"]
+            self.assertNotIn(compensation, evidence.read_text(encoding="utf-8"))
+            self.assertIn("010-1234-5678", evidence.read_text(encoding="utf-8"))
+
+    def test_data_protection_review_does_not_mask_legal_processing_or_decisions(self):
+        with tempfile.TemporaryDirectory() as temp_directory:
+            knowledge_root = Path(temp_directory) / "knowledge"
+            legal_text = (
+                "계약 해지 조건을 검토하고 협상 포지션을 결정한다. "
+                "분쟁 대응 전략과 법률 자문 결과에 따라 규제기관 제출 문안을 확정한다."
+            )
+            captured = _capture_conversation(
+                knowledge_root, legal_text, "manual", title="법무 처리 결정",
+                why_collected="법무 업무 기록", intended_use=["내부 검토"],
+                idempotency_key="legal-processing-is-not-sensitive",
+            )
+            from circled_wiki.core.ingest import read_conversation_intake, review_data_protection
+
+            review = review_data_protection(
+                knowledge_root, captured.intake_id, "inspector", context="",
+                checks=["source_access_scope", "personal_context", "confidential_business_context", "publication_scope"],
+                rationale="법률·계약·분쟁·규제 처리와 결정은 이 민감도 정책의 제한 대상이 아니다.",
+            )
+            _, content = read_conversation_intake(captured.inbox_path)
+
+        self.assertEqual(review["sensitivity_review"], "not_applicable")
+        self.assertEqual(review["data_protection"]["agent_masked_findings"], [])
+        self.assertIn(legal_text, content)
+
+    def test_data_protection_review_masks_only_explicit_unlawful_content(self):
+        with tempfile.TemporaryDirectory() as temp_directory:
+            knowledge_root = Path(temp_directory) / "knowledge"
+            unlawful_text = "불법 행위 실행 지시: 증거를 삭제하고 감사를 회피하는 방법"
+            captured = _capture_conversation(
+                knowledge_root, f"정상적인 법률 검토와 {unlawful_text}", "manual",
+                title="불법 실행 내용", why_collected="정책 경계 검증",
+                intended_use=["내부 검토"], idempotency_key="unlawful-content-boundary",
+            )
+            from circled_wiki.core.ingest import read_conversation_intake, review_data_protection
+
+            review = review_data_protection(
+                knowledge_root, captured.intake_id, "inspector", context="",
+                checks=["source_access_scope", "personal_context", "confidential_business_context", "publication_scope"],
+                rationale="명시적인 불법 실행 지시만 해당 범위로 마스킹한다.",
+                findings=[{"category": "unlawful_content", "value": unlawful_text}],
+            )
+            _, content = read_conversation_intake(captured.inbox_path)
+
+        self.assertEqual(
+            review["data_protection"]["agent_masked_findings"],
+            [{"category": "unlawful_content", "count": 1}],
+        )
+        self.assertNotIn(unlawful_text, content)
+        self.assertIn("정상적인 법률 검토", content)
+
+    def test_data_protection_review_scans_before_and_after_agent_masking(self):
+        with tempfile.TemporaryDirectory() as temp_directory:
+            knowledge_root = Path(temp_directory) / "knowledge"
+            compensation = "월 급여는 6,000,000원"
+            captured = _capture_conversation(
+                knowledge_root, f"협력업체 연락처 010-5555-6666, {compensation}", "manual",
+                title="PII ordering", why_collected="ordering verification", intended_use=["test"],
+                idempotency_key="pii-before-after-sensitivity",
+            )
+            from circled_wiki.core.ingest import read_conversation_intake, review_data_protection
+            from circled_wiki.core.ingest import run_automatic_pii_scan as canonical_scan
+            observed_contents = []
+
+            def observe_scan(root, intake_id):
+                result = canonical_scan(root, intake_id)
+                _, content = read_conversation_intake(captured.inbox_path)
+                observed_contents.append(content)
+                return result
+
+            with patch("circled_wiki.core.ingest.run_automatic_pii_scan", side_effect=observe_scan):
+                review_data_protection(
+                    knowledge_root, captured.intake_id, "inspector", context="partner_business_contact",
+                    checks=["source_access_scope", "personal_context", "confidential_business_context", "publication_scope"],
+                    rationale="PII scan precedes semantic masking and is rebound after the change.",
+                    findings=[{"category": "compensation", "value": compensation}],
+                )
+
+        self.assertEqual(len(observed_contents), 2)
+        self.assertIn(compensation, observed_contents[0])
+        self.assertNotIn(compensation, observed_contents[1])
 
     def test_reprocessing_review_uses_intake_uuid_when_legacy_checksum_is_stale(self):
         with tempfile.TemporaryDirectory() as temp_directory:
@@ -211,7 +341,7 @@ class IngestEvidenceTests(unittest.TestCase):
             queue_path.write_text(render_markdown(stale), encoding="utf-8")
 
             document = parse_markdown(captured.inbox_path)
-            unsafe_content = "010-1234-5678"
+            unsafe_content = "password=unsafe-test-value"
             document.frontmatter["checksum"] = (
                 "sha256:" + hashlib.sha256(unsafe_content.encode("utf-8")).hexdigest()
             )
@@ -224,14 +354,18 @@ class IngestEvidenceTests(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
+            from circled_wiki.core.ingest import run_automatic_pii_scan
+            run_automatic_pii_scan(knowledge_root, captured.intake_id)
+            from circled_wiki.core.ingest import review_data_protection
+            review_data_protection(
+                knowledge_root, captured.intake_id, "inspector", context="",
+                checks=["source_access_scope", "personal_context", "confidential_business_context", "publication_scope"],
+                rationale="변경된 후보를 통합 Data Protection 단계에서 다시 확정한다.",
+            )
             accept_conversation_intake(knowledge_root, captured.intake_id, "inspector")
-            first_attempt = ingest_accepted_inbox(knowledge_root)
-            self.assertEqual(first_attempt["ingested_count"], 0)
             masked_candidate = parse_markdown(captured.inbox_path)
             self.assertNotIn(unsafe_content, masked_candidate.body)
             self.assertNotEqual(masked_candidate.frontmatter["checksum"], legacy_checksum)
-
-            accept_conversation_intake(knowledge_root, captured.intake_id, "inspector")
             result = ingest_accepted_inbox(knowledge_root)
 
             self.assertEqual(result["ingested_count"], 1)
@@ -252,9 +386,9 @@ class IngestEvidenceTests(unittest.TestCase):
                 result="needs_review", reviewed_by="scanner", receipt="test://needs-review",
             )
             self.assertEqual(blocked["review_queue"]["status"], "awaiting_user")
-            self.assertEqual(list_inbox_review_queue(knowledge_root)[0]["current_stage"], "pii_scan")
+            self.assertEqual(list_inbox_review_queue(knowledge_root)[0]["current_stage"], "data_protection")
             self.assertEqual(
-                parse_markdown(captured.inbox_path).frontmatter["status"], "accepted"
+                parse_markdown(captured.inbox_path).frontmatter["status"], "pending"
             )
             self.assertEqual(ingest_accepted_inbox(knowledge_root)["ingested_count"], 0)
 
@@ -262,7 +396,14 @@ class IngestEvidenceTests(unittest.TestCase):
                 knowledge_root, captured.intake_id, scanner="test", scanner_version="2",
                 result="masked", reviewed_by="human-reviewer", receipt="test://masked",
             )
-            self.assertEqual(resumed["review_status"], "reprocessing")
+            self.assertEqual(resumed["review_status"], "awaiting_user")
+            from circled_wiki.core.ingest import review_data_protection
+            review_data_protection(
+                knowledge_root, captured.intake_id, "human-reviewer", context="",
+                checks=["source_access_scope", "personal_context", "confidential_business_context", "publication_scope"],
+                rationale="외부 PII 결과를 통합 Data Protection 단계에서 재확정한다.",
+            )
+            accept_conversation_intake(knowledge_root, captured.intake_id, "inspector")
             result = ingest_accepted_inbox(knowledge_root)
 
             self.assertEqual(result["ingested_count"], 1)
@@ -286,7 +427,7 @@ class IngestEvidenceTests(unittest.TestCase):
             )
             self.assertEqual(
                 evidence.frontmatter["extensions"]["inbox_review"]["decisions"][1]["decision"],
-                "pii_scan_masked",
+                "data_protection_not_applicable",
             )
 
     def test_inbox_pii_receipt_is_fixed_at_evidence_creation(self):
@@ -302,6 +443,12 @@ class IngestEvidenceTests(unittest.TestCase):
                 knowledge_root, captured.intake_id, scanner="test",
                 scanner_version="1", result="passed", reviewed_by="security",
                 receipt="test://scan",
+            )
+            from circled_wiki.core.ingest import review_data_protection
+            review_data_protection(
+                knowledge_root, captured.intake_id, "security", context="",
+                checks=["source_access_scope", "personal_context", "confidential_business_context", "publication_scope"],
+                rationale="외부 PII 결과를 통합 Data Protection 단계에서 재확정한다.",
             )
             accept_conversation_intake(knowledge_root, captured.intake_id, "reviewer")
             result = ingest_accepted_inbox(knowledge_root)
@@ -374,9 +521,9 @@ class IngestEvidenceTests(unittest.TestCase):
             self.assertEqual(by_id[conversation.intake_id]["gate_status"], "ready_for_acceptance")
             self.assertEqual(by_id[web_document.intake_id]["content_type"], "document")
             self.assertEqual(by_id[pdf.intake_id]["content_type"], "file")
-            self.assertEqual(by_id[word.intake_id]["gate_status"], "ready_for_acceptance")
+            self.assertEqual(by_id[word.intake_id]["gate_status"], "blocked")
 
-            for captured in (conversation, web_document, pdf, word):
+            for captured in (conversation, web_document):
                 acceptance = accept_conversation_intake(
                     knowledge_root, captured.intake_id, "simulated-human-reviewer"
                 )
@@ -386,13 +533,22 @@ class IngestEvidenceTests(unittest.TestCase):
                     accepted.frontmatter["inspection"]["actor"], "simulated-human-reviewer"
                 )
             for captured in (pdf, word):
-                accepted = parse_markdown(captured.inbox_path).frontmatter
                 record_inbox_pii_scan_receipt(
                     knowledge_root, captured.intake_id,
                     scanner="simulated-file-review", scanner_version="v1",
                     result="passed", reviewed_by="simulated-human-reviewer",
                     receipt=f"review://file/{captured.intake_id.rsplit('/', 1)[-1]}",
                 )
+                from circled_wiki.core.ingest import review_data_protection
+                review_data_protection(
+                    knowledge_root, captured.intake_id, "simulated-human-reviewer", context="",
+                    checks=["source_access_scope", "personal_context", "confidential_business_context", "publication_scope"],
+                    rationale="외부 파일 원본을 별도 검토한 뒤 보존한다.",
+                )
+                acceptance = accept_conversation_intake(
+                    knowledge_root, captured.intake_id, "simulated-human-reviewer"
+                )
+                self.assertEqual(acceptance["status"], "accepted")
             ingested = ingest_accepted_inbox(knowledge_root)
             self.assertEqual(ingested["ingested_count"], 4)
             self.assertEqual(ingested["failed_count"], 0)
@@ -432,14 +588,21 @@ class IngestEvidenceTests(unittest.TestCase):
                 idempotency_key="safe-markdown-fixture-v1",
                 sensitivity_review="not_applicable",
             )
-            accept_conversation_intake(
-                knowledge_root, captured.intake_id, "simulated-human-reviewer"
-            )
             record_inbox_pii_scan_receipt(
                 knowledge_root, captured.intake_id,
                 scanner="simulated-file-review", scanner_version="v1",
                 result="passed", reviewed_by="simulated-human-reviewer",
                 receipt="review://file/safe-markdown-fixture",
+            )
+
+            from circled_wiki.core.ingest import review_data_protection
+            review_data_protection(
+                knowledge_root, captured.intake_id, "simulated-human-reviewer", context="",
+                checks=["source_access_scope", "personal_context", "confidential_business_context", "publication_scope"],
+                rationale="외부 파일 원본을 별도 검토한 뒤 보존한다.",
+            )
+            accept_conversation_intake(
+                knowledge_root, captured.intake_id, "simulated-human-reviewer"
             )
 
             ingested = ingest_accepted_inbox(knowledge_root)
@@ -587,18 +750,12 @@ class IngestEvidenceTests(unittest.TestCase):
                 feedback="출처 링크가 유용했다.",
             )
             self.assertEqual(outcome["next_action"], "inspect_and_accept_outcome_inbox")
-            service.review_inbox_sensitivity(
-                outcome["intake_id"], "simulated-human-reviewer", "completed",
-                policy_ref="inbox-sensitivity/v1",
+            service.review_data_protection(
+                outcome["intake_id"], "simulated-human-reviewer", context="",
                 checks=["source_access_scope", "personal_context", "confidential_business_context", "publication_scope"],
-                matched_categories=["workflow_outcome"],
                 rationale="내부 업무 결과로 보존하며 접근 범위를 제한한다.",
             )
             service.accept_inbox(outcome["intake_id"], "simulated-human-owner")
-            service.record_inbox_pii_scan(
-                outcome["intake_id"], scanner="test", scanner_version="1",
-                result="passed", reviewed_by="simulated-human-reviewer", receipt="test://pii-outcome",
-            )
             outcome_batch = service.ingest_accepted()
             self.assertTrue(outcome_batch["items"][0]["outcome_linked"])
             self.assertIn("improvement_task", outcome_batch["items"][0])

@@ -50,6 +50,11 @@ def pii_scan_receipt_errors(frontmatter: Dict[str, Any]) -> List[str]:
         errors.append("extensions.pii_scan.source_checksum must be a sha256 checksum")
     if source_checksum != frontmatter.get("checksum"):
         errors.append("extensions.pii_scan.source_checksum must equal Evidence checksum")
+    candidate_checksum = receipt.get("candidate_checksum")
+    if candidate_checksum is not None and (
+        not isinstance(candidate_checksum, str) or not _CHECKSUM.fullmatch(candidate_checksum)
+    ):
+        errors.append("extensions.pii_scan.candidate_checksum must be a sha256 checksum")
     if result in {"passed", "masked"} and scanned is not True:
         errors.append("successful PII scan receipt requires pii_scanned: true")
     if result == "needs_review" and scanned is not False:
@@ -62,6 +67,7 @@ def pii_scan_receipt_errors(frontmatter: Dict[str, Any]) -> List[str]:
 def build_pii_scan_receipt(
     checksum: str, *, scanner: str, scanner_version: str, result: str,
     reviewed_by: str, receipt: str, scanned_at: Optional[str] = None,
+    candidate_checksum: Optional[str] = None,
 ) -> Dict[str, object]:
     """Build a checksum-bound receipt before an immutable Evidence is created."""
     values = (scanner, scanner_version, reviewed_by, receipt)
@@ -71,9 +77,16 @@ def build_pii_scan_receipt(
         raise ValueError("result must be passed, masked, or needs_review")
     if not isinstance(checksum, str) or not _CHECKSUM.fullmatch(checksum):
         raise ValueError("checksum must be a sha256 checksum")
-    return {
+    if candidate_checksum is not None and (
+        not isinstance(candidate_checksum, str) or not _CHECKSUM.fullmatch(candidate_checksum)
+    ):
+        raise ValueError("candidate_checksum must be a sha256 checksum")
+    result_data = {
         "scanner": scanner.strip(), "scanner_version": scanner_version.strip(),
         "scanned_at": scanned_at or datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "result": result, "reviewed_by": reviewed_by.strip(), "receipt": receipt.strip(),
         "source_checksum": checksum,
     }
+    if candidate_checksum is not None:
+        result_data["candidate_checksum"] = candidate_checksum
+    return result_data

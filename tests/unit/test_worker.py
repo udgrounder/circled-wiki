@@ -183,7 +183,7 @@ class WorkerJobTests(unittest.TestCase):
             contract_path = contract_root / "inbox.yaml"
             contract_path.write_text(
                 contract_path.read_text(encoding="utf-8").replace(
-                    "complete_sensitivity_review", "approve_without_review", 1
+                    "review_data_protection", "approve_without_review", 1
                 ),
                 encoding="utf-8",
             )

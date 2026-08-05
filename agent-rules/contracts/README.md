@@ -25,7 +25,7 @@
 
 ### Inbox
 
-`inbox.yaml`은 일반 Inbox의 검사·수용·Evidence 변환 재조정을 표현한다. 업무성 분류와 `non_business_confirmed` 원문 보존 격리·일괄 폐기 검토는 `inbox-disposition` Profile의 별도 판단이며, 계약 재조정은 이를 자동 실행하거나 추정하지 않는다. 애매하거나 분류할 수 없는 항목은 별도 기록·격리 없이 일반 검사 단계로 전달한다.
+`inbox.yaml`은 일반 Inbox의 검사·수용·Evidence 변환 재조정을 표현한다. 업무성 분류와 `non_business_confirmed` 원문 보존 격리·일괄 폐기 검토는 `inbox-disposition` Profile의 별도 판단이며, 계약 재조정은 이를 자동 실행하거나 추정하지 않는다. 애매하거나 분류할 수 없는 항목은 Data Protection Review를 통해 선택적 마스킹을 먼저 시도하고, 판단 불가한 경우 동일 계약 작업을 `awaiting_user`로 전환한다.
 
 | 속성 | 의미 |
 | --- | --- |
@@ -66,9 +66,11 @@ Card는 제안 본문·근거 스냅샷·검토 결정을 담는 결과물이므
 단계가 실제 Gate를 통과해 성공했을 때에만 생성된다. 그 뒤 계약 작업 기록은 결과물의 안전한 참조와 다음 상태를
 기록한다.
 
-처리 기록의 `current.status`는 진행 상태만 표현한다. `sensitivity_review_required` 같은 값은
-`requirements[].reason_code`, PII Scan의 `needs_review`는 Receipt 판정, `review_handoff`는 Curation outcome에
-기록한다. 이 셋을 `current.status`로 중복 기록하지 않는다.
+처리 기록의 `current.status`는 진행 상태만 표현한다. `sensitivity_review_required`와
+`data_protection_required` 같은 값은 `requirements[].reason_code`, 통합
+`data_protection_receipt`의 `status: awaiting_user`는 Receipt 판정, `review_handoff`는 Curation outcome에
+기록한다. 이 셋을 `current.status`로 중복 기록하지 않는다. `passed` 또는 `masked` 통합 Receipt가 없으면
+accepted→Evidence 전환을 수행하지 않는다.
 
 ## 정본과 변경 원칙
 

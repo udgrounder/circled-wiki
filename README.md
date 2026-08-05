@@ -82,8 +82,9 @@ PYTHONPATH=src python3 -m circled_wiki.cli validate
 ### 1. 원본을 Evidence로 보존
 
 1. `capture-document`, `capture-file`, 또는 `capture-conversation`으로 원본을 Inbox에 수집한다.
-2. Agent가 민감성 검토와 acceptance를 처리한다. 사용자만 판단할 수 있을 때만 Review Queue가 열린다.
-3. `reconcile-inbox`가 Evidence 생성 직전 최종 후보를 PII Scan하고 Receipt를 확정한 뒤 Evidence를 만든다.
+2. Agent가 `review-data-protection`에서 PII Scan·선택적 민감정보 마스킹·업무 맥락 판단을 수행하고
+   최종 후보에 결합된 `data_protection_receipt`를 확정한 뒤 acceptance를 처리한다. 사용자만 판단할 수 있을 때만 Review Queue가 열린다.
+3. `reconcile-inbox`는 해소된 통합 Receipt, checksum, Evidence 스키마와 전환 산출물을 검증한 뒤 Evidence를 만든다.
 
 ```sh
 PYTHONPATH=src python3 -m circled_wiki.cli capture-document \
@@ -184,7 +185,7 @@ PYTHONPATH=src python3 -m circled_wiki.cli propose-update \
 `policy`, `guide`, `decision`, `spec`, `reference`, `report`는 신규 공식 지식 후보로 직접 Draft를 생성할 수 있다. `--evidence`에는
 위에서 생성된 URI를 그대로 넣는다. `manual`과 `runbook`은 아래 자동 정제와 같은
 Review 카드·별도 검증 시도 기록 흐름을 사용한다. 직접 생성한 Draft도 `active` 전환 전에는 전용 Promotion·Security
-Gate를 거쳐야 한다. 그 밖의 직접 생성 가능 유형은 RB-CUR-006의 Evidence·PII·참조 무결성·전체
+Gate를 거쳐야 한다. 그 밖의 직접 생성 가능 유형은 RB-CUR-006의 Evidence·Data Protection Receipt·참조 무결성·전체
 Validator 및 Security Gate를 통과하면 `promote-curation-candidate --automated`로 사람 승인 없이 active로 승격할 수 있다.
 
 ```sh
@@ -386,7 +387,7 @@ Hermes를 재시작한 후 MCP 클라이언트에서 `tools/list`를 호출한�
 - `capture_document`
 - `capture_file`
 - `inspect_inbox`
-- `review_inbox_sensitivity`
+- `review_data_protection`
 - `accept_inbox`
 - `ingest_accepted`
 - `create_draft_bundle`
@@ -422,12 +423,12 @@ printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' \
 ### 4. Hermes 운영 순서
 
 1. 사용자·지정 Batch·Hermes가 원본을 `knowledge/inbox/<provider>/`에 넣는다.
-2. 대화는 `capture_conversation`, URL에서 가져온 텍스트·HTML은 `capture_document`, PDF·Word·기타 파일은 `capture_file`로 적재한 뒤 `inspect_inbox`, 필요 시 `review_inbox_sensitivity`, `accept_inbox`, `ingest_accepted`를 순서대로 실행한다. URL만 저장하지 않고, 수집기가 실제로 읽은 원문과 URL·locator를 함께 보존한다.
+2. 대화는 `capture_conversation`, URL에서 가져온 텍스트·HTML은 `capture_document`, PDF·Word·기타 파일은 `capture_file`로 적재한 뒤 `inspect_inbox`, `review_data_protection`, `accept_inbox`, `ingest_accepted`를 순서대로 실행한다. URL만 저장하지 않고, 수집기가 실제로 읽은 원문과 URL·locator를 함께 보존한다.
 3. `propose_pending` 또는 `propose_update`로 기존 Bundle 후보와 신규 초안을 검토한다.
-4. `runbook`·`manual` Curation 결과는 UUID 기반 Git 추적 검토카드로 저장한다. Queue 재처리 시 같은 Evidence의 미완료 카드를 먼저 재사용하며, 카드가 없을 때만 새 카드를 생성한다. 사용자 또는 검증 Agent가 `decide_curation_review`로 별도 검증 시도를 기록한 신규 후보만 Evidence 생성 시 PII 처리가 확정된 Draft를 만들며, 생성 성공 후 승인 기록은 Draft로 이동하고 소비된 검토카드는 archive로 이동한다. 그 외 Bundle type의 신규 생성과 기존 보완은 확정된 Evidence·보안·checksum·revision·Validator Gate와 자동 갱신 Receipt를 통과하면 자동 적용한다. Curation은 PII Scan이나 민감도 검토를 다시 수행하지 않는다.
+4. `runbook`·`manual` Curation 결과는 UUID 기반 Git 추적 검토카드로 저장한다. Queue 재처리 시 같은 Evidence의 미완료 카드를 먼저 재사용하며, 카드가 없을 때만 새 카드를 생성한다. 사용자 또는 검증 Agent가 `decide_curation_review`로 별도 검증 시도를 기록한 신규 후보만 Evidence 생성 시 Data Protection 처리가 확정된 Draft를 만들며, 생성 성공 후 승인 기록은 Draft로 이동하고 소비된 검토카드는 archive로 이동한다. 그 외 Bundle type의 신규 생성과 기존 보완은 확정된 Evidence·보안·checksum·revision·Validator Gate와 자동 갱신 Receipt를 통과하면 자동 적용한다. Curation은 Data Protection Scan이나 민감도 검토를 다시 수행하지 않는다.
 5. 미처리 검토카드는 `list_curation_reviews`로 확인하고, Curation Adapter의 실패·중단은 `list_curation_queue`의 `reason`·`next_action`으로 확인한다. 이미 생성된 Draft 후보는 `list_curation_candidates`와 `review_curation_candidate`로 검토한다. Active 전환은 전용 `promote_curation_candidate` Gate와 Security receipt로만 수행한다.
 6. `validate_result` 또는 CLI `validate`와 보안 게이트가 통과하면 Hermes가 변경된 `knowledge/`를 자동 Git commit하고 결과를 로그에 남긴다.
-7. 사용자 작업 요청은 `find_workflow`와 `prepare_task`로 실행하고, 종료 결과는 `record_outcome`으로 `pending` Inbox에 환류한다. 이후에도 같은 `inspect_inbox -> review_inbox_sensitivity -> accept_inbox -> ingest_accepted -> propose_pending` 흐름을 적용한다.
+7. 사용자 작업 요청은 `find_workflow`와 `prepare_task`로 실행하고, 종료 결과는 `record_outcome`으로 `pending` Inbox에 환류한다. 이후에도 같은 `inspect_inbox -> review_data_protection -> accept_inbox -> ingest_accepted -> propose_pending` 흐름을 적용한다.
 
 MCP Tool은 수집·지식 변경·검증과 Workflow 실행 준비를 수행한다. `prepare_task`는 Git에서 제외된
 `.runtime/`만 변경하고, `record_outcome`은 작업 결과를 Inbox에 수집한다. `publish_changes`는 전체
@@ -451,7 +452,7 @@ Draft Bundle은 기본 질의·Workflow 실행 대상이 아니다. Agent는 공
 | `capture_document` | 외부 문서와 source URL·locator를 소스별 Inbox에 `pending` 상태로 적재 | `knowledge/inbox/<provider>/` |
 | `capture_file` | PDF·Word·HTML 파일 등 원본 파일과 자기완결형 envelope를 소스별 Inbox에 `pending` 상태로 적재 | `knowledge/inbox/<provider>/` |
 | `inspect_inbox` | 대기 대화·문서·파일의 메타데이터·경로·checksum·민감정보 Gate 검사 | 없음 |
-| `review_inbox_sensitivity` | 식별된 사람이 민감정보 검토 완료·비해당 결정을 기록 | `knowledge/inbox/<provider>/` |
+| `review_data_protection` | PII Scan과 Agent 민감도 판단·선택적 마스킹을 수행하고 통합 Receipt를 기록 | `knowledge/inbox/<provider>/` |
 | `accept_inbox` | 검사자 actor와 함께 통과 항목을 `accepted`로 승인 | `knowledge/inbox/<provider>/` |
 | `ingest_accepted` | 승인된 입력만 Evidence로 변환 | `knowledge/inbox/<provider>/`, `knowledge/evidence/` |
 | `create_draft_bundle` | `policy`·`guide`·`decision`·`spec`·`reference`·`report` 신규 Draft 생성 (`manual`·`runbook`은 Review 카드 필요) | `knowledge/bundles/`, Evidence 역참조 |
@@ -491,13 +492,13 @@ Inbox Sensitive Data Review, 승인과 Evidence 변환을 거친다.
 - Bundle은 반드시 하나 이상의 Evidence를 참조해야 한다.
 - Bundle의 `evidence`가 Evidence 참조의 정식 기준이며 영향 분석도 이 필드로 계산한다.
 - `knowledge/bundles/`의 공식 지식은 검증 없이 수정·발행하지 않는다.
-- 원본·토큰·API 키·개인정보를 README, frontmatter, Git commit에 기록하지 않는다.
+- 원본·토큰·API 키·정책상 민감정보를 README, frontmatter, Git commit에 기록하지 않는다. `non_sensitive_categories`로 분류된 회사·협력업체 업무 연락처는 내부 운영 기록에 필요한 경우 보존할 수 있으며, 외부 발행 시에는 별도 visibility·Publication Gate를 적용한다.
 - `knowledge/.raw/`는 성공 시 비워지며, 실패·검토 필요·대용량 원본은 원인 확인 전까지 보존한다.
 - `.raw/`와 `inbox/`는 Git에서 제외한다. 상세 보안 절차는 [Agent and Knowledge Security Policy](.circled-wiki/policies/agent-security.md)를 따른다.
 
 ## 기본 처리 흐름
 
-`capture_conversation -> inspect_inbox -> review_inbox_sensitivity -> accept_inbox -> ingest_accepted -> knowledge/evidence/ -> propose_pending -> Curator -> knowledge/bundles/`
+`capture_conversation -> inspect_inbox -> review_data_protection -> accept_inbox -> ingest_accepted -> knowledge/evidence/ -> propose_pending -> Curator -> knowledge/bundles/`
 
 - 시스템 생성 대화·Outcome 텍스트: Inbox의 단일 self-contained Markdown 원문, 승인 후 단일 Embedded Evidence Markdown
 - 외부 파일·바이너리: Evidence Original + External-file Evidence Manifest

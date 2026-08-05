@@ -12,6 +12,7 @@ from circled_wiki.config.settings import organization_id_for
 
 from .frontmatter import FrontmatterError, parse_markdown
 from .pii import pii_scan_receipt_errors
+from .data_protection_receipt import data_protection_receipt_errors
 from .evidence import evidence_content_mode, evidence_original_bytes
 from .models import MarkdownDocument, ValidationResult
 from .bundle_types import BUNDLE_TYPES
@@ -801,6 +802,13 @@ def _validate_evidence(
         if sensitivity_review is not None and sensitivity_review not in {"completed", "required", "not_applicable"}:
             result.profile_errors.append("extensions.capture_context.sensitivity_review is invalid")
     result.profile_errors.extend(pii_scan_receipt_errors(data))
+    if isinstance(extensions, dict) and extensions.get("data_protection_receipt") is not None:
+        result.profile_errors.extend(
+            data_protection_receipt_errors(
+                extensions.get("data_protection_receipt"),
+                checksum=str(data.get("checksum", "")), require_resolved=True,
+            )
+        )
     if isinstance(extensions, dict):
         attempt = extensions.get("curation_attempt")
         if attempt is not None and not isinstance(attempt, dict):

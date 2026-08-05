@@ -21,12 +21,24 @@ from .inbox_review_queue import (
     advance_inbox_task,
     ensure_inbox_task,
     has_blocking_inbox_review,
+    inbox_review_is_resolved,
+    reopen_inbox_data_protection_review,
     resolve_inbox_review_requirement,
     review_context,
 )
+from .data_protection_receipt import (
+    build_data_protection_receipt,
+    data_protection_candidate_checksum,
+    data_protection_receipt_errors,
+)
 from .namespace import require_stable_organization_id
 from .pii import pii_scan_receipt_errors
-from .sensitive_data import redact_sensitive_data
+from .sensitive_data import REDACTED_VALUE, redact_sensitive_data
+from circled_wiki.config.data_protection import (
+    POLICY_PATH,
+    load_data_protection_policy,
+    resolve_policy_context,
+)
 from .evidence import (
     EMBEDDED_FORMAT_VERSION,
     evidence_original_path,
@@ -43,6 +55,94 @@ SENSITIVITY_REQUIRED_CHECKS = {
     "confidential_business_context",
     "publication_scope",
 }
+
+
+def _safe_data_protection_text(
+    value: str, findings: Optional[List[Dict[str, object]]] = None,
+) -> str:
+    """Mask known PII and transient Agent finding values before persistence."""
+    safe = redact_sensitive_data(value, mask_policy_categories=True).content
+    for finding in findings or []:
+        finding_value = finding.get("value") if isinstance(finding, dict) else None
+        if isinstance(finding_value, str) and finding_value:
+            safe = safe.replace(finding_value, REDACTED_VALUE)
+    return safe
+
+
+def _write_data_protection_receipt(
+    path: Path, *, pii_scan: Dict[str, object], policy, actor: str,
+    sensitivity_decision: str, context: str, matched_categories: List[str],
+    agent_masked_findings: List[Dict[str, object]], resolution: str,
+    rationale: str,
+) -> Dict[str, object]:
+    """Persist the single Inbox data-protection receipt and safe projections."""
+    document = parse_markdown(path)
+    data, content = read_conversation_intake(path)
+    allowed_contexts = set(policy.non_sensitive_categories) | set(policy.agent_mask_categories)
+    safe_context = context.strip() if isinstance(context, str) and context.strip() in allowed_contexts else ""
+    safe_rationale = _safe_data_protection_text(rationale, agent_masked_findings)
+    safe_resolution = resolution.strip() if resolution.strip() in {
+        "no_policy_candidates", "preserve_internal", "awaiting_user",
+        "pii_needs_review", "compatibility_receipt",
+    } else "awaiting_user"
+    receipt = build_data_protection_receipt(
+        source_checksum=str(data["checksum"]), pii_scan=pii_scan,
+        candidate_checksum=data_protection_candidate_checksum(data, content),
+        policy_ref=policy.policy_ref, policy_config=POLICY_PATH,
+        policy_config_version=policy.schema_version, actor=actor,
+        sensitivity_decision=sensitivity_decision, context=safe_context,
+        matched_categories=matched_categories,
+        agent_masked_findings=agent_masked_findings, resolution=safe_resolution,
+    )
+    metadata = dict(data)
+    if sensitivity_decision in {"completed", "not_applicable"}:
+        metadata["sensitivity_review"] = sensitivity_decision
+    metadata["data_protection_receipt"] = receipt
+    # Compatibility projections remain derived from the unified receipt.  New
+    # Inbox/Evidence gates use data_protection_receipt as the source of truth.
+    metadata["pii_scan_receipt"] = dict(pii_scan)
+    inspection = dict(metadata.get("sensitivity_inspection", {}))
+    inspection.update({
+        "policy_ref": policy.policy_ref,
+        "policy_config": POLICY_PATH,
+        "policy_config_version": policy.schema_version,
+        "source_checksum": data["checksum"],
+        "actor": actor.strip(),
+        "checked_at": receipt["recorded_at"],
+        "checks": sorted(SENSITIVITY_REQUIRED_CHECKS),
+        "matched_categories": list(matched_categories),
+        "decision": sensitivity_decision,
+        "rationale": safe_rationale,
+        "data_protection": receipt["sensitivity"],
+    })
+    metadata["sensitivity_inspection"] = inspection
+    path.write_text(render_markdown(metadata, document.body), encoding="utf-8")
+    return receipt
+
+
+def _read_data_protection_receipt(path: Path, *, require_resolved: bool = False) -> Dict[str, object]:
+    """Read and validate the canonical receipt for one current Inbox candidate."""
+    data, _ = read_conversation_intake(path)
+    receipt = data.get("data_protection_receipt")
+    errors = data_protection_receipt_errors(
+        receipt, checksum=str(data.get("checksum", "")), require_resolved=require_resolved,
+    )
+    if errors:
+        raise ValueError("invalid data protection receipt: " + "; ".join(errors))
+    return dict(receipt)
+
+
+def rollback_evidence_ingest(knowledge_root: Path, result: "IngestResult") -> bool:
+    """Undo a newly-created Evidence+Queue pair while leaving Inbox retryable."""
+    if result.reused:
+        return False
+    from .curation_queue import rollback_curation_work
+
+    rollback_curation_work(knowledge_root, result.evidence_id)
+    result.manifest_path.unlink(missing_ok=True)
+    if result.original_path != result.manifest_path:
+        result.original_path.unlink(missing_ok=True)
+    return True
 
 
 @dataclass(frozen=True)
@@ -328,7 +428,7 @@ def accept_ready_inbox(
             break
         try:
             document = parse_markdown(path)
-            data, _ = read_conversation_intake(path)
+            data, content = read_conversation_intake(path)
         except (FrontmatterError, OSError, ValueError):
             continue
         if intake_ids is not None and str(data.get("id")) not in intake_ids:
@@ -353,14 +453,28 @@ def _accept_inbox_document(
 ) -> Dict[str, object]:
     """Validate and record one acceptance using an already located Inbox file."""
     intake_id = str(data.get("id", ""))
+    _, candidate = read_conversation_intake(path)
+    receipt_errors = data_protection_receipt_errors(
+        data.get("data_protection_receipt"),
+        checksum=str(data.get("checksum", "")),
+        candidate_checksum=data_protection_candidate_checksum(data, candidate),
+        require_resolved=True,
+    )
+    if receipt_errors:
+        raise ValueError(
+            "data protection review (sensitivity review) must be completed before acceptance: "
+            + "; ".join(receipt_errors)
+        )
+    if not inbox_review_is_resolved(knowledge_root, intake_id):
+        raise ValueError("inbox data protection requirements must be resolved before acceptance")
     if data.get("status") == "accepted":
         return {"intake_id": intake_id, "status": "accepted", "reused": True}
     if data.get("status") != "pending":
         raise ValueError("only pending Inbox items can be accepted")
     if data.get("sensitivity_review") == "required":
-        raise ValueError("sensitivity review must be completed before acceptance")
+        raise ValueError("data protection review (sensitivity review) must be completed before acceptance")
     if has_blocking_inbox_review(knowledge_root, intake_id):
-        raise ValueError("inbox review must be resolved before acceptance")
+        raise ValueError("inbox data protection review (sensitivity review) must be resolved before acceptance")
     updated = dict(data)
     updated["status"] = "accepted"
     updated["inspection"] = {
@@ -376,7 +490,7 @@ def _accept_inbox_document(
     path.write_text(render_markdown(updated, document.body), encoding="utf-8")
     advance_inbox_task(
         knowledge_root, intake_id=intake_id, stage="accepted", status="pending",
-        actor=actor, next_action="scan_pii_then_ingest", outcome="accepted_inspection",
+        actor=actor, next_action="ingest_accepted", outcome="accepted_inspection",
     )
     return {
         "intake_id": intake_id,
@@ -394,6 +508,10 @@ def run_automatic_pii_scan(knowledge_root: Path, intake_id: str) -> Dict[str, ob
     rescans the actual Inbox candidate, updates its checksum when masking was
     needed, and only then records the receipt bound to that checksum.
     """
+    knowledge_root = knowledge_root.resolve()
+    # Validate the installation-local scanner switches before issuing the
+    # canonical receipt. The active category set comes from the policy file.
+    data_protection = load_data_protection_policy(knowledge_root.parent)
     for path in iter_active_inbox_items(knowledge_root):
         try:
             document = parse_markdown(path)
@@ -404,6 +522,8 @@ def run_automatic_pii_scan(knowledge_root: Path, intake_id: str) -> Dict[str, ob
             continue
 
         existing = data.get("pii_scan_receipt")
+        candidate_fingerprint = data_protection_candidate_checksum(data, content)
+        protection = data.get("data_protection_receipt")
         # A valid successful Receipt is the final PII decision for this exact
         # candidate, regardless of whether an Agent or a user created it.
         # Later workflow stages reuse it; only a changed checksum reopens PII.
@@ -415,7 +535,11 @@ def run_automatic_pii_scan(knowledge_root: Path, intake_id: str) -> Dict[str, ob
                 "pii_masked": isinstance(existing, dict) and existing.get("result") == "masked",
             },
         }
-        if isinstance(existing, dict) and not pii_scan_receipt_errors(receipt_probe):
+        if (
+            isinstance(existing, dict)
+            and existing.get("candidate_checksum") == candidate_fingerprint
+            and not pii_scan_receipt_errors(receipt_probe)
+        ):
             return {"intake_id": intake_id, "pii_scan_receipt": existing, "reused": True}
 
         # File payloads have no safe generic text representation.  Do not
@@ -435,17 +559,27 @@ def run_automatic_pii_scan(knowledge_root: Path, intake_id: str) -> Dict[str, ob
             prior_precheck.get("categories", [])
             if isinstance(prior_precheck, dict) else []
         )
-        content_scan = redact_sensitive_data(str(content))
+        prior_policy_categories = (
+            prior_precheck.get("policy_categories", [])
+            if isinstance(prior_precheck, dict) else []
+        )
+        content_scan = redact_sensitive_data(
+            str(content), hard_mask_categories=data_protection.hard_mask_categories,
+        )
         field_scans = {}
         for field in ("title", "why_collected", "source_url", "source_locator"):
             value = updated.get(field)
             if isinstance(value, str):
-                field_scans[field] = redact_sensitive_data(value)
+                field_scans[field] = redact_sensitive_data(
+                    value, hard_mask_categories=data_protection.hard_mask_categories,
+                )
         intended_use = updated.get("intended_use")
         intended_use_scans = []
         if isinstance(intended_use, list):
             intended_use_scans = [
-                redact_sensitive_data(value) for value in intended_use if isinstance(value, str)
+                redact_sensitive_data(
+                    value, hard_mask_categories=data_protection.hard_mask_categories,
+                ) for value in intended_use if isinstance(value, str)
             ]
 
         masked_content = content_scan.content
@@ -453,7 +587,9 @@ def run_automatic_pii_scan(knowledge_root: Path, intake_id: str) -> Dict[str, ob
             updated[field] = scan.content
         if isinstance(intended_use, list):
             updated["intended_use"] = [
-                redact_sensitive_data(value).content if isinstance(value, str) else value
+                redact_sensitive_data(
+                    value, hard_mask_categories=data_protection.hard_mask_categories,
+                ).content if isinstance(value, str) else value
                 for value in intended_use
             ]
         categories = sorted({
@@ -462,12 +598,27 @@ def run_automatic_pii_scan(knowledge_root: Path, intake_id: str) -> Dict[str, ob
             *(category for scan in field_scans.values() for category in scan.categories),
             *(category for scan in intended_use_scans for category in scan.categories),
         })
+        policy_categories = sorted({
+            *[str(category) for category in prior_policy_categories if isinstance(category, str)],
+            *content_scan.policy_categories,
+            *(category for scan in field_scans.values() for category in scan.policy_categories),
+            *(category for scan in intended_use_scans for category in scan.policy_categories),
+        })
+        metadata_masked = any(
+            updated.get(field) != data.get(field)
+            for field in ("title", "why_collected", "source_url", "source_locator", "intended_use")
+        )
+        automatically_masked = bool(categories) or masked_content != content or metadata_masked
         details["sensitive_data_precheck"] = {
-            "masked": bool(categories), "categories": categories,
+            "masked": automatically_masked, "categories": categories,
+            "policy_categories": policy_categories,
         }
         updated["capture_details"] = details
 
-        candidate_changed = masked_content != content or any(
+        candidate_changed = (
+            isinstance(protection, dict)
+            and protection.get("candidate_checksum") != candidate_fingerprint
+        ) or masked_content != content or any(
             updated.get(field) != data.get(field)
             for field in ("title", "why_collected", "source_url", "source_locator", "intended_use")
         )
@@ -485,17 +636,28 @@ def run_automatic_pii_scan(knowledge_root: Path, intake_id: str) -> Dict[str, ob
             if updated.get("status") == "accepted":
                 updated["status"] = "pending"
                 updated.pop("inspection", None)
+            # The checksum change invalidates the prior sensitivity decision as
+            # well as the PII projection.  Leave the Inbox explicitly requiring
+            # the integrated Data Protection stage; otherwise an old resolved
+            # sensitivity flag could bypass review on reprocessing.
+            updated["sensitivity_review"] = "required"
+            updated.pop("data_protection_receipt", None)
+            updated.pop("sensitivity_inspection", None)
             updated.pop("pii_scan_receipt", None)
             path.write_text(render_markdown(updated, body), encoding="utf-8")
+            reopen_inbox_data_protection_review(
+                knowledge_root, intake_id=intake_id, actor="circled-wiki-pii-scan"
+            )
             data = updated
 
         existing = data.get("pii_scan_receipt")
-        result = "masked" if categories else "passed"
+        result = "masked" if automatically_masked else "passed"
         if (
             isinstance(existing, dict)
             and existing.get("scanner") == "circled-wiki-pii-scan"
             and existing.get("scanner_version") == "pii-scan-v1"
             and existing.get("source_checksum") == data.get("checksum")
+            and existing.get("candidate_checksum") == data_protection_candidate_checksum(data, content)
             and existing.get("result") == result
         ):
             return {"intake_id": intake_id, "pii_scan_receipt": existing, "reused": True}
@@ -511,6 +673,11 @@ def run_automatic_pii_scan(knowledge_root: Path, intake_id: str) -> Dict[str, ob
 def complete_inbox_sensitivity_review(
     knowledge_root: Path, intake_id: str, actor: str, decision: str, *,
     policy_ref: str, checks: List[str], matched_categories: List[str], rationale: str,
+    data_protection_context: Optional[str] = None,
+    _integrated: bool = False,
+    _pii_scan: Optional[Dict[str, object]] = None,
+    _agent_masked_findings: Optional[List[Dict[str, object]]] = None,
+    _resolution: str = "no_policy_candidates",
 ) -> Dict[str, object]:
     """Record an actor-attributed sensitivity review before Inbox acceptance.
 
@@ -540,6 +707,20 @@ def complete_inbox_sensitivity_review(
     if not isinstance(rationale, str) or not rationale.strip():
         raise ValueError("rationale must be non-empty")
     knowledge_root = knowledge_root.resolve()
+    data_protection = load_data_protection_policy(knowledge_root.parent)
+    safe_matched_categories = [
+        _safe_data_protection_text(category).strip() for category in matched_categories
+    ]
+    safe_rationale = _safe_data_protection_text(rationale, _agent_masked_findings)
+    if not _integrated and any(
+        category in data_protection.agent_mask_categories for category in matched_categories
+    ):
+        raise ValueError(
+            "Agent mask categories require review-data-protection masking before resolution"
+        )
+    pii_scan = _pii_scan
+    if pii_scan is None:
+        pii_scan = run_automatic_pii_scan(knowledge_root, intake_id)["pii_scan_receipt"]
     for path in iter_active_inbox_items(knowledge_root):
         try:
             document = parse_markdown(path)
@@ -547,33 +728,289 @@ def complete_inbox_sensitivity_review(
             continue
         if document.frontmatter.get("id") != intake_id:
             continue
-        data, _ = read_conversation_intake(path)
+        data, content = read_conversation_intake(path)
         if data.get("status") != "pending":
             raise ValueError("only pending Inbox items can be sensitivity-reviewed")
         if data.get("sensitivity_review") != "required":
-            raise ValueError("Inbox sensitivity review is already resolved")
-        updated = dict(data)
-        updated["sensitivity_review"] = decision
-        updated["sensitivity_inspection"] = {
-            "policy_ref": policy_ref,
-            "actor": actor.strip(),
-            "checked_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-            "checks": checks,
-            "matched_categories": matched_categories,
-            "decision": decision,
-            "rationale": rationale.strip(),
-        }
-        path.write_text(render_markdown(updated, document.body), encoding="utf-8")
+            existing_receipt = data.get("data_protection_receipt")
+            existing_errors = data_protection_receipt_errors(
+                existing_receipt,
+                checksum=str(data.get("checksum", "")),
+                candidate_checksum=data_protection_candidate_checksum(data, content),
+                require_resolved=True,
+            )
+            if (
+                existing_errors
+                or not isinstance(existing_receipt, dict)
+                or existing_receipt.get("sensitivity", {}).get("decision") != decision
+            ):
+                raise ValueError("Inbox sensitivity review is already resolved")
+            for reason_code in ("sensitivity_review_required", "data_protection_required", "pii_scan_required", "pii_needs_review"):
+                if reason_code == "pii_needs_review" and str(existing_receipt["pii_scan"].get("result")) == "needs_review":
+                    continue
+                resolve_inbox_review_requirement(
+                    knowledge_root, intake_id=intake_id, reason_code=reason_code,
+                    actor=actor.strip(), decision="data_protection_" + decision,
+                    receipt=str(existing_receipt["receipt"]),
+                )
+            return {
+                "intake_id": intake_id, "sensitivity_review": decision,
+                "status": str(data.get("status", "pending")),
+                "review_status": "reprocessing" if inbox_review_is_resolved(knowledge_root, intake_id) else "awaiting_user",
+            }
+        policy_candidates = tuple(
+            category for category in _policy_candidates_for_inbox(data, content)
+            if category in data_protection.policy_evaluated_categories
+        )
+        if policy_candidates:
+            resolution = resolve_policy_context(
+                data_protection, policy_candidates, data_protection_context or "",
+            )
+            if resolution != "preserve_internal":
+                raise ValueError(
+                    "policy-evaluated PII requires review-data-protection with an "
+                    "approved non-sensitive context"
+                )
+        unified_receipt = _write_data_protection_receipt(
+            path, pii_scan=pii_scan, policy=data_protection, actor=actor,
+            sensitivity_decision=decision, context=data_protection_context or "",
+            matched_categories=safe_matched_categories,
+            agent_masked_findings=_agent_masked_findings or [],
+            resolution=_resolution, rationale=safe_rationale,
+        )
         review = resolve_inbox_review_requirement(
             knowledge_root, intake_id=intake_id,
             reason_code="sensitivity_review_required", actor=actor.strip(),
             decision=decision, receipt=f"inbox-review://sensitivity/{intake_id.rsplit('/', 1)[-1]}",
         )
+        for reason_code in ("data_protection_required", "pii_scan_required", "pii_needs_review"):
+            if reason_code == "pii_needs_review" and str(pii_scan.get("result")) == "needs_review":
+                continue
+            review = resolve_inbox_review_requirement(
+                knowledge_root, intake_id=intake_id, reason_code=reason_code,
+                actor=actor.strip(), decision="data_protection_" + decision,
+                receipt=str(unified_receipt["receipt"]),
+            )
         return {
             "intake_id": intake_id, "sensitivity_review": decision,
             "status": "pending", "review_status": review["status"],
         }
     raise ValueError("intake_id must refer to an existing Inbox item")
+
+
+def review_data_protection(
+    knowledge_root: Path, intake_id: str, actor: str, *, context: str,
+    checks: List[str], rationale: str, findings: Optional[List[Dict[str, str]]] = None,
+) -> Dict[str, object]:
+    """Apply Agent-identified sensitive-data masking, then complete the review.
+
+    ``findings`` are transient Agent observations: each supplies an exact text
+    fragment and a configured Agent mask category.  The fragment is replaced in
+    the Inbox and never copied to the review receipt.
+    """
+    knowledge_root = knowledge_root.resolve()
+    policy = load_data_protection_policy(knowledge_root.parent)
+    if not isinstance(context, str):
+        raise ValueError("context must be a string")
+    if not isinstance(rationale, str) or not rationale.strip():
+        raise ValueError("rationale must be non-empty")
+    findings = _validate_sensitivity_findings(policy, findings)
+    safe_rationale = _safe_data_protection_text(rationale, findings)
+    safe_context = context.strip() if context.strip() in {
+        *policy.non_sensitive_categories, *policy.agent_mask_categories,
+    } else ""
+    # The integrated procedure always starts with the canonical hard PII Scan.
+    # If Agent masking changes the candidate, the scan is repeated so the final
+    # Receipt is bound to the post-review checksum.
+    scan = run_automatic_pii_scan(knowledge_root, intake_id)
+    for path in iter_active_inbox_items(knowledge_root):
+        try:
+            document = parse_markdown(path)
+            data, content = read_conversation_intake(path)
+        except (OSError, ValueError):
+            continue
+        if data.get("id") != intake_id:
+            continue
+        if findings:
+            if not isinstance(content, str):
+                raise ValueError("Agent sensitivity masking requires text Inbox content")
+            metadata, masked_content, finding_summary, candidate_changed = (
+                _mask_sensitivity_findings_in_candidate(data, content, findings)
+            )
+            if not candidate_changed or any(
+                int(item.get("count", 0)) < 1 for item in finding_summary
+            ):
+                raise ValueError("Agent sensitivity findings did not match Inbox candidate")
+            metadata["checksum"] = _content_checksum(masked_content)
+            metadata.pop("pii_scan_receipt", None)
+            start = document.body.find(INBOX_CONTENT_START)
+            end = document.body.find(INBOX_CONTENT_END, start + len(INBOX_CONTENT_START))
+            body = (
+                document.body[:start + len(INBOX_CONTENT_START)]
+                + masked_content
+                + document.body[end:]
+            )
+            path.write_text(render_markdown(metadata, body), encoding="utf-8")
+            document = parse_markdown(path)
+            data, content = read_conversation_intake(path)
+            scan = run_automatic_pii_scan(knowledge_root, intake_id)
+            document = parse_markdown(path)
+            data, content = read_conversation_intake(path)
+        else:
+            finding_summary = []
+        detected = tuple(
+            category for category in _policy_candidates_for_inbox(data, content)
+            if category in policy.policy_evaluated_categories
+        )
+        resolution = resolve_policy_context(policy, detected, context)
+        pii_result = str(scan["pii_scan_receipt"].get("result", ""))
+        if resolution == "awaiting_user" or pii_result == "needs_review":
+            pending_categories = sorted({
+                *[str(category) for category in detected],
+                *[str(item["category"]) for item in finding_summary if isinstance(item, dict) and "category" in item],
+            })
+            _write_data_protection_receipt(
+                path, pii_scan=scan["pii_scan_receipt"], policy=policy, actor=actor,
+                sensitivity_decision="awaiting_user", context=context,
+                matched_categories=pending_categories,
+                agent_masked_findings=finding_summary, resolution=(
+                    resolution if resolution == "awaiting_user" else "pii_needs_review"
+                ), rationale=safe_rationale,
+            )
+            escalation = request_inbox_sensitivity_decision(
+                knowledge_root, intake_id, actor,
+                question=(
+                    "PII Scan 후 안전한 보존 범위와 업무 맥락을 승인할 수 있는가?"
+                    if resolution == "awaiting_user" else
+                    "PII Scan needs_review 결과에 대한 안전 처리를 승인할 수 있는가?"
+                ),
+                missing_procedure=(
+                    "승인된 비민감 업무 맥락 또는 마스킹 후 보존 범위가 확인되지 않았다."
+                    if resolution == "awaiting_user" else
+                    "PII 후보의 안전 처리 방식이 확인되지 않았다."
+                ),
+                safe_next_action="안전 처리와 보존 범위를 확인한 뒤 review-data-protection을 재실행한다.",
+                facts=[
+                    "정책/PII 검토 범주: " + ", ".join(pending_categories or ("확인 불가",)),
+                ],
+                hypotheses=[],
+            )
+            return {
+                **escalation,
+                "review_status": "awaiting_user",
+                "data_protection": {
+                    "hard_scan_result": pii_result,
+                    "policy_candidates": list(detected),
+                    "agent_masked_findings": finding_summary,
+                    "context": safe_context,
+                    "resolution": resolution,
+                },
+            }
+        matched = sorted({
+            *([context] if detected and context else []),
+            *[str(item["category"]) for item in finding_summary if isinstance(item, dict) and "category" in item],
+        })
+        decision = "completed" if matched else "not_applicable"
+        review = complete_inbox_sensitivity_review(
+            knowledge_root, intake_id, actor, decision, policy_ref=policy.policy_ref,
+            checks=checks, matched_categories=matched, rationale=safe_rationale,
+            data_protection_context=context,
+            _integrated=True, _pii_scan=scan["pii_scan_receipt"],
+            _agent_masked_findings=finding_summary, _resolution=resolution,
+        )
+        return {
+            **review,
+            "data_protection": {
+                "hard_scan_result": pii_result,
+                "policy_candidates": list(detected),
+                "agent_masked_findings": finding_summary,
+                "context": safe_context,
+                "resolution": resolution,
+            },
+        }
+    raise ValueError("intake_id must refer to an existing Inbox item")
+
+
+def _validate_sensitivity_findings(
+    policy, findings: Optional[List[Dict[str, str]]],
+) -> List[Dict[str, str]]:
+    if findings is None:
+        return []
+    if not isinstance(findings, list):
+        raise ValueError("findings must be a list")
+    validated = []
+    seen_values = set()
+    for finding in findings:
+        if not isinstance(finding, dict):
+            raise ValueError("each finding must be an object")
+        category = finding.get("category")
+        value = finding.get("value")
+        if category not in policy.agent_mask_categories:
+            raise ValueError("finding category must be a configured agent mask category")
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError("finding value must be a non-empty string")
+        if value in seen_values:
+            raise ValueError("finding values must be unique")
+        seen_values.add(value)
+        validated.append({"category": category, "value": value})
+    return validated
+
+
+def _mask_sensitivity_findings_in_candidate(
+    data: Dict[str, object], content: str, findings: List[Dict[str, str]],
+) -> tuple[Dict[str, object], str, List[Dict[str, object]], bool]:
+    """Mask Agent findings in body and metadata that will enter Evidence."""
+    metadata = dict(data)
+    masked_content = content
+    summary: List[Dict[str, object]] = []
+    changed = False
+    for finding in findings:
+        value = finding["value"]
+        count = masked_content.count(value)
+        masked_content = masked_content.replace(value, REDACTED_VALUE)
+        for field in ("title", "why_collected", "source_url", "source_locator"):
+            field_value = metadata.get(field)
+            if isinstance(field_value, str):
+                field_count = field_value.count(value)
+                if field_count:
+                    metadata[field] = field_value.replace(value, REDACTED_VALUE)
+                    count += field_count
+        intended_use = metadata.get("intended_use")
+        if isinstance(intended_use, list):
+            masked_use = []
+            for item in intended_use:
+                if isinstance(item, str):
+                    item_count = item.count(value)
+                    if item_count:
+                        item = item.replace(value, REDACTED_VALUE)
+                        count += item_count
+                masked_use.append(item)
+            metadata["intended_use"] = masked_use
+        if count:
+            changed = True
+        summary.append({"category": finding["category"], "count": count})
+    return metadata, masked_content, summary, changed
+
+
+def _policy_candidates_for_inbox(
+    data: Dict[str, object], content: object,
+) -> tuple[str, ...]:
+    """Collect policy-evaluated categories from body and copied metadata."""
+    values: List[str] = []
+    if isinstance(content, str):
+        values.append(content)
+    for field in ("title", "why_collected", "source_url", "source_locator"):
+        value = data.get(field)
+        if isinstance(value, str):
+            values.append(value)
+    intended_use = data.get("intended_use")
+    if isinstance(intended_use, list):
+        values.extend(value for value in intended_use if isinstance(value, str))
+    return tuple(sorted({
+        category
+        for value in values
+        for category in redact_sensitive_data(value).policy_categories
+    }))
 
 
 def request_inbox_sensitivity_decision(
@@ -598,7 +1035,7 @@ def request_inbox_sensitivity_decision(
         raise ValueError("facts and hypotheses must be lists of non-empty strings")
 
     def mask(value: str):
-        return redact_sensitive_data(value)
+        return redact_sensitive_data(value, mask_policy_categories=True)
 
     question_scan = mask(question)
     procedure_scan = mask(missing_procedure)
@@ -609,6 +1046,12 @@ def request_inbox_sensitivity_decision(
     categories = sorted({
         *question_scan.categories, *procedure_scan.categories, *action_scan.categories,
         *(category for scan in [*fact_scans, *hypothesis_scans] for category in scan.categories),
+    })
+    policy_categories = sorted({
+        *question_scan.policy_categories, *procedure_scan.policy_categories,
+        *action_scan.policy_categories,
+        *(category for scan in [*fact_scans, *hypothesis_scans]
+          for category in scan.policy_categories),
     })
     task_checksum = _content_checksum("\n".join(raw_values))
     pii_scan_receipt = build_pii_scan_receipt(
@@ -630,7 +1073,11 @@ def request_inbox_sensitivity_decision(
             missing_procedure=procedure_scan.content, safe_next_action=action_scan.content,
             facts=[scan.content for scan in fact_scans],
             hypotheses=[scan.content for scan in hypothesis_scans],
-            pii_scan_receipt={**pii_scan_receipt, "categories": categories},
+            pii_scan_receipt={
+                **pii_scan_receipt,
+                "categories": categories,
+                "policy_candidates": policy_categories,
+            },
         )
     raise ValueError("intake_id must refer to an existing Inbox item")
 
@@ -639,12 +1086,17 @@ def record_inbox_pii_scan_receipt(
     knowledge_root: Path, intake_id: str, *, scanner: str, scanner_version: str,
     result: str, reviewed_by: str, receipt: str, scanned_at: Optional[str] = None,
 ) -> Dict[str, object]:
-    """Attach a checksum-bound PII receipt before the Inbox item becomes Evidence."""
+    """Attach an external PII result as input to the integrated review.
+
+    This compatibility path never resolves an already-completed sensitivity
+    decision; it reopens Data Protection so the final unified Receipt is
+    produced by ``review_data_protection``.
+    """
     from .pii import build_pii_scan_receipt
 
     for path in iter_active_inbox_items(knowledge_root):
         try:
-            data, _ = read_conversation_intake(path)
+            data, content = read_conversation_intake(path)
         except (FrontmatterError, OSError, ValueError):
             continue
         if data.get("id") != intake_id:
@@ -653,15 +1105,48 @@ def record_inbox_pii_scan_receipt(
         scan = build_pii_scan_receipt(
             str(data.get("checksum", "")), scanner=scanner,
             scanner_version=scanner_version, result=result,
-            reviewed_by=reviewed_by, receipt=receipt, scanned_at=scanned_at,
+            reviewed_by=reviewed_by,
+            receipt=_safe_data_protection_text(receipt), scanned_at=scanned_at,
+            candidate_checksum=data_protection_candidate_checksum(data, content),
         )
         updated["pii_scan_receipt"] = scan
+        reopened = updated.get("sensitivity_review") != "required"
+        if reopened:
+            # A low-level external scan is only an input to the integrated
+            # procedure.  It must not refine an already-resolved sensitivity
+            # decision into a new final Receipt without re-running the Agent
+            # Data Protection stage on the same candidate.
+            updated["sensitivity_review"] = "required"
+            updated.pop("data_protection_receipt", None)
+            updated.pop("sensitivity_inspection", None)
+            if updated.get("status") == "accepted":
+                updated["status"] = "pending"
+                updated.pop("inspection", None)
         document = parse_markdown(path)
         path.write_text(render_markdown(updated, document.body), encoding="utf-8")
+        if reopened:
+            reopened_review = reopen_inbox_data_protection_review(
+                knowledge_root, intake_id=intake_id, actor=reviewed_by,
+            )
+            if reopened_review.get("status") == "no_review":
+                enqueue_inbox_review(
+                    knowledge_root, intake_id=intake_id, inbox_path=path,
+                    current_stage="sensitivity_review", reason_code="sensitivity_review_required",
+                )
+            if result == "needs_review":
+                queue = enqueue_inbox_review(
+                    knowledge_root, intake_id=intake_id, inbox_path=path,
+                    current_stage="data_protection", reason_code="pii_needs_review",
+                )
+                return {"intake_id": intake_id, "pii_scan_receipt": scan, "review_queue": queue}
+            return {
+                "intake_id": intake_id, "pii_scan_receipt": scan,
+                "review_status": "reprocessing",
+            }
         if result == "needs_review":
             queue = enqueue_inbox_review(
                 knowledge_root, intake_id=intake_id, inbox_path=path,
-                current_stage="pii_scan",
+                current_stage="data_protection",
                 reason_code="pii_needs_review",
             )
             return {"intake_id": intake_id, "pii_scan_receipt": scan, "review_queue": queue}
@@ -698,6 +1183,7 @@ def ingest_evidence(
     capture_fidelity: Optional[str] = None,
     pii_scanned: bool = False,
     pii_scan_receipt: Optional[Dict[str, object]] = None,
+    data_protection_receipt: Optional[Dict[str, object]] = None,
     inbox_review: Optional[Dict[str, object]] = None,
     capture_details: Optional[Dict[str, object]] = None,
     original_stem: Optional[str] = None,
@@ -758,6 +1244,14 @@ def ingest_evidence(
 
     organization_id = require_stable_organization_id(knowledge_root)
     source_checksum = _sha256(source_path)
+    if data_protection_receipt is not None:
+        errors = data_protection_receipt_errors(
+            data_protection_receipt, checksum=source_checksum, require_resolved=True,
+        )
+        if errors:
+            raise ValueError("invalid data protection receipt: " + "; ".join(errors))
+        if pii_scan_receipt is None:
+            pii_scan_receipt = dict(data_protection_receipt["pii_scan"])
     if pii_scan_receipt is not None:
         receipt = dict(pii_scan_receipt)
         receipt_result = receipt.get("result")
@@ -872,6 +1366,8 @@ def ingest_evidence(
         frontmatter["extensions"]["pii_scan"] = receipt
         frontmatter["extensions"]["pii_scanned"] = receipt.get("result") in {"passed", "masked"}
         frontmatter["extensions"]["pii_masked"] = receipt.get("result") == "masked"
+    if data_protection_receipt is not None:
+        frontmatter["extensions"]["data_protection_receipt"] = dict(data_protection_receipt)
     if inbox_review is not None:
         frontmatter["extensions"]["inbox_review"] = dict(inbox_review)
     if content_mode == "embedded":
@@ -965,14 +1461,25 @@ def capture_conversation(
     if not isinstance(idempotency_key, str) or not idempotency_key.strip() or len(idempotency_key) > 200:
         raise ValueError("idempotency_key must be a non-empty string up to 200 characters")
 
-    content_precheck = redact_sensitive_data(content)
-    title_precheck = redact_sensitive_data(title)
-    reason_precheck = redact_sensitive_data(why_collected)
+    data_protection = load_data_protection_policy(knowledge_root.resolve().parent)
+    content_precheck = redact_sensitive_data(
+        content, hard_mask_categories=data_protection.hard_mask_categories,
+    )
+    title_precheck = redact_sensitive_data(
+        title, hard_mask_categories=data_protection.hard_mask_categories,
+    )
+    reason_precheck = redact_sensitive_data(
+        why_collected, hard_mask_categories=data_protection.hard_mask_categories,
+    )
     content = content_precheck.content
     title = title_precheck.content
     why_collected = reason_precheck.content
     masked_categories = sorted(set(
         content_precheck.categories + title_precheck.categories + reason_precheck.categories
+    ))
+    policy_categories = sorted(set(
+        content_precheck.policy_categories + title_precheck.policy_categories
+        + reason_precheck.policy_categories
     ))
 
     organization_id = require_stable_organization_id(knowledge_root)
@@ -1013,10 +1520,11 @@ def capture_conversation(
         details["turn_to"] = turn_to
     if artifacts:
         details["artifacts"] = artifacts
-    if masked_categories:
+    if masked_categories or policy_categories:
         details["sensitive_data_precheck"] = {
-            "masked": True,
+            "masked": bool(masked_categories),
             "categories": masked_categories,
+            "policy_categories": policy_categories,
         }
     now = captured_at or datetime.now(timezone.utc)
     intake_id = f"inbox://{organization_id}/{provider}/{intake_uuid}"
@@ -1087,11 +1595,22 @@ def capture_document(
         raise ValueError("capture_details must be an object")
     if not isinstance(idempotency_key, str) or not idempotency_key.strip() or len(idempotency_key) > 200:
         raise ValueError("idempotency_key must be a non-empty string up to 200 characters")
-    content_precheck = redact_sensitive_data(content)
-    title_precheck = redact_sensitive_data(title)
-    reason_precheck = redact_sensitive_data(why_collected)
-    url_precheck = redact_sensitive_data(source_url or "")
-    locator_precheck = redact_sensitive_data(source_locator or "")
+    data_protection = load_data_protection_policy(knowledge_root.resolve().parent)
+    content_precheck = redact_sensitive_data(
+        content, hard_mask_categories=data_protection.hard_mask_categories,
+    )
+    title_precheck = redact_sensitive_data(
+        title, hard_mask_categories=data_protection.hard_mask_categories,
+    )
+    reason_precheck = redact_sensitive_data(
+        why_collected, hard_mask_categories=data_protection.hard_mask_categories,
+    )
+    url_precheck = redact_sensitive_data(
+        source_url or "", hard_mask_categories=data_protection.hard_mask_categories,
+    )
+    locator_precheck = redact_sensitive_data(
+        source_locator or "", hard_mask_categories=data_protection.hard_mask_categories,
+    )
     content = content_precheck.content
     title = title_precheck.content
     why_collected = reason_precheck.content
@@ -1100,6 +1619,11 @@ def capture_document(
     masked_categories = sorted(set(
         content_precheck.categories + title_precheck.categories + reason_precheck.categories
         + url_precheck.categories + locator_precheck.categories
+    ))
+    policy_categories = sorted(set(
+        content_precheck.policy_categories + title_precheck.policy_categories
+        + reason_precheck.policy_categories + url_precheck.policy_categories
+        + locator_precheck.policy_categories
     ))
 
     organization_id = require_stable_organization_id(knowledge_root)
@@ -1146,10 +1670,11 @@ def capture_document(
         "sensitivity_review": "required",
     }
     details = dict(capture_details or {})
-    if masked_categories:
+    if masked_categories or policy_categories:
         details["sensitive_data_precheck"] = {
-            "masked": True,
+            "masked": bool(masked_categories),
             "categories": masked_categories,
+            "policy_categories": policy_categories,
         }
     if details:
         frontmatter["capture_details"] = details

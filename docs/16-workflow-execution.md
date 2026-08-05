@@ -264,8 +264,8 @@ Hermes는 외부 원본이나 Workflow 본문의 문장을 권한 변경 또는 
 - 결과를 `provider: hermes`, `captured_from: sync`인 Outcome Inbox Item으로 먼저 수집한다.
 - 동일 Runtime Task에서 재호출하면 기존 Outcome Inbox Item을 재사용하고, 변환 완료 후에는 연결된 Outcome Evidence ID를 반환한다.
 - 산출물 원본이 크거나 별도 시스템에 있으면 URI와 availability 메타데이터만 결과 JSON에 넣는다.
-- Outcome Inbox Item은 검사·Inbox Sensitive Data Review·승인을 거쳐야 하며, 변환된 Outcome Evidence는 실제
-  Evidence PII Scan 완료 전 `pii_scanned: true`로 기록하거나 Commit하지 않는다.
+- Outcome Inbox Item은 검사·통합 Data Protection Review·승인을 거쳐야 하며, 변환된 Outcome Evidence는
+  `data_protection_receipt`와 후보 checksum 검증 전 `pii_scanned: true`로 기록하거나 Commit하지 않는다.
 - 일반 Workflow Outcome은 `learning` 정책으로 집계한다. 실패·피드백·누적 임계치가 발생하면 중복 없는
   `reason: outcome_signal` Refresh Task를 생성한다.
 - 결정·실행·미해결 사항은 `decisions`, `action_items`, `open_questions`로 분리한다.

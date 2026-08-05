@@ -14,6 +14,11 @@ from circled_wiki.config.settings import (
     load_settings,
     render_settings,
 )
+from circled_wiki.config.data_protection import (
+    POLICY_PATH,
+    load_data_protection_policy,
+    render_data_protection_policy,
+)
 
 
 CONTROL_PLANE = ".circled-wiki"
@@ -426,6 +431,13 @@ def bootstrap_circled_wiki(
     gitignore_missing_patterns = _gitignore_missing_patterns(gitignore, gitignore_patterns)
     config_path = target / CONTROL_PLANE / "config.yaml"
     configuration_action = "preserve_existing" if config_path.exists() else "create"
+    data_protection_path = target / POLICY_PATH
+    data_protection_action = "preserve_existing" if data_protection_path.exists() else "create"
+    data_protection = render_data_protection_policy().encode("utf-8")
+    configured_data_protection = (
+        load_data_protection_policy(target)
+        if data_protection_action == "preserve_existing" else None
+    )
     configuration = render_settings(
         organization_id=organization_id,
         organization_name=organization_name,
@@ -438,6 +450,9 @@ def bootstrap_circled_wiki(
         "organization_name": configured.organization_name if configured else organization_name,
         "operator_agent": configured.operator_agent if configured else operator_agent,
         "graphify_enabled": configured.graphify.enabled if configured else graphify_enabled,
+        "data_protection_policy_ref": (
+            configured_data_protection.policy_ref if configured_data_protection else "inbox-sensitivity/v1"
+        ),
     }
     os_root = target / CONTROL_PLANE
     os_exists = os_root.is_dir() and any(os_root.iterdir())
@@ -462,6 +477,7 @@ def bootstrap_circled_wiki(
     actions: List[Dict[str, str]] = []
     if create_knowledge_readme:
         actions.append({"path": "knowledge/README.md", "action": "create"})
+    actions.append({"path": POLICY_PATH, "action": data_protection_action})
     pending_proposals: List[Dict[str, str]] = []
     upgrade_issues: List[Dict[str, str]] = []
     next_assets: Dict[str, str] = dict(previous)
@@ -552,7 +568,7 @@ def bootstrap_circled_wiki(
         for relative in legacy_assets
         if (target / relative).is_file() and (target / relative) not in removals
     ]
-    known_non_assets = {MANIFEST_PATH, f"{CONTROL_PLANE}/config.yaml"}
+    known_non_assets = {MANIFEST_PATH, f"{CONTROL_PLANE}/config.yaml", POLICY_PATH}
     known_paths = set(previous) | set(assets) | known_non_assets
     for path in (sorted(control_root.rglob("*")) if control_root.is_dir() else []):
         relative_path = path.relative_to(target).as_posix()
@@ -597,6 +613,7 @@ def bootstrap_circled_wiki(
         or manifest_needs_update
         or directories_missing
         or configuration_action == "create"
+        or data_protection_action == "create"
     )
     backup_required = os_exists and os_mutation_required
     backup_path = None
@@ -628,6 +645,8 @@ def bootstrap_circled_wiki(
             portable_cli.chmod(portable_cli.stat().st_mode | 0o111)
         if configuration_action == "create":
             config_path.write_bytes(configuration)
+        if data_protection_action == "create":
+            data_protection_path.write_bytes(data_protection)
         if manifest_needs_update or backup_path is not None:
             manifest_payload = dict(manifest)
             manifest_payload.update({
@@ -713,7 +732,8 @@ def bootstrap_circled_wiki(
             "gitignore_missing_patterns": gitignore_missing_patterns,
             "configuration_action": configuration_action,
             "configuration": configuration_report,
-        "legacy_asset_warnings": legacy_asset_warnings,
+            "data_protection_action": data_protection_action,
+            "legacy_asset_warnings": legacy_asset_warnings,
             "upgrade_issues": upgrade_issues,
             "backup_required": backup_required,
             "backup_path": str(backup_path) if backup_path is not None else None,

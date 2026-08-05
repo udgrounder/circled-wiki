@@ -34,8 +34,10 @@ inbox-capture
 
 `contracts/index.yaml`은 영역별 실행 계약을 등록하며, 각 계약은 Frontmatter와 Queue에 기록된 현재 상태에서 안전하게 재수행할 수 있는
 선행 단계만 구조화한다. Inbox 계약은 `inbox-inspection`과 `evidence-ingest` Profile을 대체하지 않는다. 자동 PII Scan은
-전화번호를 포함한 정책 대상 PII를 실제 후보에서 검사·마스킹해 `passed` 또는 `masked` Receipt를 확정할 수 있지만, PII 유형으로
-정책·절차 근거가 없는 민감성 판단, `needs_review` 뒤 안전 처리, 승인 판단을 자동으로 해소하지 않는다.
+정책에서 활성화된 범주를 실제 Inbox 후보에서 탐지하고, 하드 마스킹과 Agent의 민감도 판단·선택적 마스킹을
+같은 단계에서 결합하는 입력이다. 최종 후보에 결합된 `data_protection_receipt`가 `passed` 또는 `masked`일 때만
+acceptance와 Evidence 변환을 허용한다. 정책 판단 대상은 Data Protection Review가 Agent 평가와 업무 맥락을 적용하며,
+근거가 없으면 계약 작업을 `awaiting_user`로 전환한다.
 
 `needs_review`는 단계가 자동 결론을 낼 수 없다는 판정이고, `awaiting_user`는 사용자만 할 수 있는 행동을 실제로 기다리는 Queue
 상태다. Curation의 `review_handoff`는 Review 카드 생성 결과이며, 카드가 사용자 또는 허용된 검증 Agent 중 누구를 기다리는지는
@@ -72,8 +74,9 @@ inbox-capture
 | Queue 상태 조회·재개 | 각 계약의 `current.stage/status/actor`, `requirements`, Receipt |
 | Commit·Push 상태 공유 | `publication.md` |
 
-자동 PII Scan은 전화번호를 포함한 정책 대상 PII를 실제 후보에서 검사·마스킹하는 Evidence 직전 단계다.
-`needs_review`는 단계별 판정이고, 사용자만 할 수 있는 조치일 때만 계약 작업을 `awaiting_user`로 전이한다.
+자동 PII Scan은 정책에서 활성화된 범주를 실제 Inbox 후보에서 탐지하고 하드 마스킹하는 통합
+Data Protection 단계의 입력이다. `data_protection_receipt`가 최종 후보 checksum에 결합돼야 하며,
+`needs_review`는 단계별 판정이고 사용자만 할 수 있는 조치일 때만 계약 작업을 `awaiting_user`로 전이한다.
 `review_handoff`는 Curation Review 카드 생성 결과이며 사용자 대기 상태가 아니다.
 
 ## Metrics

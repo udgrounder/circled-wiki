@@ -1,0 +1,44 @@
+schema_version: 1
+
+# Each supported hard-scan feature is explicitly switchable.  A category
+# omitted from a custom mapping defaults to true; phone and email are written
+# as false here so the product default keeps them off.
+pii_scan:
+  policy_version: v1
+  hard_mask_categories:
+    resident_registration_number: true
+    account_number: true
+    card_number: true
+    credential: true
+    mobile_phone_number: false
+    email_address: false
+  policy_evaluated_categories:
+    - mobile_phone_number
+
+# Installation-local review categories and decision grounds.
+sensitivity_review:
+  policy_ref: inbox-sensitivity/v1
+  non_sensitive_categories:
+    - employee_business_contact
+    - partner_business_contact
+  # Agent may mask only text that falls within each category's include boundary.
+  # These are decision grounds, not keyword patterns; exclude guidance prevents
+  # broad terms such as "contract" or "evaluation" from becoming matches.
+  agent_mask_categories:
+    compensation:
+      description: "개인별 급여·보너스·퇴직금·보상액 또는 산정 결과"
+      include: ["개인별 급여액", "보너스·인센티브", "퇴직금·보상액", "보상 산정 결과"]
+      exclude: ["일반 보상 정책", "공개 급여 범위", "비식별 총액 예산"]
+    performance_review:
+      description: "개인의 평가 점수·등급·피드백 또는 승진 결정"
+      include: ["개인 평가 점수·등급", "개인 피드백", "승진 결정"]
+      exclude: ["일반 평가 기준", "평가 양식", "비식별 집계 지표"]
+    disciplinary_action:
+      description: "개인에 대한 징계 사유·절차·결정·조치 기록"
+      include: ["징계 사유", "징계 절차·결정", "개인 조치 기록"]
+      exclude: ["일반 행동강령", "징계 절차 안내", "비식별 교육 자료"]
+    unlawful_content:
+      description: "명시적인 불법 행위의 실행·조장·은폐 또는 타인의 권리·안전을 침해하는 구체적 지시"
+      include: ["불법 행위 실행·조장 지시", "사기·뇌물·절도·불법 거래 실행 방법", "증거 삭제·감사 방해·규제 회피 지시", "타인의 권리·안전을 침해하는 구체적 실행 방법"]
+      exclude: ["계약·법률 자문·소송·분쟁·규제 대응 및 결정", "법 위반 여부 검토·컴플라이언스 점검", "불법 행위의 신고·예방·교육·수사 협조", "공개 법령·판례·사건 보도 또는 사실 기록"]
+  missing_policy_action: awaiting_user

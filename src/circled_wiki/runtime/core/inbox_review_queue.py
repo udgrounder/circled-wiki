@@ -8,6 +8,10 @@ from uuid import UUID
 from .frontmatter import parse_markdown, render_markdown
 from .inbox_contracts import SUPPORTED_INBOX_REVIEW_REQUIREMENTS
 from .pii import pii_scan_receipt_errors
+from .data_protection_receipt import (
+    data_protection_candidate_checksum,
+    data_protection_receipt_errors,
+)
 
 
 REVIEW_ACTIONS = {
@@ -38,6 +42,24 @@ def _item_path(knowledge_root: Path, intake_id: str) -> Path:
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def _candidate_for_receipt(path: Path, data: Dict[str, object]) -> object:
+    """Read only the current candidate needed to bind the Data Protection Receipt."""
+    document = parse_markdown(path)
+    if data.get("content_type") == "file":
+        payload_name = data.get("payload_file")
+        if not isinstance(payload_name, str) or Path(payload_name).name != payload_name:
+            raise ValueError("Inbox file payload_file is invalid")
+        payload = path.parent / payload_name
+        if not payload.is_file():
+            raise ValueError("Inbox file payload is missing")
+        return payload
+    start = document.body.find("<!-- INBOX_CONTENT_START -->")
+    end = document.body.find("<!-- INBOX_CONTENT_END -->", start + len("<!-- INBOX_CONTENT_START -->"))
+    if start < 0 or end < 0:
+        raise ValueError("Inbox item content markers are missing")
+    return document.body[start + len("<!-- INBOX_CONTENT_START -->"):end]
 
 
 def _requirements(data: Dict[str, object]) -> List[Dict[str, object]]:
@@ -196,6 +218,15 @@ def has_blocking_inbox_review(knowledge_root: Path, intake_id: str) -> bool:
     return isinstance(current, dict) and current.get("status") == "awaiting_user"
 
 
+def inbox_review_is_resolved(knowledge_root: Path, intake_id: str) -> bool:
+    """Return whether every recorded Inbox requirement has been resolved."""
+    review = get_inbox_review(knowledge_root, intake_id)
+    if review is None:
+        return False
+    requirements = _requirements(review)
+    return bool(requirements) and all(item.get("status") == "resolved" for item in requirements)
+
+
 def escalate_inbox_sensitivity_review(
     knowledge_root: Path, *, intake_id: str, actor: str, question: str,
     missing_procedure: str, safe_next_action: str, facts: List[str],
@@ -307,6 +338,46 @@ def resolve_inbox_review_requirement(
     return {"intake_id": intake_id, "status": status, "reused": False}
 
 
+def reopen_inbox_data_protection_review(
+    knowledge_root: Path, *, intake_id: str, actor: str,
+) -> Dict[str, object]:
+    """Expire prior Data Protection decisions after the Inbox candidate changes."""
+    review = get_inbox_review(knowledge_root, intake_id)
+    if review is None:
+        return {"intake_id": intake_id, "reused": True, "status": "no_review"}
+    requirements = _requirements(review)
+    changed = False
+    for item in requirements:
+        if item.get("reason_code") not in {
+            "sensitivity_review_required", "data_protection_required",
+            "pii_scan_required", "pii_needs_review",
+        }:
+            continue
+        if item.get("status") == "resolved":
+            changed = True
+        item["status"] = "pending"
+        for field in (
+            "decision", "decided_by", "decided_at", "receipt", "question",
+            "blocked_step", "missing_procedure", "safe_next_action", "facts",
+            "hypotheses", "pii_scan", "escalated_by", "escalated_at",
+        ):
+            item.pop(field, None)
+    if not changed:
+        return {"intake_id": intake_id, "reused": True, "status": str(review.get("current", {}).get("status", "pending"))}
+    previous = review.get("current") if isinstance(review.get("current"), dict) else None
+    current = {
+        "stage": "sensitivity_review", "status": "pending", "actor": actor,
+        "next_action": "review_data_protection",
+    }
+    review.update({"requirements": requirements, "updated_at": _now(), "current": current})
+    _append_transition(review, from_current=previous, to_current=current, outcome="data_protection_expired")
+    _append_step(review, stage="sensitivity_review", status="pending", outcome="data_protection_expired")
+    path = review.pop("queue_path")
+    review.pop("queue_id", None)
+    path.write_text(render_markdown(review), encoding="utf-8")
+    return {"intake_id": intake_id, "reused": False, "status": "pending"}
+
+
 def review_context(knowledge_root: Path, intake_id: str) -> Optional[Dict[str, object]]:
     """Return safe resolved-review provenance for a newly created Evidence item."""
     review = get_inbox_review(knowledge_root, intake_id)
@@ -314,6 +385,21 @@ def review_context(knowledge_root: Path, intake_id: str) -> Optional[Dict[str, o
         return None
     requirements = _requirements(review)
     if not requirements or not all(item.get("status") == "resolved" for item in requirements):
+        return None
+    inbox_path = knowledge_root.resolve() / str(review.get("inbox_path", ""))
+    try:
+        inbox = parse_markdown(inbox_path).frontmatter
+    except (OSError, ValueError):
+        return None
+    receipt = inbox.get("data_protection_receipt")
+    errors = data_protection_receipt_errors(
+        receipt, checksum=str(inbox.get("checksum", "")),
+        candidate_checksum=data_protection_candidate_checksum(
+            inbox, _candidate_for_receipt(inbox_path, inbox)
+        ),
+        require_resolved=True,
+    )
+    if errors:
         return None
     return {
         "queue_id": str(review["queue_id"]),
@@ -326,6 +412,7 @@ def review_context(knowledge_root: Path, intake_id: str) -> Optional[Dict[str, o
             }
             for item in requirements
         ],
+        "data_protection_receipt": dict(receipt),
     }
 
 
@@ -336,8 +423,23 @@ def complete_inbox_review(
     review = get_inbox_review(knowledge_root, intake_id)
     if review is None:
         return False
-    if has_blocking_inbox_review(knowledge_root, intake_id):
-        raise ValueError("inbox task has unresolved user-only requirements")
+    if not inbox_review_is_resolved(knowledge_root, intake_id):
+        raise ValueError("inbox task has unresolved requirements")
+    inbox_path = knowledge_root.resolve() / str(review.get("inbox_path", ""))
+    if not inbox_path.is_file():
+        raise ValueError("Inbox source is missing before contract completion")
+    receipt = parse_markdown(inbox_path).frontmatter.get("data_protection_receipt")
+    inbox_data = parse_markdown(inbox_path).frontmatter
+    receipt_errors = data_protection_receipt_errors(
+        receipt,
+        checksum=str(inbox_data.get("checksum", "")),
+        candidate_checksum=data_protection_candidate_checksum(
+            inbox_data, _candidate_for_receipt(inbox_path, inbox_data)
+        ),
+        require_resolved=True,
+    )
+    if receipt_errors:
+        raise ValueError("data protection receipt is not complete: " + "; ".join(receipt_errors))
     source = review.pop("queue_path")
     review.pop("queue_id", None)
     review.update({"evidence_id": evidence_id, "resolved_at": _now()})
@@ -355,6 +457,42 @@ def complete_inbox_review(
     temporary.write_text(render_markdown(review), encoding="utf-8")
     temporary.replace(archive)
     source.unlink(missing_ok=True)
+    return True
+
+
+def reopen_inbox_review_after_ingest_failure(
+    knowledge_root: Path, *, intake_id: str, reason: str,
+) -> bool:
+    """Return a completed Inbox contract task to retryable accepted state."""
+    knowledge_root = knowledge_root.resolve()
+    active = _item_path(knowledge_root, intake_id)
+    archive = _archive_root(knowledge_root) / active.name
+    source = active if active.is_file() else archive
+    if not source.is_file():
+        return False
+    payload = parse_markdown(source).frontmatter
+    previous = payload.get("current") if isinstance(payload.get("current"), dict) else None
+    payload.pop("evidence_id", None)
+    payload.pop("resolved_at", None)
+    payload["current"] = {
+        "stage": "accepted", "status": "pending", "actor": "evidence-ingest-agent",
+        "next_action": "retry_evidence_ingest",
+    }
+    _append_transition(
+        payload, from_current=previous, to_current=payload["current"],
+        outcome="evidence_ingest_retry",
+    )
+    _append_step(
+        payload, stage="accepted", status="pending", outcome="evidence_ingest_retry",
+        reason=reason,
+    )
+    active.parent.mkdir(parents=True, exist_ok=True)
+    active.write_text(render_markdown(payload), encoding="utf-8")
+    # A failure can leave both the just-created archive and the active source
+    # (for example, if unlinking the source failed after the archive replace).
+    # Remove the archive copy after the active retry record is durable so the
+    # next run has exactly one contract task to resume.
+    archive.unlink(missing_ok=True)
     return True
 
 
@@ -413,16 +551,22 @@ def suspend_inbox_review(
     return True
 
 
-def _append_step(data: Dict[str, object], *, stage: str, status: str, outcome: str) -> None:
+def _append_step(
+    data: Dict[str, object], *, stage: str, status: str, outcome: str,
+    reason: Optional[str] = None,
+) -> None:
     steps = data.get("step_receipts")
     if not isinstance(steps, list):
         steps = []
-    steps.append({
+    step = {
         "stage": stage,
         "status": status,
         "outcome": outcome,
         "recorded_at": _now(),
-    })
+    }
+    if isinstance(reason, str) and reason.strip():
+        step["reason"] = reason.strip()
+    steps.append(step)
     data["step_receipts"] = steps
 
 

@@ -34,7 +34,7 @@ timestamp: 2026-07-15T00:00:00+09:00
 
 ## Related paths or artifacts
 
-- <relative path or artifact reference; do not include secrets or raw personal data>
+- <relative path or artifact reference; do not include secrets, active hard PII, or sensitive personal data>
 
 ## Improvement hint
 

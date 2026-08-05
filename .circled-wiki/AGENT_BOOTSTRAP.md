@@ -47,8 +47,17 @@ Launcher는 현재 작업 디렉터리에 관계없이 이 프로젝트 root와 
    Agent와 Source Adapter는 공통 Capture API의 민감정보 사전 점검(주민등록번호·계좌/카드번호·자격증명)을 먼저 거친다.
    수집과 정제, 승인, 발행은 각각의 Profile·Gate를 분리해 처리한다. `reconcile-inbox`는
    `agent-rules/contracts/inbox.yaml`을 적용해 이미 충족한 Inbox 검사·Evidence 변환 Gate만 순서대로 재수행한다.
-   자동 PII Scan은 전화번호를 포함한 정책 대상 PII를 실제 후보에서 검사·마스킹해 `passed` 또는 `masked` Receipt를 확정한다. Agent는 Inbox Inspection Profile의 정책·절차와 근거로 민감성 판단을 수행하며,
-   적용할 절차·근거가 없는 경우와 `needs_review` 뒤 안전 처리만 기존 Review Queue에 남겨 사용자에게 문의한다.
+   `review-data-protection`이 PII Scan과 Data Protection Review를 하나의 단계로 실행한다. 먼저 실제 Inbox 후보에서
+   `hard_mask_categories: true`인 하드 PII를 마스킹하고, 민감도 판단 단계에서 같은 활성 범주를 다시 확인해
+   놓친 값을 보완하며 Agent가 판단 가능한 급여·평가·징계와 명시적인 불법 행위 실행·조장·은폐 또는 타인의
+   권리·안전을 침해하는 구체적 지시만 선택적으로 마스킹한 뒤
+   최종 후보를 다시 스캔해 본문 checksum과 본문·복사 메타데이터 fingerprint에 결합된 하나의
+   checksum-bound `data_protection_receipt`를 기록한다. `false`인 하드 스캔 범주는 이 자동 보호 경로에서
+   처리하지 않으며, 휴대전화·이메일은 기본 템플릿에서 `false`다. 민감도 정책이 별도로 적용되는 범주는
+   승인된 업무 맥락을 확인한 뒤 보존한다. 계약·법률 자문·분쟁·소송·규제 대응과 그 결정은 법무 업무라는 이유만으로
+   제한하지 않는다. 명시적 불법성이 확인되지 않은 법률·계약 내용은 `unlawful_content`로 추정하지 않는다. 실제 마스킹 대상의 범위·처리 방식·업무 맥락을 판단할 근거가 없거나 PII Scan 결과가 `needs_review`이면 Inbox를 `awaiting_user`로 유지하고
+   안전한 다음 행동만 기존 Review Queue에 기록한다. Evidence 단계는 이 Receipt와 후보 checksum을 검증한 뒤
+   생성하며 Evidence 변환에서는 이 Receipt와 checksum·생성 스키마·전환 산출물만 확인한다.
    Curation adapter가 활성화된 경우에만 `reconcile-curation`으로 Queue를 분석한 뒤 `no_bundle` Receipt, Review handoff, 자동 Gate를
    통과한 published 또는 Gate 실패 Draft를 결과 상태로 기록한다. Adapter·Gate 실패는 큐에 남긴다. 의미 변경
    승인과 revision 적용은 자동 처리하지 않는다. adapter가 비활성화되면 `list-curation-queue`로 대기 항목만 확인하고 설정 필요 상태를 반환한다.

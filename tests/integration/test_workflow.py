@@ -271,18 +271,12 @@ class WorkflowExecutionTests(unittest.TestCase):
             self.assertTrue(outcome["intake_id"].startswith("inbox://example-org/hermes/"))
             inspection = service.inspect_inbox()
             self.assertEqual(inspection["items"][0]["gate_status"], "blocked")
-            service.review_inbox_sensitivity(
-                outcome["intake_id"], "simulated-human-reviewer", "completed",
-                policy_ref="inbox-sensitivity/v1",
+            service.review_data_protection(
+                outcome["intake_id"], "simulated-human-reviewer", context="",
                 checks=["source_access_scope", "personal_context", "confidential_business_context", "publication_scope"],
-                matched_categories=["workflow_outcome"],
                 rationale="내부 업무 결과로 보존하며 접근 범위를 제한한다.",
             )
             service.accept_inbox(outcome["intake_id"], "simulated-human-approver")
-            service.record_inbox_pii_scan(
-                outcome["intake_id"], scanner="test", scanner_version="1",
-                result="passed", reviewed_by="simulated-human-reviewer", receipt="test://pii-outcome",
-            )
             ingested = service.ingest_accepted()
             outcome_item = ingested["items"][0]
             self.assertTrue(outcome_item["outcome_linked"])
@@ -446,18 +440,12 @@ class WorkflowExecutionTests(unittest.TestCase):
                 status="completed",
                 summary="변경 사항을 검토하고 Runbook revision을 발행했다.",
             )
-            service.review_inbox_sensitivity(
-                outcome["intake_id"], "simulated-human-reviewer", "completed",
-                policy_ref="inbox-sensitivity/v1",
+            service.review_data_protection(
+                outcome["intake_id"], "simulated-human-reviewer", context="",
                 checks=["source_access_scope", "personal_context", "confidential_business_context", "publication_scope"],
-                matched_categories=["workflow_outcome"],
                 rationale="내부 업무 결과로 보존하며 접근 범위를 제한한다.",
             )
             service.accept_inbox(outcome["intake_id"], "simulated-human-approver")
-            service.record_inbox_pii_scan(
-                outcome["intake_id"], scanner="test", scanner_version="1",
-                result="passed", reviewed_by="simulated-human-reviewer", receipt="test://pii-refresh",
-            )
             service.ingest_accepted()
             outcome_manifest = parse_markdown(
                 next((knowledge_root / "evidence" / "hermes").rglob("*.md"))
