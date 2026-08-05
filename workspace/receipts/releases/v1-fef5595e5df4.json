@@ -1,0 +1,36 @@
+{
+  "receipt_type": "release",
+  "release_id": "v1-fef5595e5df4",
+  "source_revision": "6289432e90bf2f6d6e9d6a813b9a947910e54378",
+  "runtime_checksum": "sha256:2d4d7ed2afdc54396bb5c531c1cefbc1475c3e81d4ed01fe16a7c290eb723f5c",
+  "router_checksum": "sha256:2ad390b3da847ba87656acfb77882e52abfb67e1a442d1ff64f1bc2f5dc51e89",
+  "runtime_profiles": [
+    "evidence-ingest.md",
+    "inbox-capture.md",
+    "inbox-disposition.md",
+    "inbox-inspection.md",
+    "inbox-sensitivity-review.md",
+    "knowledge-curation.md",
+    "knowledge-query.md",
+    "publication.md",
+    "runtime-upgrade-verification.md",
+    "system-observation.md",
+    "workflow-execution.md"
+  ],
+  "included_issue_ids": [
+    "workspace-issue-37ddb17d131f4363958d0600740dd424",
+    "workspace-issue-f8e5c53181264b179ed7743715433247"
+  ],
+  "validation": {
+    "unit": "passed",
+    "integration": "passed",
+    "repository_validator": "passed"
+  },
+  "verified_by": "codex-product-agent",
+  "verified_at": "2026-08-05T10:56:26.555733+00:00",
+  "source_commit_check": {
+    "revision": "6289432e90bf2f6d6e9d6a813b9a947910e54378",
+    "subject": "이슈 처리 완료",
+    "worktree_clean": true
+  }
+}
