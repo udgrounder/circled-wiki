@@ -10,7 +10,7 @@ import inspect
 from pathlib import Path
 import re
 import shutil
-from typing import Any, Callable, Dict, Iterator, List, Optional
+from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional
 from uuid import uuid4
 
 from .frontmatter import parse_markdown, render_markdown
@@ -78,11 +78,11 @@ def _write_data_protection_receipt(
     """Persist the single Inbox data-protection receipt and safe projections."""
     document = parse_markdown(path)
     data, content = read_conversation_intake(path)
-    allowed_contexts = set(policy.non_sensitive_categories) | set(policy.agent_mask_categories)
+    allowed_contexts = set(policy.agent_mask_categories)
     safe_context = context.strip() if isinstance(context, str) and context.strip() in allowed_contexts else ""
     safe_rationale = _safe_data_protection_text(rationale, agent_masked_findings)
     safe_resolution = resolution.strip() if resolution.strip() in {
-        "no_policy_candidates", "preserve_internal", "awaiting_user",
+        "no_policy_candidates", "no_mask_target", "awaiting_user",
         "pii_needs_review", "compatibility_receipt",
     } else "awaiting_user"
     receipt = build_data_protection_receipt(
@@ -758,19 +758,13 @@ def complete_inbox_sensitivity_review(
                 "status": str(data.get("status", "pending")),
                 "review_status": "reprocessing" if inbox_review_is_resolved(knowledge_root, intake_id) else "awaiting_user",
             }
-        policy_candidates = tuple(
-            category for category in _policy_candidates_for_inbox(data, content)
-            if category in data_protection.policy_evaluated_categories
+        policy_candidates = _policy_candidates_for_inbox(
+            data, content, hard_mask_categories=data_protection.hard_mask_categories,
         )
-        if policy_candidates:
-            resolution = resolve_policy_context(
-                data_protection, policy_candidates, data_protection_context or "",
+        if policy_candidates and not _integrated:
+            raise ValueError(
+                "residual PII candidate requires review-data-protection before resolution"
             )
-            if resolution != "preserve_internal":
-                raise ValueError(
-                    "policy-evaluated PII requires review-data-protection with an "
-                    "approved non-sensitive context"
-                )
         unified_receipt = _write_data_protection_receipt(
             path, pii_scan=pii_scan, policy=data_protection, actor=actor,
             sensitivity_decision=decision, context=data_protection_context or "",
@@ -816,9 +810,7 @@ def review_data_protection(
         raise ValueError("rationale must be non-empty")
     findings = _validate_sensitivity_findings(policy, findings)
     safe_rationale = _safe_data_protection_text(rationale, findings)
-    safe_context = context.strip() if context.strip() in {
-        *policy.non_sensitive_categories, *policy.agent_mask_categories,
-    } else ""
+    safe_context = context.strip() if context.strip() in policy.agent_mask_categories else ""
     # The integrated procedure always starts with the canonical hard PII Scan.
     # If Agent masking changes the candidate, the scan is repeated so the final
     # Receipt is bound to the post-review checksum.
@@ -858,11 +850,18 @@ def review_data_protection(
             data, content = read_conversation_intake(path)
         else:
             finding_summary = []
-        detected = tuple(
-            category for category in _policy_candidates_for_inbox(data, content)
-            if category in policy.policy_evaluated_categories
+        detected = _policy_candidates_for_inbox(
+            data, content, hard_mask_categories=policy.hard_mask_categories,
         )
         resolution = resolve_policy_context(policy, detected, context)
+        # Once the Agent has supplied and masked an exact finding for its
+        # selected target, unrelated residual contact data (for example an
+        # email beside a customer phone) is not a new preservation decision.
+        if resolution == "awaiting_user" and any(
+            item.get("category") == context for item in finding_summary
+            if isinstance(item, dict)
+        ):
+            resolution = "no_mask_target"
         pii_result = str(scan["pii_scan_receipt"].get("result", ""))
         if resolution == "awaiting_user" or pii_result == "needs_review":
             pending_categories = sorted({
@@ -880,12 +879,12 @@ def review_data_protection(
             escalation = request_inbox_sensitivity_decision(
                 knowledge_root, intake_id, actor,
                 question=(
-                    "PII Scan 후 안전한 보존 범위와 업무 맥락을 승인할 수 있는가?"
+                    "PII Scan 후 Agent 마스킹 대상과 정확한 범위를 판단할 수 있는가?"
                     if resolution == "awaiting_user" else
                     "PII Scan needs_review 결과에 대한 안전 처리를 승인할 수 있는가?"
                 ),
                 missing_procedure=(
-                    "승인된 비민감 업무 맥락 또는 마스킹 후 보존 범위가 확인되지 않았다."
+                    "Agent 마스킹 대상과 정확한 범위가 확인되지 않았다."
                     if resolution == "awaiting_user" else
                     "PII 후보의 안전 처리 방식이 확인되지 않았다."
                 ),
@@ -993,9 +992,16 @@ def _mask_sensitivity_findings_in_candidate(
 
 
 def _policy_candidates_for_inbox(
-    data: Dict[str, object], content: object,
+    data: Dict[str, object], content: object, *,
+    hard_mask_categories: Optional[Iterable[str]] = None,
 ) -> tuple[str, ...]:
-    """Collect policy-evaluated categories from body and copied metadata."""
+    """Collect residual scanner candidates from body and copied metadata.
+
+    Hard-mask switches are applied by the canonical PII Scan before this
+    function is called.  Anything the scanner still recognizes is therefore
+    sent to the integrated sensitivity review; no second policy allowlist is
+    needed to route it.
+    """
     values: List[str] = []
     if isinstance(content, str):
         values.append(content)
@@ -1009,7 +1015,9 @@ def _policy_candidates_for_inbox(
     return tuple(sorted({
         category
         for value in values
-        for category in redact_sensitive_data(value).policy_categories
+        for category in redact_sensitive_data(
+            value, hard_mask_categories=hard_mask_categories,
+        ).policy_categories
     }))
 
 

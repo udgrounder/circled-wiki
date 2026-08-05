@@ -492,7 +492,7 @@ Inbox Sensitive Data Review, 승인과 Evidence 변환을 거친다.
 - Bundle은 반드시 하나 이상의 Evidence를 참조해야 한다.
 - Bundle의 `evidence`가 Evidence 참조의 정식 기준이며 영향 분석도 이 필드로 계산한다.
 - `knowledge/bundles/`의 공식 지식은 검증 없이 수정·발행하지 않는다.
-- 원본·토큰·API 키·정책상 민감정보를 README, frontmatter, Git commit에 기록하지 않는다. `non_sensitive_categories`로 분류된 회사·협력업체 업무 연락처는 내부 운영 기록에 필요한 경우 보존할 수 있으며, 외부 발행 시에는 별도 visibility·Publication Gate를 적용한다.
+- 원본·토큰·API 키·정책상 민감정보를 README, frontmatter, Git commit에 기록하지 않는다. `agent_mask_categories`에 선언되지 않은 회사·협력업체 업무 연락처는 내부 운영 기록에 필요한 경우 보존할 수 있으며, 외부 발행 시에는 별도 visibility·Publication Gate를 적용한다.
 - `knowledge/.raw/`는 성공 시 비워지며, 실패·검토 필요·대용량 원본은 원인 확인 전까지 보존한다.
 - `.raw/`와 `inbox/`는 Git에서 제외한다. 상세 보안 절차는 [Agent and Knowledge Security Policy](.circled-wiki/policies/agent-security.md)를 따른다.
 

@@ -70,6 +70,7 @@ _DEFAULT_HARD_MASK_CATEGORIES = frozenset({
     "card_number",
     "credential",
 })
+_CONTACT_SCAN_CATEGORIES = ("mobile_phone_number", "email_address")
 
 
 def _luhn_valid(number: str) -> bool:
@@ -101,7 +102,10 @@ def redact_sensitive_data(
         _DEFAULT_HARD_MASK_CATEGORIES if hard_mask_categories is None else hard_mask_categories
     )
     if mask_policy_categories:
-        active_hard_categories.add("mobile_phone_number")
+        # Review-queue and receipt text must not leak either supported
+        # residual scanner category.  This convenience mode is
+        # independent of the installation's hard-mask toggles.
+        active_hard_categories.update(_CONTACT_SCAN_CATEGORIES)
 
     categories: set[str] = set()
     protected: list[str] = []
@@ -133,7 +137,15 @@ def redact_sensitive_data(
     def redact_email(match: re.Match[str]) -> str:
         if "email_address" not in active_hard_categories:
             return match.group(0)
-        categories.add("email_address")
+        if not mask_policy_categories:
+            categories.add("email_address")
+        return REDACTED_VALUE
+
+    def redact_mobile_phone(match: re.Match[str]) -> str:
+        if "mobile_phone_number" not in active_hard_categories:
+            return match.group(0)
+        if not mask_policy_categories:
+            categories.add("mobile_phone_number")
         return REDACTED_VALUE
 
     def redact_card(match: re.Match[str]) -> str:
@@ -161,12 +173,21 @@ def redact_sensitive_data(
     redacted = _RESIDENT_REGISTRATION_NUMBER.sub(redact_resident_registration, redacted)
     redacted = _ACCOUNT_NUMBER.sub(redact_account, redacted)
     redacted = _CARD_CANDIDATE.sub(redact_card, redacted)
+    # Preserve residual candidates for safe queue/receipt text, but only after
+    # high-risk credential/identifier masking has removed embedded secrets.
+    policy_candidates_before_mask = tuple(sorted(
+        category for category in _detect_unmasked_categories(redacted)
+        if mask_policy_categories or category not in active_hard_categories
+    ))
     redacted = _EMAIL_ADDRESS.sub(redact_email, redacted)
+    redacted = _MOBILE_PHONE_NUMBER.sub(redact_mobile_phone, redacted)
     policy_categories = (
-        ("mobile_phone_number",) if _MOBILE_PHONE_NUMBER.search(redacted) else ()
+        policy_candidates_before_mask
+        if mask_policy_categories else tuple(sorted(
+            category for category in _detect_unmasked_categories(redacted)
+            if category not in active_hard_categories
+        ))
     )
-    if mask_policy_categories and policy_categories:
-        redacted = _MOBILE_PHONE_NUMBER.sub(REDACTED_VALUE, redacted)
     for index, value in enumerate(protected):
         redacted = redacted.replace(f"__CW_LAYOUT_{index}__", value)
     return SensitiveDataPrecheckResult(redacted, tuple(sorted(categories)), policy_categories)
@@ -175,6 +196,39 @@ def redact_sensitive_data(
 def detect_sensitive_data_categories(content: str) -> tuple[str, ...]:
     """Return high-risk categories still present in text, without exposing them."""
     return redact_sensitive_data(content).categories
+
+
+def _detect_unmasked_categories(content: str) -> tuple[str, ...]:
+    """Detect supported categories still present after active redaction."""
+    detected: set[str] = set()
+    if _RESIDENT_REGISTRATION_NUMBER.search(content):
+        detected.add("resident_registration_number")
+    if any(
+        match.group("value") != REDACTED_VALUE
+        for match in _ACCOUNT_NUMBER.finditer(content)
+    ):
+        detected.add("account_number")
+    if (
+        _PRIVATE_KEY_BLOCK.search(content)
+        or _PRESIGNED_URL_CREDENTIAL.search(content)
+        or _KNOWN_TOKEN.search(content)
+        or any(
+            match.group("value") != REDACTED_VALUE
+            for match in _CREDENTIAL_ASSIGNMENT.finditer(content)
+        )
+    ):
+        detected.add("credential")
+    if any(
+        13 <= len(re.sub(r"[ -]", "", match.group(0))) <= 19
+        and _luhn_valid(re.sub(r"[ -]", "", match.group(0)))
+        for match in _CARD_CANDIDATE.finditer(content)
+    ):
+        detected.add("card_number")
+    if _MOBILE_PHONE_NUMBER.search(content):
+        detected.add("mobile_phone_number")
+    if _EMAIL_ADDRESS.search(content):
+        detected.add("email_address")
+    return tuple(sorted(detected))
 
 
 def _redact_token(categories: set[str]) -> str:

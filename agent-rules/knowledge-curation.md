@@ -32,7 +32,7 @@ Evidence를 기존 Bundle과 비교하거나 신규 Draft를 작성한다.
 - 여러 단계 정제 작업에서 독립·제한된 조사 또는 검증 작업을 위임할 수 있는지와, 위임해도 Owner 승인·Security Gate·최종 책임이 유지되는지
 - 후보의 제목·요약과 Evidence 제목·intended use 간 의미 관련성, 그리고 적합한 Bundle type
 - Bundle 태그는 구조 태그(`bundles`, Bundle type, domain)만으로 끝내지 않는다. Evidence·제목·요약·본문에서 확인한 (1) 핵심 주제·개념, (2) 적용 대상 또는 업무 영역, (3) 주요 행위·산출물·결정 특성 중 해당하는 것을 태그로 함께 사용해, 태그만으로도 문서의 성격을 빠르게 파악할 수 있게 한다. 서로 중복하거나 근거가 약한 태그를 채우기 위해 만들지 않으며, 원문에 없는 사실·민감정보·자격증명을 태그로 만들지 않는다. 태그의 표기 언어는 원문 표현을 따르며, 한글 개념·용어를 별도로 영어로 번역한 태그를 추가로 만들지 않는다.
-- Evidence 본문·excerpt·생성할 Bundle 내용을 읽을 때 활성 하드 PII와 `agent_mask_categories`에 따라 마스킹된 값을 복사하지 않고, 확정된 Data Protection Receipt와 Evidence checksum의 결합만 확인한다. 계약·법률 자문·분쟁·소송·규제 대응과 그 결정은 이 마스킹 규칙만으로 제한하지 않는다. `non_sensitive_categories`로 분류된 업무 연락처는 승인된 내부 운영 기록에 필요한 경우 보존할 수 있으며 외부 발행에는 Publication Gate를 적용한다.
+- Evidence 본문·excerpt·생성할 Bundle 내용을 읽을 때 활성 하드 PII와 `agent_mask_categories`에 따라 마스킹된 값을 복사하지 않고, 확정된 Data Protection Receipt와 Evidence checksum의 결합만 확인한다. 계약·법률 자문·분쟁·소송·규제 대응과 그 결정은 이 마스킹 규칙만으로 제한하지 않는다. `agent_mask_categories`에 선언되지 않은 업무 연락처는 승인된 내부 운영 기록에 필요한 경우 보존할 수 있으며 외부 발행에는 Publication Gate를 적용한다.
 
 ## Gates
 

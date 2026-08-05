@@ -11,7 +11,7 @@ Inbox→Evidence 전환의 단일 Data Protection 단계이며, 이미 해소된
 - `pending` Inbox Item과 원문 또는 Envelope
 - Capture Receipt와 기존 `sensitivity_review` 상태
 - 검사 actor
-- 신뢰 가능한 업무 맥락(`employee_business_contact`, `partner_business_contact` 등). 원문만으로 맥락을 추정하지 않는다.
+- Agent가 적용할 설치 정책의 구체적인 `agent_mask_categories` ID와 업무 맥락 근거.
 - Agent가 식별한 민감 텍스트 조각과 그 분류. 이 값은 마스킹 실행에만 사용하고 Receipt에는 저장하지 않는다.
 
 ## Allowed Actions
@@ -27,13 +27,14 @@ Inbox→Evidence 전환의 단일 Data Protection 단계이며, 이미 해소된
 파생된 호환용 projection이며 Evidence·acceptance Gate의 정본이 아니다.
 
 1. `hard_mask_categories`가 `true`인 범주를 실제 Inbox 후보에서 기계적으로 마스킹한다. `false`인 범주는
-   이 하드 PII 경로에서 처리하지 않는다.
+   하드 마스킹하지 않고 통합 민감도 판단에 전달한다.
 2. Data Protection Review는 하드 스캔이 켜진 범주도 현재 후보에서 다시 확인해 누락된 값을 추가 마스킹하고,
    `agent_mask_categories`의 `include` 경계에 해당하는 텍스트도 선택적으로 마스킹한다. 계약·법률 자문·분쟁·소송·
    규제 대응과 그 업무상 결정은 그 자체로 마스킹하지 않으며, 명시적인 불법 행위 실행·조장·은폐 또는 타인의
    권리·안전을 침해하는 구체적 지시만 `unlawful_content`로 다룬다.
-3. 변경된 후보를 다시 스캔해 최종 checksum·PII 결과·정책 후보를 확정한다.
-4. 남은 내용에 신뢰 가능한 업무 맥락과 `data-protection.yaml`을 대조해 내부 보존 또는 `awaiting_user`를 결정한다.
+3. 변경된 후보를 다시 스캔해 최종 checksum·PII 결과·실제 잔여 후보를 확정한다.
+4. `agent_mask_categories`에 선언된 대상만 Agent가 정확한 범위를 판단해 마스킹한다. 선언되지 않은
+   잔여 후보는 보존 allowlist를 요구하지 않고 계속 처리한다.
 5. 위 결과를 하나의 `data_protection_receipt`로 기록한다. `passed` 또는 `masked`만 acceptance Gate를
    통과한다. Evidence는 이 Receipt와 후보 checksum·생성 스키마·전환 산출물만 검증한다.
 
@@ -48,38 +49,44 @@ Inbox→Evidence 전환의 단일 Data Protection 단계이며, 이미 해소된
 `inbox-sensitivity/v1`은 PII Scan과 다르다. PII Scan은 하드 마스킹 값과 정책 판단 후보를 구분해 탐지하는 보안 검사이고,
 이 규칙은 Inbox를 Evidence로 보존·변환할 수 있는지를 판단한다.
 
-설치별 분류 기준은 `.circled-wiki/data-protection.yaml`에서 읽는다. 파일이 없으면 제품 기본값을 사용하며,
-Bootstrap은 누락된 파일만 생성한다. 기존 파일은 업그레이드에서 덮어쓰지 않는다. `hard_mask_categories`는
+PII Scan이 하드 마스킹하지 않고 남긴 실제 후보는 별도 보존 allowlist 없이 통합 민감도 판단에 전달한다.
+정책에 선언된 `agent_mask_categories`에 해당하는 값만 Agent가 정확한 범위를 지정해 마스킹하며, 그 밖의
+연락처·이메일 등은 변경하지 않고 계속 처리한다.
+
+설치별 분류 기준은 `.circled-wiki/data-protection.yaml`에서 읽는다. 파일이 없으면 동일한
+`.circled-wiki/templates/data-protection.yaml`을 기본 정책으로 사용하며, Bootstrap은 그 템플릿으로 누락된
+파일만 생성한다. 기존 파일은 업그레이드에서 덮어쓰지 않는다. `hard_mask_categories`는
 지원되는 범주별 boolean 토글이다. 매핑에서 빠진 범주는 `true`로 간주하고, 기본 템플릿은 휴대전화와 이메일을
 `false`로 명시한다. 정책 파일이 없거나 판단 근거가 부족한 경우의 안전한 기본 동작은 `awaiting_user`다. 다른
 동작으로 바꾸려면 Queue 상태·재시도 계약을 함께 정의해야 한다.
 
 ### 우선순위
 
-1. PII Scan은 `hard_mask_categories: true`인 범주를 즉시 마스킹하고, `false`인 범주는 이 경로에서 처리하지 않는다.
+1. PII Scan은 `hard_mask_categories: true`인 범주를 즉시 마스킹하고, `false`인 범주는 하드 마스킹하지 않은
+   실제 탐지 후보로 통합 민감도 판단에 전달한다.
 2. Data Protection Review는 활성 하드 범주를 다시 확인해 누락을 보완하고, Agent가 판단 가능한
    `agent_mask_categories`의 `include` 경계에 해당하는 부분만 마스킹한다. 각 범주의 `exclude` 경계와
    업무 맥락을 함께 확인하며, 값이 아닌 범주·횟수·근거만 Receipt에 기록한다.
-3. `non_sensitive_categories`는 마스킹 후 남은 후보에 적용한다. 협력업체·구성원의 업무용 연락처는 이 단계에서 내부 보존을 허용할 수 있다.
+3. `agent_mask_categories`에 선언된 대상은 Agent가 업무 맥락과 `include`·`exclude` 경계를 근거로
+   정확한 텍스트만 선택해 마스킹한다. 선언되지 않은 잔여 후보는 보존 allowlist를 요구하지 않는다.
 4. 민감 범위·마스킹 방식·업무 맥락을 안전하게 판단할 수 없으면 `missing_policy_action`에 따라 `awaiting_user`로 둔다.
 
 | 분류 | 판정 기준 | Agent 결정 |
 | --- | --- | --- |
 | `automatic_protection` | 주민번호·금융정보·자격증명처럼 하드 PII Scan 정책이 보호하는 값 | 통합 단계가 마스킹 후 최종 후보 checksum에 결합된 `masked` Receipt를 확정한다. 이 범주만으로 별도 민감도 사용자 검토를 요구하지 않는다. |
-| `policy_evaluated_contact` | `policy_evaluated_categories`에 명시된 범주 중 업무 맥락에 따라 보존 여부가 달라지는 값 | 해당 범주가 정책에 명시되고 승인된 구성원·협력업체 업무 연락처 근거가 있으면 내부 보존하며, 근거가 없을 때만 `awaiting_user`로 둔다. 정책에 없는 범주는 이 경로로 자동 전달하지 않는다. |
-| `non_sensitive_context` | 공개 자료, 일반 업무 절차, 비식별 운영 정보 또는 정책의 `non_sensitive_categories`에 명시된 업무용 기본 연락처이며 아래 제한 검토 대상이 없음 | `not_applicable` |
-| `agent_mask_context` | `agent_mask_categories`의 `include` 경계에 해당하는 급여·평가·징계·미공개 사업정보·보안 구성 또는 명시적인 불법 콘텐츠 | 해당 텍스트만 마스킹하고 범주·횟수·근거를 Receipt에 기록한 뒤 `completed` |
+| `scanner_candidate` | 하드 마스킹 후에도 PII Scan이 탐지한 값으로 업무 맥락에 따라 보존 여부가 달라지는 후보 | 승인된 구성원·협력업체 업무 맥락 근거가 있으면 내부 보존하며, 근거가 없을 때만 `awaiting_user`로 둔다. |
+| `agent_mask_context` | `agent_mask_categories`의 `include` 경계에 해당하는 고객 휴대전화·급여·평가·징계·미공개 사업정보·보안 구성 또는 명시적인 불법 콘텐츠 | 해당 텍스트만 마스킹하고 범주·횟수·근거를 Receipt에 기록한 뒤 `completed` |
 | `user_decision_required` | 현재 Wiki 정책의 판단 근거로 안전한 범위·마스킹 경계를 정할 수 없는 내용, 접근 제한 원문, 정책에 없는 새 범주, 안전하게 검사할 수 없는 파일 원본 | `required`를 유지하고 `awaiting_user`로 문의 |
 
-기본 민감도 판단 근거는 개인 이름·이메일이 개인 식별 맥락과 결합된 경우, 고객 문의·불만, 개인별 급여·평가·징계,
+기본 민감도 판단 근거는 고객 연락처의 휴대전화, 개인 이름·이메일이 개인 식별 맥락과 결합된 경우, 고객 문의·불만, 개인별 급여·평가·징계,
 미공개 매출·정산·가격·사업 전략, 내부 보안 솔루션 구성·접근통제·탐지 규칙·사고 대응 기술 상세다. 일반
-구성원 프로필·입사·퇴사·업무 연락처는 비민감으로 취급하며, 내부 운영 목적에 필요한 경우 보존할 수 있다. 계약의 법적 조건·의무·해지·책임·보증·면책, 계약 협상,
+정책에 선언되지 않은 구성원 프로필·입사·퇴사·업무 연락처는 변경하지 않고 내부 운영 목적에 필요한 경우 보존할 수 있다. 계약의 법적 조건·의무·해지·책임·보증·면책, 계약 협상,
 분쟁·소송·합의 대응, 법률 자문·법적 보존·법적 절차·규제기관 대응과 그 결정은 법무 업무 내용이라는 이유만으로
 자동 제한하지 않는다. 다만 명시적인 불법 행위 실행·조장·은폐 또는 타인의 권리·안전을 침해하는 구체적 지시는
 `unlawful_content`로 마스킹한다. Wiki는 `agent_mask_categories`의 범주별 `description`·`include`·`exclude`
 경계와 근거를 추가·조정할 수 있으며, 단순 이름·이메일·일반 계정 ID만으로는 자동 제한 대상으로 추정하지 않는다.
 
-`agent_mask_categories`에 명시된 `include` 범위의 급여·평가·징계·미공개 사업정보·보안 구성과 명시적인 불법 콘텐츠만 민감도 마스킹 대상이다.
+`agent_mask_categories`에 명시된 `include` 범위의 고객 휴대전화·급여·평가·징계·미공개 사업정보·보안 구성과 명시적인 불법 콘텐츠만 민감도 마스킹 대상이다.
 업무용 구성원·협력업체 연락처와 결합돼도 해당 민감한 부분만 마스킹하고, 연락처와 나머지 안전한 업무 정보는 계속 처리한다.
 
 ## Gates
@@ -97,7 +104,7 @@ status: passed | masked
 pii_scan: {checksum-bound PII result}
 sensitivity:
   decision: completed | not_applicable
-  context: "employee_business_contact | partner_business_contact | "
+  context: "customer_mobile_phone | compensation | performance_review | "
   matched_categories: []
   agent_masked_findings: []
 receipt: runtime://data-protection/{checksum}

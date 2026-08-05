@@ -135,7 +135,7 @@ class BootstrapKnowledgeRootTests(unittest.TestCase):
             self.assertTrue((target / ".circled-wiki" / "config.yaml").is_file())
             data_protection = target / ".circled-wiki" / "data-protection.yaml"
             self.assertTrue(data_protection.is_file())
-            self.assertIn("employee_business_contact", data_protection.read_text(encoding="utf-8"))
+            self.assertIn("customer_mobile_phone:", data_protection.read_text(encoding="utf-8"))
             agent_entrypoint = target / "AGENTS.md"
             self.assertTrue(agent_entrypoint.is_file())
             entrypoint_content = agent_entrypoint.read_text(encoding="utf-8")

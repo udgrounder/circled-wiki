@@ -28,7 +28,7 @@ class SensitiveDataPrecheckTests(unittest.TestCase):
         self.assertIn("010-1234-5678", result.content)
         self.assertIn("gildong@example.com", result.content)
         self.assertEqual(result.categories, ())
-        self.assertEqual(result.policy_categories, ("mobile_phone_number",))
+        self.assertEqual(result.policy_categories, ("email_address", "mobile_phone_number"))
 
     def test_supported_email_feature_is_off_by_default_and_masks_when_enabled(self):
         content = "담당자 gildong@example.com"
@@ -39,8 +39,33 @@ class SensitiveDataPrecheckTests(unittest.TestCase):
 
         self.assertEqual(default_result.content, content)
         self.assertEqual(default_result.categories, ())
+        self.assertEqual(default_result.policy_categories, ("email_address",))
         self.assertNotIn("gildong@example.com", enabled_result.content)
         self.assertEqual(enabled_result.categories, ("email_address",))
+        self.assertEqual(enabled_result.policy_categories, ())
+
+    def test_enabled_mobile_phone_hard_mask_masks_and_reports_the_category(self):
+        result = redact_sensitive_data(
+            "담당자 010-1234-5678",
+            hard_mask_categories={"mobile_phone_number"},
+        )
+
+        self.assertNotIn("010-1234-5678", result.content)
+        self.assertEqual(result.categories, ("mobile_phone_number",))
+        self.assertEqual(result.policy_categories, ())
+
+    def test_policy_masking_mode_masks_phone_and_email_for_safe_metadata(self):
+        result = redact_sensitive_data(
+            "담당자 010-1234-5678 / gildong@example.com",
+            mask_policy_categories=True,
+        )
+
+        self.assertNotIn("010-1234-5678", result.content)
+        self.assertNotIn("gildong@example.com", result.content)
+        self.assertEqual(result.categories, ())
+        self.assertEqual(
+            set(result.policy_categories), {"mobile_phone_number", "email_address"},
+        )
 
     def test_disabling_credential_hard_mask_leaves_candidate_untouched(self):
         result = redact_sensitive_data(
@@ -50,6 +75,7 @@ class SensitiveDataPrecheckTests(unittest.TestCase):
 
         self.assertEqual(result.content, "password: visible-secret")
         self.assertEqual(result.categories, ())
+        self.assertEqual(result.policy_categories, ("credential",))
 
     def test_does_not_mask_uuid_that_contains_a_phone_like_digit_sequence(self):
         task_id = "c2f29370-e7d6-0100-1234-56789abcdef0"
@@ -127,7 +153,7 @@ class SensitiveDataPrecheckTests(unittest.TestCase):
                 why_collected="unit test", intended_use=["test"], idempotency_key="partner-contact",
             )
             review = review_data_protection(
-                knowledge_root, captured.intake_id, "inspector", context="partner_business_contact",
+                knowledge_root, captured.intake_id, "inspector", context="",
                 checks=["source_access_scope", "personal_context", "confidential_business_context", "publication_scope"],
                 rationale="승인된 협력업체 업무용 연락처다.",
             )
@@ -138,8 +164,39 @@ class SensitiveDataPrecheckTests(unittest.TestCase):
             data["capture_details"]["sensitive_data_precheck"]["policy_categories"],
             ["mobile_phone_number"],
         )
-        self.assertEqual(review["data_protection"]["resolution"], "preserve_internal")
-        self.assertEqual(data["sensitivity_inspection"]["data_protection"]["context"], "partner_business_contact")
+        self.assertEqual(review["data_protection"]["resolution"], "no_mask_target")
+        self.assertEqual(data["sensitivity_inspection"]["data_protection"]["context"], "")
+
+    def test_agent_mask_category_masks_customer_mobile_phone_only(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+
+        from circled_wiki.core.frontmatter import parse_markdown
+        from circled_wiki.core.ingest import capture_conversation, review_data_protection
+
+        with TemporaryDirectory() as directory:
+            knowledge_root = Path(directory) / "knowledge"
+            (knowledge_root / "organization.yaml").parent.mkdir(parents=True)
+            (knowledge_root / "organization.yaml").write_text(
+                "organization_id: test-org\n", encoding="utf-8"
+            )
+            captured = capture_conversation(
+                knowledge_root, "고객 연락처 010-1234-5678 / customer@example.com", "test",
+                title="customer contact", why_collected="unit test", intended_use=["test"],
+                idempotency_key="customer-mobile-mask",
+            )
+            review = review_data_protection(
+                knowledge_root, captured.intake_id, "inspector",
+                context="customer_mobile_phone",
+                checks=["source_access_scope", "personal_context", "confidential_business_context", "publication_scope"],
+                rationale="고객 연락처의 휴대전화만 Agent 마스킹 대상이다.",
+                findings=[{"category": "customer_mobile_phone", "value": "010-1234-5678"}],
+            )
+            document = parse_markdown(captured.inbox_path)
+
+        self.assertEqual(review["data_protection"]["resolution"], "no_mask_target")
+        self.assertNotIn("010-1234-5678", document.body)
+        self.assertIn("customer@example.com", document.body)
 
     def test_data_protection_review_transitions_unknown_context_to_user_contract(self):
         from pathlib import Path

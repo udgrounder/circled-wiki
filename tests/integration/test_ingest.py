@@ -176,12 +176,12 @@ class IngestEvidenceTests(unittest.TestCase):
                     knowledge_root, captured.intake_id, "inspector", "completed",
                     policy_ref="inbox-sensitivity/v1",
                     checks=["source_access_scope", "personal_context", "confidential_business_context", "publication_scope"],
-                    matched_categories=["partner_business_contact"],
+                    matched_categories=["mobile_phone_number"],
                     rationale="업무용 연락처라고만 판단해서는 보존할 수 없다.",
                 )
             from circled_wiki.core.ingest import review_data_protection
             review_data_protection(
-                knowledge_root, captured.intake_id, "inspector", context="partner_business_contact",
+                knowledge_root, captured.intake_id, "inspector", context="",
                 checks=["source_access_scope", "personal_context", "confidential_business_context", "publication_scope"],
                 rationale="승인된 협력업체 업무용 연락처다.",
             )
@@ -213,7 +213,7 @@ class IngestEvidenceTests(unittest.TestCase):
             )
             from circled_wiki.core.ingest import review_data_protection
             review = review_data_protection(
-                knowledge_root, captured.intake_id, "inspector", context="partner_business_contact",
+                knowledge_root, captured.intake_id, "inspector", context="",
                 checks=["source_access_scope", "personal_context", "confidential_business_context", "publication_scope"],
                 rationale="협력업체 업무 연락처는 보존하고 Agent가 식별한 급여 문구만 마스킹한다.",
                 findings=[{"category": "compensation", "value": compensation}],
@@ -339,7 +339,7 @@ class IngestEvidenceTests(unittest.TestCase):
 
             with patch("circled_wiki.core.ingest.run_automatic_pii_scan", side_effect=observe_scan):
                 review_data_protection(
-                    knowledge_root, captured.intake_id, "inspector", context="partner_business_contact",
+                    knowledge_root, captured.intake_id, "inspector", context="",
                     checks=["source_access_scope", "personal_context", "confidential_business_context", "publication_scope"],
                     rationale="PII scan precedes semantic masking and is rebound after the change.",
                     findings=[{"category": "compensation", "value": compensation}],

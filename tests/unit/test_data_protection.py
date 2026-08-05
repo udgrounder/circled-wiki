@@ -6,7 +6,6 @@ import yaml
 
 from circled_wiki.config.data_protection import (
     POLICY_PATH,
-    HARD_MASK_CATEGORIES,
     load_data_protection_policy,
     render_data_protection_policy,
 )
@@ -18,19 +17,45 @@ class DataProtectionPolicyTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             policy = load_data_protection_policy(Path(directory))
 
-        self.assertEqual(set(policy.hard_mask_categories), set(HARD_MASK_CATEGORIES))
+        self.assertEqual(
+            set(policy.hard_mask_categories),
+            {"resident_registration_number", "account_number", "card_number", "credential"},
+        )
         self.assertNotIn("mobile_phone_number", policy.hard_mask_categories)
         self.assertNotIn("email_address", policy.hard_mask_categories)
-        self.assertEqual(policy.policy_evaluated_categories, ("mobile_phone_number",))
-        self.assertIn("employee_business_contact", policy.non_sensitive_categories)
         self.assertEqual(
             set(policy.agent_mask_categories),
             {
-                "compensation", "performance_review", "disciplinary_action",
+                "customer_mobile_phone", "compensation", "performance_review", "disciplinary_action",
                 "unpublished_business_information", "security_configuration", "unlawful_content",
             },
         )
         self.assertEqual(policy.missing_policy_action, "awaiting_user")
+
+    def test_default_policy_is_read_from_the_yaml_template(self):
+        template = Path(__file__).resolve().parents[2] / ".circled-wiki" / "templates" / "data-protection.yaml"
+
+        self.assertEqual(
+            render_data_protection_policy(),
+            template.read_text(encoding="utf-8"),
+        )
+        self.assertNotIn("policy_evaluated_categories", yaml.safe_load(render_data_protection_policy())["pii_scan"])
+
+    def test_missing_installation_policy_uses_the_project_yaml_template(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            template = root / ".circled-wiki" / "templates" / "data-protection.yaml"
+            template.parent.mkdir(parents=True)
+            template.write_text(
+                render_data_protection_policy().replace(
+                    "    mobile_phone_number: false", "    mobile_phone_number: true"
+                ),
+                encoding="utf-8",
+            )
+
+            policy = load_data_protection_policy(root)
+
+        self.assertIn("mobile_phone_number", policy.hard_mask_categories)
 
     def test_local_policy_can_customize_review_categories(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -48,6 +73,18 @@ class DataProtectionPolicyTests(unittest.TestCase):
             policy = load_data_protection_policy(root)
 
         self.assertIn("internal_audit", policy.agent_mask_categories)
+
+    def test_removed_non_sensitive_categories_field_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / POLICY_PATH
+            path.parent.mkdir()
+            payload = yaml.safe_load(render_data_protection_policy())
+            payload["sensitivity_review"]["non_sensitive_categories"] = []
+            path.write_text(yaml.safe_dump(payload, allow_unicode=True, sort_keys=False), encoding="utf-8")
+
+            with self.assertRaisesRegex(ValueError, "unsupported fields"):
+                load_data_protection_policy(root)
 
     def test_omitted_agent_mask_categories_use_product_defaults(self):
         with tempfile.TemporaryDirectory() as directory:

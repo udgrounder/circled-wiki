@@ -26,7 +26,7 @@ Circled Wiki 운영 중 개별 오류·비정상 결과를 업무 지침의 부�
 ## Checks
 
 - 운영 규칙·정책·CLI·Runtime·Workflow 중 영향 영역
-- 활성 하드 PII, credential, 고객 원문, 민감한 로그가 기록에서 제외되었는지. `non_sensitive_categories`로 분류된 회사·협력업체 업무 연락처는 내부 운영 기록에 필요한 경우 보존할 수 있다.
+- 활성 하드 PII, credential, 고객 원문, 민감한 로그가 기록에서 제외되었는지. `agent_mask_categories`에 선언되지 않은 회사·협력업체 업무 연락처는 내부 운영 기록에 필요한 경우 보존할 수 있다.
 - 관찰 사실과 원인 가설이 분리되었는지
 
 ## Gates

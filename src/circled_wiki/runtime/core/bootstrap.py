@@ -433,7 +433,7 @@ def bootstrap_circled_wiki(
     configuration_action = "preserve_existing" if config_path.exists() else "create"
     data_protection_path = target / POLICY_PATH
     data_protection_action = "preserve_existing" if data_protection_path.exists() else "create"
-    data_protection = render_data_protection_policy().encode("utf-8")
+    data_protection = render_data_protection_policy(source_root).encode("utf-8")
     configured_data_protection = (
         load_data_protection_policy(target)
         if data_protection_action == "preserve_existing" else None

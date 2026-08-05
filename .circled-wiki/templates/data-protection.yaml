@@ -12,19 +12,18 @@ pii_scan:
     credential: true
     mobile_phone_number: false
     email_address: false
-  policy_evaluated_categories:
-    - mobile_phone_number
 
-# Installation-local review categories and decision grounds.
+# Installation-local Agent masking categories and decision grounds.
 sensitivity_review:
   policy_ref: inbox-sensitivity/v1
-  non_sensitive_categories:
-    - employee_business_contact
-    - partner_business_contact
   # Agent may mask only text that falls within each category's include boundary.
   # These are decision grounds, not keyword patterns; exclude guidance prevents
   # broad terms such as "contract" or "evaluation" from becoming matches.
   agent_mask_categories:
+    customer_mobile_phone:
+      description: "고객 연락처에 포함된 010 또는 +82 10 휴대전화"
+      include: ["010으로 시작하는 고객 휴대전화", "+82 10으로 시작하는 고객 휴대전화"]
+      exclude: ["사내 구성원 연락처", "협력업체 연락처"]
     compensation:
       description: "개인별 급여·보너스·퇴직금·보상액 또는 산정 결과"
       include: ["개인별 급여액", "보너스·인센티브", "퇴직금·보상액", "보상 산정 결과"]
