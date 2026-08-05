@@ -460,6 +460,8 @@ Draft Bundle은 기본 질의·Workflow 실행 대상이 아니다. Agent는 공
 | `list_curation_reviews` | Git 추적 검토카드와 Evidence 위치·상태 확인 | 없음 |
 | `decide_curation_review` | 승인·불필요·수정 요청을 기록하고 승인된 신규 후보만 Draft 생성; 생성 성공 시 소비된 카드 삭제 | 검토카드, Evidence, 필요 시 Draft Bundle |
 | `apply_approved_curation_update` | 승인된 기존 Bundle 갱신 Review를 revision/checksum 검사 후 적용 | Bundle, 검토카드 archive |
+| `apply-automatic-curation-update` | Adapter가 비활성화된 환경에서 기존 direct Bundle에 checksum-bound append 자동 갱신 적용 | Bundle revision, Curation Queue Archive |
+| `verify-curation-commit` | Curation Queue 원본 삭제와 새 sibling Archive 추가의 staged 전환 쌍 검증 | 없음 |
 | `list_curation_candidates` | Draft 후보와 검토 상태 확인 | 없음 |
 | `review_curation_candidate` | 후보 검토·승인·거절·병합 기록 | `knowledge/bundles/` |
 | `promote_curation_candidate` | 설정 Owner와 Security receipt로 approved 후보 Active 승격 | `knowledge/bundles/` |

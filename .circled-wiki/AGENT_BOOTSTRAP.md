@@ -61,6 +61,9 @@ Launcher는 현재 작업 디렉터리에 관계없이 이 프로젝트 root와 
    Curation adapter가 활성화된 경우에만 `reconcile-curation`으로 Queue를 분석한 뒤 `no_bundle` Receipt, Review handoff, 자동 Gate를
    통과한 published 또는 Gate 실패 Draft를 결과 상태로 기록한다. Adapter·Gate 실패는 큐에 남긴다. 의미 변경
    승인과 revision 적용은 자동 처리하지 않는다. adapter가 비활성화되면 `list-curation-queue`로 대기 항목만 확인하고 설정 필요 상태를 반환한다.
+   사용자가 승인한 direct Bundle append는 `apply-automatic-curation-update`로 실행하며, 실행 후 Commit 전에는
+   `verify-curation-commit`으로 Queue 원본 삭제와 새 `workspace/task/.archive/curation_reconciliation/` Archive
+   추가가 함께 staged 되었는지 확인한다.
 4. 수정·발행·외부 전송·승인이 필요한 작업은 `OPERATING_RULES.md`의 권한과 Approval 규칙을 따른다. Agent는
    승인자를 대신하지 않는다.
 5. CLI 실패, Validator 오류, 예상과 다른 결과는 정상 입력·권한·이미 안내된 Gate 결과인지, 업무 지침 부재·모호성인지,

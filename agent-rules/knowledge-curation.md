@@ -45,6 +45,9 @@ Evidence를 기존 Bundle과 비교하거나 신규 Draft를 작성한다.
 - `runbook`과 `manual`은 `knowledge/curation-reviews/`의 checksum 결합 Review 카드 존재. `policy`, `guide`, `decision`, `spec`, `reference`, `report`는 확정된 Evidence를 입력으로 Draft 직접 생성 가능
 - Curation Review·자동 갱신의 유형별 경로와 Gate는 RB-CUR-001~006을 따른다. Curator는 현재 대화에서 승인 선택지를 묻지 않고 Review handoff 또는 재시도 차단 결과를 반환한다
 - active Runbook은 사람이 읽는 비어 있지 않은 `## Workflow Summary` 본문 section과 `extensions.workflow` 실행 정의를 함께 가질 것
+- Curation Queue 완료 후 상태를 공유할 때는 원본 Queue 파일 삭제와 새 sibling Archive 파일 추가를
+  한 전환으로 확인한다. `workspace/task/curation_reconciliation/`만 scoped staging하지 않고
+  `verify-curation-commit` Gate를 통과시킨다.
 
 ## Output
 
@@ -63,6 +66,8 @@ Evidence 정제 결과와 Curation Queue 소비는 RB-EVD-003·023을 적용한�
 `extensions.curation.review_receipts`에 보완 이력을 누적하고 카드를 archive한다.
 Evidence 원문은 카드에 복사하지 않는다. stale 카드는 RB-CUR-004에 따라 archive하고 다시 큐잉한다. Adapter 실패는
 RB-CUR-010에 따라 Review 또는 `no_bundle` 결론으로 만들지 않는다. 큐 이상은 `refresh-curation-queue`로 복구한다.
+완료 기록을 Commit할 때 Archive 전환 Gate가 실패하면 Queue 기록을 되돌리지 않고 두 경로를 명시적으로
+staging한 뒤 재시도한다.
 
 ## Failure State
 

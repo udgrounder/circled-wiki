@@ -1,6 +1,7 @@
 """Safe materialization of validated curation output into Draft candidates."""
 
 from datetime import datetime, timezone
+import hashlib
 import json
 from pathlib import Path
 import re
@@ -240,6 +241,85 @@ def run_configured_curation(
         profile_version=config.profile_version, failure_kind=failure_kind,
         receipt_metadata=_completed_receipt(receipt_metadata, failure_kind),
     )
+
+
+def apply_automatic_curation_append(
+    knowledge_root: Path, evidence_id: str, *, existing_bundle_id: str, body: str,
+    actor: str, curation_receipt: str, security_receipt: str,
+    update_mode: str = "append",
+) -> Dict[str, object]:
+    """Apply one explicit append update without invoking a Curator adapter.
+
+    This is the supported Runtime/CLI surface for installations that keep the
+    adapter disabled but still need to execute a previously reviewed, bounded
+    append operation.  All identity and Bundle metadata are copied from the
+    target; only the supplied delta is accepted as new content.  The target's
+    current body checksum is calculated immediately before validation and the
+    existing automatic-update Gate remains the single mutation path.
+    """
+    if update_mode != "append":
+        raise ValueError("automatic CLI update requires append update_mode")
+    if not existing_bundle_id.strip():
+        raise ValueError("existing_bundle_id must be non-empty")
+    if not body.strip():
+        raise ValueError("append body must be non-empty")
+    evidence = find_document_by_id(knowledge_root, evidence_id)
+    if evidence is None or evidence.frontmatter.get("type") != "evidence":
+        raise ValueError("evidence_id must refer to an existing Evidence Record")
+    target = find_document_by_id(knowledge_root, existing_bundle_id)
+    if target is None or "bundles" not in target.path.parts:
+        raise ValueError("existing_bundle_id must refer to an existing Bundle")
+    queue_ids = {str(item.get("evidence_id")) for item in list_curation_queue(knowledge_root)}
+    if evidence_id not in queue_ids:
+        raise ValueError("automatic append requires a pending Curation Queue item")
+    bundle_type = target.frontmatter.get("type")
+    if not isinstance(bundle_type, str) or bundle_type not in AUTOMATIC_UPDATE_TYPES:
+        raise ValueError("automatic CLI update is not allowed for runbook or manual Bundles")
+    bundles_root = (knowledge_root / "bundles").resolve()
+    try:
+        relative_bundle = target.path.resolve().relative_to(bundles_root)
+    except ValueError as error:
+        raise ValueError("existing_bundle_id must resolve below knowledge/bundles") from error
+    if not relative_bundle.parts:
+        raise ValueError("existing_bundle_id does not identify a Bundle domain")
+    domain = relative_bundle.parts[0]
+    title = target.frontmatter.get("title")
+    summary = target.frontmatter.get("summary")
+    tags = target.frontmatter.get("tags")
+    if not isinstance(title, str) or not title.strip() or not isinstance(summary, str) or not summary.strip():
+        raise ValueError("target Bundle title and summary are required")
+    if not isinstance(tags, list) or any(not isinstance(tag, str) or not tag.strip() for tag in tags):
+        raise ValueError("target Bundle tags must be a string array")
+    base_body_checksum = "sha256:" + hashlib.sha256(target.body.encode("utf-8")).hexdigest()
+    output = validate_curation_output(
+        {
+            "action": bundle_type,
+            "domain": domain,
+            "bundle_type": bundle_type,
+            "title": title,
+            "summary": summary,
+            "body": body,
+            "evidence_ids": [evidence_id],
+            "existing_bundle_candidates": [existing_bundle_id],
+            "update_mode": update_mode,
+            "base_body_checksum": base_body_checksum,
+            "rationale": "Explicit append update through the Runtime CLI.",
+            "tags": tags,
+        },
+        [evidence_id],
+    )
+    updated = apply_automatic_curation_update(
+        knowledge_root, evidence_id, output, actor=actor,
+        curation_receipt=curation_receipt, security_receipt=security_receipt,
+    )
+    if not complete_curation_work(knowledge_root, evidence_id):
+        raise ValueError("automatic append applied but Curation Queue completion was not recorded")
+    return {
+        **updated,
+        "update_mode": update_mode,
+        "base_body_checksum": base_body_checksum,
+        "queue_completed": True,
+    }
 
 
 def _record_curation_failure(

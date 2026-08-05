@@ -377,6 +377,18 @@ def main() -> int:
         "--user-review-request",
         help="Runtime-captured ID for a user's explicit Review request; required for types other than manual/runbook.",
     )
+    automatic_update = subparsers.add_parser("apply-automatic-curation-update")
+    automatic_update.add_argument("--evidence", required=True)
+    automatic_update.add_argument("--existing-bundle", required=True)
+    automatic_update.add_argument("--update-mode", choices=("append",), default="append")
+    automatic_update.add_argument("--body-file", required=True, help="UTF-8 Markdown delta to append")
+    automatic_update.add_argument("--actor", required=True)
+    automatic_update.add_argument("--curation-receipt", required=True)
+    automatic_update.add_argument("--security-receipt", required=True)
+    subparsers.add_parser(
+        "verify-curation-commit",
+        help="Verify staged Curation Queue deletions include matching Archive additions",
+    )
     curation_batch = subparsers.add_parser("run-configured-curation-batch")
     curation_batch.add_argument("--limit", type=int, default=100)
     review_candidate = subparsers.add_parser("review-curation-candidate")
@@ -778,6 +790,21 @@ def main() -> int:
         print(json.dumps(service.apply_approved_curation_update(args.review, actor=args.actor), ensure_ascii=False, indent=2)); return 0
     if args.command == "create-curation-review":
         print(json.dumps(service.create_curation_review(args.evidence, json.loads(args.output), generated_by=args.generated_by, curation_receipt=args.curation_receipt, user_review_request=args.user_review_request), ensure_ascii=False, indent=2)); return 0
+    if args.command == "apply-automatic-curation-update":
+        body = Path(args.body_file).read_text(encoding="utf-8")
+        print(json.dumps(service.apply_automatic_curation_append(
+            args.evidence,
+            existing_bundle_id=args.existing_bundle,
+            body=body,
+            actor=args.actor,
+            curation_receipt=args.curation_receipt,
+            security_receipt=args.security_receipt,
+            update_mode=args.update_mode,
+        ), ensure_ascii=False, indent=2)); return 0
+    if args.command == "verify-curation-commit":
+        result = service.verify_curation_commit()
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0 if result.get("passed") is True else 1
     if args.command == "run-configured-curation-batch":
         print(json.dumps(service.run_configured_curation_batch(args.limit), ensure_ascii=False, indent=2)); return 0
     if args.command == "review-curation-candidate":

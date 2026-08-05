@@ -136,5 +136,48 @@ class CliTests(unittest.TestCase):
             intake_id, classifier="slack-filter", rule_version="v1", reason="non-business",
         )
 
+    def test_apply_automatic_curation_update_cli_uses_append_service_surface(self):
+        with tempfile.TemporaryDirectory() as directory:
+            body = Path(directory) / "delta.md"
+            body.write_text("## New section\n", encoding="utf-8")
+            output = io.StringIO()
+            with patch("sys.argv", [
+                "circled-wiki", "apply-automatic-curation-update",
+                "--evidence", "evidence/test",
+                "--existing-bundle", "bundle/test",
+                "--update-mode", "append",
+                "--body-file", str(body),
+                "--actor", "curator",
+                "--curation-receipt", "curation://test",
+                "--security-receipt", "security://test",
+            ]):
+                with patch("circled_wiki.cli.__main__.KnowledgeService") as service_class:
+                    service_class.return_value.apply_automatic_curation_append.return_value = {
+                        "action": "updated", "queue_completed": True,
+                    }
+                    with patch("sys.stdout", output):
+                        status = run_cli()
+
+            self.assertEqual(status, 0)
+            service_class.return_value.apply_automatic_curation_append.assert_called_once_with(
+                "evidence/test", existing_bundle_id="bundle/test", body="## New section\n",
+                actor="curator", curation_receipt="curation://test",
+                security_receipt="security://test", update_mode="append",
+            )
+
+    def test_verify_curation_commit_cli_returns_gate_status(self):
+        output = io.StringIO()
+        with patch("sys.argv", ["circled-wiki", "verify-curation-commit"]):
+            with patch("circled_wiki.cli.__main__.KnowledgeService") as service_class:
+                service_class.return_value.verify_curation_commit.return_value = {
+                    "passed": False, "status": "blocked", "missing_archive": ["archive.md"],
+                }
+                with patch("sys.stdout", output):
+                    status = run_cli()
+
+        self.assertEqual(status, 1)
+        payload = json.loads(output.getvalue())
+        self.assertEqual(payload["status"], "blocked")
+
 if __name__ == "__main__":
     unittest.main()

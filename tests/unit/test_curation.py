@@ -12,7 +12,11 @@ from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import patch
 from pathlib import Path
 
-from circled_wiki.core.curation import _is_eligible_automatic_update, materialize_curation_candidate
+from circled_wiki.core.curation import (
+    _is_eligible_automatic_update,
+    apply_automatic_curation_append,
+    materialize_curation_candidate,
+)
 from circled_wiki.core.curation import run_configured_curation, run_configured_curation_batch
 from circled_wiki.core.curator import propose_update
 from circled_wiki.core.curation_contract import validate_curation_output
@@ -669,6 +673,58 @@ class CurationMaterializationTests(unittest.TestCase):
                     curation_receipt="test://curation", security_receipt="test://security",
                 )
             self.assertIn("Keep this section.", find_document_by_id(root, target.frontmatter["id"]).body)
+
+    def test_cli_append_update_reuses_target_metadata_and_completes_queue(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, evidence_id = self._evidence(directory)
+            target = create_bundle(
+                root, domain="marketing", slug="existing-guide", title="Existing",
+                bundle_type="guide", summary="Existing summary.", evidence_id=evidence_id,
+                body="# Existing guidance\n\nKeep this section.\n",
+            )
+            evidence = find_document_by_id(root, evidence_id)
+            enqueue_curation_work(root, evidence_id, evidence.path)
+
+            result = apply_automatic_curation_append(
+                root, evidence_id,
+                existing_bundle_id=target.frontmatter["id"],
+                body="## New evidence\n\nAdd this section.",
+                actor="curator",
+                curation_receipt="curation://manual/append",
+                security_receipt="security://manual/append",
+            )
+
+            self.assertEqual(result["action"], "updated")
+            self.assertEqual(result["update_mode"], "append")
+            self.assertTrue(result["queue_completed"])
+            updated = find_document_by_id(root, target.frontmatter["id"])
+            self.assertEqual(updated.frontmatter["title"], "Existing")
+            self.assertEqual(updated.frontmatter["summary"], "Existing summary.")
+            self.assertIn("Keep this section.", updated.body)
+            self.assertIn("## New evidence", updated.body)
+            self.assertEqual(list_curation_queue(root), [])
+            archives = list((root.parent / "workspace" / "task" / ".archive" / "curation_reconciliation").glob("*.md"))
+            self.assertEqual(len(archives), 1)
+
+    def test_cli_append_update_requires_pending_queue_item(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, evidence_id = self._evidence(directory)
+            target = create_bundle(
+                root, domain="marketing", slug="existing-guide", title="Existing",
+                bundle_type="guide", summary="Existing summary.", evidence_id=evidence_id,
+            )
+            from circled_wiki.core.curation_queue import complete_curation_work
+
+            evidence = find_document_by_id(root, evidence_id)
+            enqueue_curation_work(root, evidence_id, evidence.path)
+            self.assertTrue(complete_curation_work(root, evidence_id))
+            with self.assertRaisesRegex(ValueError, "pending Curation Queue item"):
+                apply_automatic_curation_append(
+                    root, evidence_id,
+                    existing_bundle_id=target.frontmatter["id"], body="## Delta",
+                    actor="curator", curation_receipt="curation://manual/append",
+                    security_receipt="security://manual/append",
+                )
 
     def test_configured_curation_automatically_updates_existing_reference(self):
         with tempfile.TemporaryDirectory() as directory:

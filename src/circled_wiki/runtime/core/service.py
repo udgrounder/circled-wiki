@@ -22,7 +22,7 @@ from .ingest import (
 from .publisher import publish_changes, push_committed_changes, resume_pending_push
 from .candidates import curation_backlog_metrics, list_curation_candidates, promote_curation_candidate, review_curation_candidate
 from .curation import (
-    materialize_curation_candidate, run_configured_curation,
+    apply_automatic_curation_append, materialize_curation_candidate, run_configured_curation,
     run_configured_curation_batch,
 )
 from .curation_reviews import (
@@ -30,6 +30,7 @@ from .curation_reviews import (
     generate_curation_review, list_curation_reviews,
 )
 from .curation_queue import list_curation_queue, refresh_curation_queue
+from .git_hygiene import verify_curation_archive_transitions
 from .inbox_review_queue import list_inbox_review_queue
 from .inbox_disposals import decide_inbox_disposal, list_inbox_disposals, quarantine_inbox_item
 from .curation_contract import validate_curation_output
@@ -203,6 +204,20 @@ class KnowledgeService:
 
     def run_configured_curation_batch(self, limit: int = 100) -> Dict[str, object]:
         return run_configured_curation_batch(self.knowledge_root, limit=limit)
+
+    def apply_automatic_curation_append(
+        self, evidence_id: str, *, existing_bundle_id: str, body: str,
+        actor: str, curation_receipt: str, security_receipt: str,
+        update_mode: str = "append",
+    ) -> Dict[str, object]:
+        return apply_automatic_curation_append(
+            self.knowledge_root, evidence_id, existing_bundle_id=existing_bundle_id,
+            body=body, actor=actor, curation_receipt=curation_receipt,
+            security_receipt=security_receipt, update_mode=update_mode,
+        )
+
+    def verify_curation_commit(self) -> Dict[str, object]:
+        return verify_curation_archive_transitions(self.knowledge_root.parent)
 
     def record_inbox_pii_scan(
         self, intake_id: str, *, scanner: str, scanner_version: str,
