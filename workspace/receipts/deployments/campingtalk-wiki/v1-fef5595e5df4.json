@@ -1,0 +1,39 @@
+{
+  "receipt_type": "deployment",
+  "release_id": "v1-fef5595e5df4",
+  "previous_release": "v1-b59f446c4225",
+  "target_ref": "campingtalk-wiki",
+  "planned_at": "2026-08-05T11:09:03.944054+00:00",
+  "applied_at": "2026-08-05T11:09:03.944150+00:00",
+  "backup_ref": ".circled-wiki-backups/v1-b59f446c4225-20260805T110706Z",
+  "actions": {
+    "applied": [
+      ".circled-wiki/AGENT_BOOTSTRAP.md",
+      ".circled-wiki/OPERATING_RULES.md",
+      ".circled-wiki/agent-rules/contracts/README.md",
+      ".circled-wiki/agent-rules/inbox-sensitivity-review.md",
+      ".circled-wiki/agent-rules/knowledge-curation.md",
+      ".circled-wiki/agent-rules/publication.md",
+      ".circled-wiki/agent-rules/system-observation.md",
+      ".circled-wiki/policies/agent-security.md",
+      ".circled-wiki/policies/sensitive-data-masking.md",
+      ".circled-wiki/runtime/circled_wiki/cli/__main__.py",
+      ".circled-wiki/runtime/circled_wiki/config/data_protection.py",
+      ".circled-wiki/runtime/circled_wiki/core/bootstrap.py",
+      ".circled-wiki/runtime/circled_wiki/core/curation.py",
+      ".circled-wiki/runtime/circled_wiki/core/git_hygiene.py",
+      ".circled-wiki/runtime/circled_wiki/core/ingest.py",
+      ".circled-wiki/runtime/circled_wiki/core/sensitive_data.py",
+      ".circled-wiki/runtime/circled_wiki/core/service.py",
+      ".circled-wiki/templates/data-protection.yaml",
+      ".circled-wiki/data-protection.yaml",
+      ".circled-wiki/history/releases/v1-fef5595e5df4.json"
+    ],
+    "preserved": [
+      ".circled-wiki/config.yaml"
+    ],
+    "proposed": []
+  },
+  "status": "verified",
+  "release_receipt": "/Users/kjkim/Study/circled-wiki/workspace/receipts/releases/v1-fef5595e5df4.json"
+}
