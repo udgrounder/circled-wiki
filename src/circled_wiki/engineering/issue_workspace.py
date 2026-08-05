@@ -50,50 +50,6 @@ def intake_operational_issue(
     if _find_workspace_issue(workspace_root, source_issue_id):
         raise ValueError("Workspace Archive already contains this operational issue")
 
-    similar = find_similar_archive_history(
-        workspace_root,
-        source_issue_id=source_issue_id,
-        source_text=original,
-    )
-    now = datetime.now(timezone.utc).isoformat()
-    frontmatter = {
-        "type": "workspace_issue",
-        "status": "pending_review",
-        "workspace_issue_id": f"workspace-issue-{uuid4().hex}",
-        "source_project_ref": project_ref,
-        "source_issue_id": source_issue_id,
-        "source_release": _field_value(original, "Release observed") or installed_release,
-        "source_git_revision": revision,
-        "moved_at": now,
-        "moved_by": moved_by.strip(),
-        "requested_by": requested_by.strip(),
-        "canonical_issue_key": None,
-        "occurrence": 1,
-        "review": {
-            "reviewed_by": None,
-            "reviewed_at": None,
-            "decision": None,
-            "note": None,
-        },
-        "processing": {
-            "classification": None,
-            "disposition": None,
-            "history_relation": None,
-            "similar_history": similar,
-            "linked_work": [],
-            "linked_release": None,
-            "linked_deployment_receipt": None,
-            "linked_verification_receipt": None,
-            "current_release_verification": None,
-            "source_commit_verification": None,
-        },
-        "archive": {
-            "archived_at": None,
-            "archived_by": None,
-            "reason": None,
-            "restore_condition": None,
-        },
-    }
     destination.parent.mkdir(parents=True, exist_ok=True)
     try:
         source.replace(destination)
@@ -102,9 +58,60 @@ def intake_operational_issue(
             raise RuntimeError("Issue move failed and source preservation could not be confirmed") from error
         raise RuntimeError("Issue move failed; the source Issue remains at its original path") from error
     try:
+        # History is examined only after the Issue is safely owned by the Product
+        # Workspace. It informs the pending review; it is never an intake gate.
+        similar = find_similar_archive_history(
+            workspace_root,
+            source_issue_id=source_issue_id,
+            source_text=original,
+        )
+        now = datetime.now(timezone.utc).isoformat()
+        frontmatter = {
+            "type": "workspace_issue",
+            "status": "pending_review",
+            "workspace_issue_id": f"workspace-issue-{uuid4().hex}",
+            "source_project_ref": project_ref,
+            "source_issue_id": source_issue_id,
+            "source_release": _field_value(original, "Release observed") or installed_release,
+            "source_git_revision": revision,
+            "moved_at": now,
+            "moved_by": moved_by.strip(),
+            "requested_by": requested_by.strip(),
+            "canonical_issue_key": None,
+            "occurrence": 1,
+            "review": {
+                "reviewed_by": None,
+                "reviewed_at": None,
+                "decision": None,
+                "note": None,
+            },
+            "processing": {
+                "classification": None,
+                "disposition": None,
+                "history_relation": None,
+                "similar_history": similar,
+                "linked_work": [],
+                "linked_release": None,
+                "linked_deployment_receipt": None,
+                "linked_verification_receipt": None,
+                "current_release_verification": None,
+                "source_commit_verification": None,
+            },
+            "archive": {
+                "archived_at": None,
+                "archived_by": None,
+                "reason": None,
+                "restore_condition": None,
+            },
+        }
         destination.write_text(render_markdown(frontmatter, original), encoding="utf-8")
-    except OSError:
-        destination.replace(source)
+    except Exception:
+        try:
+            destination.replace(source)
+        except OSError as rollback_error:
+            raise RuntimeError(
+                "Issue intake metadata failed and source restoration could not be confirmed"
+            ) from rollback_error
         raise
     return {
         "workspace_issue_id": frontmatter["workspace_issue_id"],

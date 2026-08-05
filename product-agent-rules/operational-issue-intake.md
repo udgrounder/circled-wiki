@@ -14,12 +14,12 @@
 
 - `workspace/issues/`와 legacy `.circled-wiki/issues/` inventory
 - Git 추적·커밋·미변경 상태 확인
-- Archive 유사 이력 조회
 - 지정 Issue를 `workspace/issues/inbox/<project-ref>/`로 원자적 이동
+- Inbox로 이동된 `pending_review` Item의 Archive 유사 이력 조회
 
 ## Checks
 
-- release, area, 증상, 날짜별 Archive 파일의 관련 canonical key·occurrence와 과거 해결·검증 결과
+- Inbox 이동 후 release, area, 증상, 날짜별 Archive 파일의 관련 canonical key·occurrence와 과거 해결·검증 결과
 - 민감정보와 머신 절대 경로가 제외됐는지
 
 ## Gates

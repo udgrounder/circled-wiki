@@ -420,9 +420,9 @@ Agent cache처럼 비추적이어야 하는 자료를 구분할 수 있다.
 
 이동 동작:
 
-1. Archive에서 동일 `canonical_issue_key` 또는 관련 Issue 후보를 찾는다.
-2. 대상 파일을 `workspace/issues/inbox/<project-ref>/<source-issue-id>.md`로 `mv`한다.
-3. 이동이 성공하면 Workspace Item을 `pending_review` 상태로 관리한다.
+1. 대상 파일을 `workspace/issues/inbox/<project-ref>/<source-issue-id>.md`로 `mv`한다.
+2. 이동이 성공하면 Workspace Item을 `pending_review` 상태로 관리한다.
+3. Inbox로 이동된 Item을 기준으로 Archive에서 동일 `canonical_issue_key` 또는 관련 Issue 후보를 찾는다.
 4. 이동이 실패하면 완료를 주장하지 않고 원래 경로에 파일이 남아 있는지 확인한다.
 5. 과거 내용이 필요하면 운영 프로젝트의 Git 이력에서 복구한다.
 

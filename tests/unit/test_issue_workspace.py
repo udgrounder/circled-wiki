@@ -4,8 +4,10 @@ import unittest
 import json
 from datetime import datetime, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 from circled_wiki.core.frontmatter import parse_markdown
+import circled_wiki.engineering.issue_workspace as issue_workspace
 from circled_wiki.engineering.issue_workspace import (
     archive_workspace_issue,
     intake_operational_issue,
@@ -90,6 +92,36 @@ class IssueWorkspaceTests(unittest.TestCase):
             )
 
             self.assertTrue(Path(result["path"]).is_file())
+
+    def test_intake_moves_issue_before_looking_up_archive_history(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = self._source_repo(root)
+            product_workspace = root / "product" / "workspace"
+            source_issue = source / "workspace" / "issues" / "issue-runtime-1.md"
+            destination = (
+                product_workspace / "issues" / "inbox" / "team-wiki" / "issue-runtime-1.md"
+            )
+
+            def history_lookup(*_args, **_kwargs):
+                self.assertFalse(source_issue.exists())
+                self.assertTrue(destination.is_file())
+                return [{"archive_ref": "2026/01/team-wiki/previous.md"}]
+
+            with patch.object(
+                issue_workspace, "find_similar_archive_history", side_effect=history_lookup
+            ):
+                result = intake_operational_issue(
+                    product_workspace,
+                    source,
+                    project_ref="team-wiki",
+                    issue_ref="issue-runtime-1",
+                    requested_by="user-1",
+                    moved_by="agent-1",
+                )
+
+            metadata = parse_markdown(Path(result["path"])).frontmatter
+            self.assertEqual(metadata["processing"]["similar_history"][0]["archive_ref"], "2026/01/team-wiki/previous.md")
 
     def test_intake_rejects_uncommitted_changes_without_moving_source(self):
         with tempfile.TemporaryDirectory() as directory:
