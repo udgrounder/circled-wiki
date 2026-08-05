@@ -20,9 +20,12 @@ from circled_wiki.engineering.issue_workspace import (
 )
 from circled_wiki.engineering.receipts import (
     DEPLOYMENT_STATUSES,
+    build_release_manifest,
     record_deployment_receipt,
     record_release_receipt,
     record_verification_receipt,
+    validate_release_validation,
+    write_release_manifest,
 )
 
 
@@ -156,6 +159,13 @@ def main() -> int:
     release.add_argument("--validation", required=True)
     release.add_argument("--verified-by", required=True)
 
+    prepare_release = commands.add_parser("prepare-release")
+    prepare_release.add_argument("--manifest", required=True)
+    prepare_release.add_argument("--source-revision", required=True)
+    prepare_release.add_argument("--included-issue", action="append", default=[])
+    prepare_release.add_argument("--validation", required=True)
+    prepare_release.add_argument("--verified-by", required=True)
+
     deployment = commands.add_parser("record-deployment-receipt")
     deployment.add_argument("--release-receipt", required=True)
     deployment.add_argument("--previous-release", required=True)
@@ -231,6 +241,29 @@ def main() -> int:
             reason=args.reason,
             restore_condition=args.restore_condition,
         )
+    elif args.command == "prepare-release":
+        # The clean/committed source gate is intentionally first.  The
+        # manifest is a new repository artifact, so checking after writing it
+        # would incorrectly reject the very release being prepared.
+        source_commit_check = verify_release_source(args.source_revision)
+        validation = _parse_validation(args.validation)
+        validate_release_validation(validation)
+        manifest_path = Path(args.manifest)
+        manifest = build_release_manifest(Path.cwd())
+        receipt_path = workspace_root / "receipts" / "releases" / f"{manifest['os_release']}.json"
+        if receipt_path.exists():
+            raise ValueError("an immutable release receipt already exists for this release")
+        write_release_manifest(manifest_path, manifest)
+        result = record_release_receipt(
+            workspace_root / "receipts",
+            manifest_path=manifest_path,
+            source_revision=args.source_revision,
+            included_issue_ids=args.included_issue,
+            validation=validation,
+            verified_by=args.verified_by,
+            source_commit_check=source_commit_check,
+        )
+        result["manifest_path"] = manifest_path.as_posix()
     elif args.command == "record-release-receipt":
         source_commit_check = verify_release_source(args.source_revision)
         result = record_release_receipt(

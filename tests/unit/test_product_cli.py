@@ -1,5 +1,6 @@
 import io
 import json
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -126,3 +127,165 @@ class ProductCliTests(unittest.TestCase):
         ):
             with self.assertRaisesRegex(ValueError, "worktree must be clean"):
                 verify_release_source("a" * 40, Path("/product"))
+
+    def test_prepare_release_rejects_dirty_source_before_building_manifest(self):
+        output = io.StringIO()
+        with patch(
+            "sys.argv",
+            [
+                "circled-wiki-product", "prepare-release",
+                "--manifest", "/tmp/release.json",
+                "--source-revision", "a" * 40,
+                "--validation", '{"unit":"passed","integration":"passed","repository_validator":"passed"}',
+                "--verified-by", "release-preparer",
+            ],
+        ):
+            with patch(
+                "circled_wiki.engineering.cli.verify_release_source",
+                side_effect=ValueError("release source worktree must be clean"),
+            ):
+                with patch("circled_wiki.engineering.cli.build_release_manifest") as build:
+                    with patch("circled_wiki.engineering.cli.write_release_manifest") as write:
+                        with patch("sys.stdout", output):
+                            status = run_product_cli()
+
+        self.assertEqual(status, 2)
+        self.assertIn("worktree must be clean", json.loads(output.getvalue())["message"])
+        build.assert_not_called()
+        write.assert_not_called()
+
+    def test_prepare_release_orders_gate_manifest_and_receipt(self):
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Path(directory) / "workspace"
+            manifest_path = Path(directory) / "release.json"
+            output = io.StringIO()
+            source_check = {
+                "revision": "a" * 40,
+                "subject": "release commit",
+                "worktree_clean": True,
+            }
+            manifest = {
+                "schema_version": 1,
+                "os_release": "v-test",
+                "assets": {".circled-wiki/AGENT_ROUTER.md": "sha256:router"},
+                "runtime_profiles": ["knowledge-query.md"],
+                "router_checksum": "sha256:router",
+            }
+            events = []
+            with patch(
+                "sys.argv",
+                [
+                    "circled-wiki-product", "--workspace", str(workspace),
+                    "prepare-release", "--manifest", str(manifest_path),
+                    "--source-revision", "a" * 40,
+                    "--validation", '{"unit":"passed","integration":"passed","repository_validator":"passed"}',
+                    "--verified-by", "release-preparer",
+                ],
+            ):
+                with patch(
+                    "circled_wiki.engineering.cli.verify_release_source",
+                    side_effect=lambda revision: events.append("verify") or source_check,
+                ) as verify:
+                    with patch(
+                        "circled_wiki.engineering.cli.build_release_manifest",
+                        side_effect=lambda root: events.append("build") or manifest,
+                    ) as build:
+                        with patch(
+                            "circled_wiki.engineering.cli.write_release_manifest",
+                            side_effect=lambda path, value: events.append("manifest") or {"path": str(path)},
+                        ) as write:
+                            with patch(
+                                "circled_wiki.engineering.cli.record_release_receipt",
+                                side_effect=lambda *args, **kwargs: events.append("receipt") or {"path": "receipt.json"},
+                            ) as record:
+                                with patch("sys.stdout", output):
+                                    status = main()
+
+            self.assertEqual(status, 0)
+            self.assertEqual(events, ["verify", "build", "manifest", "receipt"])
+            verify.assert_called_once_with("a" * 40)
+            build.assert_called_once_with(Path.cwd())
+            write.assert_called_once_with(manifest_path, manifest)
+            self.assertEqual(record.call_args.kwargs["source_commit_check"], source_check)
+
+    def test_prepare_release_rejects_failed_validation_before_manifest(self):
+        output = io.StringIO()
+        with patch(
+            "sys.argv",
+            [
+                "circled-wiki-product", "prepare-release",
+                "--manifest", "/tmp/release.json",
+                "--source-revision", "a" * 40,
+                "--validation", '{"unit":"failed","integration":"passed","repository_validator":"passed"}',
+                "--verified-by", "release-preparer",
+            ],
+        ):
+            with patch(
+                "circled_wiki.engineering.cli.verify_release_source",
+                return_value={"revision": "a" * 40, "subject": "release", "worktree_clean": True},
+            ):
+                with patch("circled_wiki.engineering.cli.build_release_manifest") as build:
+                    with patch("circled_wiki.engineering.cli.write_release_manifest") as write:
+                        with patch("sys.stdout", output):
+                            status = run_product_cli()
+
+        self.assertEqual(status, 2)
+        self.assertIn("release validation must pass", json.loads(output.getvalue())["message"])
+        build.assert_not_called()
+        write.assert_not_called()
+
+    def test_prepare_release_emits_manifest_and_receipt_after_clean_gate(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory)
+            (source / "OPERATING_RULES.md").write_text("rules\n", encoding="utf-8")
+            (source / "agent-rules").mkdir()
+            (source / "agent-rules" / "knowledge-query.md").write_text("query\n", encoding="utf-8")
+            (source / ".circled-wiki").mkdir()
+            (source / ".circled-wiki" / "AGENT_ROUTER.md").write_text("router\n", encoding="utf-8")
+            (source / ".circled-wiki" / "runtime").mkdir()
+            (source / ".circled-wiki" / "runtime" / "pyproject.toml").write_text(
+                "[project]\nname = 'circled-wiki-runtime'\n", encoding="utf-8"
+            )
+            runtime = source / "src" / "circled_wiki" / "runtime"
+            runtime.mkdir(parents=True)
+            (runtime / "module.py").write_text("VALUE = 1\n", encoding="utf-8")
+
+            subprocess.run(["git", "init", "-q"], cwd=source, check=True)
+            subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=source, check=True)
+            subprocess.run(["git", "config", "user.name", "Release Test"], cwd=source, check=True)
+            subprocess.run(["git", "add", "."], cwd=source, check=True)
+            subprocess.run(["git", "commit", "-qm", "release source"], cwd=source, check=True)
+            revision = subprocess.check_output(
+                ["git", "rev-parse", "HEAD"], cwd=source, text=True
+            ).strip()
+
+            manifest_path = source / "workspace" / "release-manifests" / "candidate.json"
+            output = io.StringIO()
+            with patch("circled_wiki.engineering.cli.Path.cwd", return_value=source):
+                with patch(
+                    "sys.argv",
+                    [
+                        "circled-wiki-product", "--workspace", str(source / "workspace"),
+                        "prepare-release", "--manifest", str(manifest_path),
+                        "--source-revision", revision,
+                        "--included-issue", "issue-1",
+                        "--validation", '{"unit":"passed","integration":"passed","repository_validator":"passed"}',
+                        "--verified-by", "release-preparer",
+                    ],
+                ):
+                    with patch("sys.stdout", output):
+                        status = main()
+
+            self.assertEqual(status, 0)
+            result = json.loads(output.getvalue())
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            receipt_path = (
+                source / "workspace" / "receipts" / "releases"
+                / f"{manifest['os_release']}.json"
+            )
+            receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+            self.assertEqual(result["manifest_path"], manifest_path.as_posix())
+            self.assertEqual(result["release_id"], manifest["os_release"])
+            self.assertEqual(receipt["source_revision"], revision)
+            self.assertTrue(receipt["source_commit_check"]["worktree_clean"])
+            self.assertEqual(receipt["release_id"], manifest["os_release"])

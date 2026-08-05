@@ -4,9 +4,11 @@ import unittest
 from pathlib import Path
 
 from circled_wiki.engineering.receipts import (
+    build_release_manifest,
     record_deployment_receipt,
     record_release_receipt,
     record_verification_receipt,
+    write_release_manifest,
 )
 
 
@@ -31,6 +33,50 @@ class ReceiptTests(unittest.TestCase):
             encoding="utf-8",
         )
         return path
+
+    def test_build_release_manifest_is_side_effect_free_and_uses_only_managed_assets(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory)
+            (source / "OPERATING_RULES.md").write_text("rules\n", encoding="utf-8")
+            (source / "agent-rules").mkdir()
+            (source / "agent-rules" / "knowledge-query.md").write_text("query\n", encoding="utf-8")
+            (source / ".circled-wiki").mkdir()
+            (source / ".circled-wiki" / "AGENT_ROUTER.md").write_text("router\n", encoding="utf-8")
+            (source / ".circled-wiki" / "runtime").mkdir()
+            (source / ".circled-wiki" / "runtime" / "pyproject.toml").write_text(
+                "[project]\nname = 'circled-wiki-runtime'\n", encoding="utf-8"
+            )
+            runtime = source / "src" / "circled_wiki" / "runtime"
+            runtime.mkdir(parents=True)
+            (runtime / "module.py").write_text("VALUE = 1\n", encoding="utf-8")
+
+            manifest = build_release_manifest(source)
+
+            self.assertEqual(manifest["schema_version"], 1)
+            self.assertEqual(manifest["runtime_profiles"], ["knowledge-query.md"])
+            self.assertIn(".circled-wiki/runtime/circled_wiki/module.py", manifest["assets"])
+            self.assertFalse((source / "workspace").exists())
+
+    def test_release_manifest_is_immutable_and_allows_identical_replay(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "release.json"
+            manifest = {
+                "schema_version": 1,
+                "os_release": "v-test",
+                "assets": {".circled-wiki/AGENT_ROUTER.md": "sha256:router"},
+                "runtime_profiles": ["knowledge-query.md"],
+                "router_checksum": "sha256:router",
+            }
+
+            result = write_release_manifest(path, manifest)
+            replay = write_release_manifest(path, manifest)
+            self.assertEqual(result["path"], path.as_posix())
+            self.assertEqual(replay["os_release"], "v-test")
+
+            changed = dict(manifest)
+            changed["os_release"] = "v-other"
+            with self.assertRaisesRegex(ValueError, "immutable release manifest"):
+                write_release_manifest(path, changed)
 
     def test_records_cross_linked_release_deployment_and_verification_receipts(self):
         with tempfile.TemporaryDirectory() as directory:

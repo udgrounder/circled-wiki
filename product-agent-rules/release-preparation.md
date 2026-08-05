@@ -24,6 +24,8 @@
 - source revision, release manifest와 receipt의 asset checksum이 동일한지
 - `git rev-parse HEAD`가 release `source_revision`과 정확히 일치하는지, `git status --porcelain=v1`가 비어 있는지,
   HEAD commit 제목과 포함 commit 목록이 릴리즈 범위와 일치하는지
+- manifest를 만들기 전 source revision과 clean worktree를 먼저 확인하고, 그 확인 결과를 manifest·Receipt 생성에
+  전달한다. 새 manifest가 아직 Git에 없는 상태를 사후 clean check가 변경으로 오판하지 않도록 한다.
 
 ## Gates
 
@@ -33,7 +35,12 @@
 - release manifest와 Release Receipt를 **대상 배포 전에** immutable하게 기록할 것
 - release ID는 제품 release asset map만으로 계산할 것. 대상별 preserve·proposal·backup 결과를 release asset map에 섞지 말 것
 - source revision이 재현 가능할 것. uncommitted 작업 트리는 기본적으로 release 준비를 차단하며, 예외는 revision·diff checksum·승인 사유를 release note에 함께 기록할 것
-- `record-release-receipt`는 Product CLI에서 위 commit Gate를 통과한 HEAD만 기록할 것. revision 불일치·미커밋 변경·Git 확인 실패면 Receipt를 만들지 않는다.
+- Product CLI의 `prepare-release`는 다음 순서를 하나의 준비 절차로 보장한다.
+  `verify_release_source` → source asset map/manifest 계산 → immutable manifest 기록 → Release Receipt 기록.
+  첫 단계가 실패하면 manifest와 Receipt를 만들지 않는다.
+- 신규 release는 `prepare-release`를 사용하고, `record-release-receipt`는 이미 존재하는 immutable manifest에 대한
+  Receipt 재기록·검증 용도로만 사용한다. 두 명령 모두 Product CLI에서 위 commit Gate를 통과한 HEAD만 기록하며,
+  revision 불일치·미커밋 변경·Git 확인 실패면 Receipt를 만들지 않는다.
 
 ## Output
 

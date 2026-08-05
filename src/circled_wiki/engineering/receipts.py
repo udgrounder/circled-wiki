@@ -11,6 +11,9 @@ from circled_wiki.runtime.core.bootstrap import (
     CONTROL_PLANE,
     RUNTIME_ASSET_PREFIX,
     RUNTIME_PROFILE_ALLOWLIST,
+    _checksum,
+    _release_id,
+    _source_assets,
 )
 
 
@@ -37,6 +40,57 @@ _RUNTIME_PROFILE_PATHS = frozenset(
     f"{CONTROL_PLANE}/agent-rules/{path}" for path in RUNTIME_PROFILE_ALLOWLIST
 )
 _RUNTIME_PROFILE_NAMES = frozenset(RUNTIME_PROFILE_ALLOWLIST)
+_REQUIRED_RELEASE_VALIDATION = frozenset({"unit", "integration", "repository_validator"})
+
+
+def build_release_manifest(source_root: Path) -> Dict[str, object]:
+    """Build a release manifest from source assets without writing anything.
+
+    This function deliberately has no filesystem side effects. Callers must
+    complete the source clean/commit gate before persisting its result.
+    """
+    raw_assets = _source_assets(source_root.expanduser().resolve())
+    assets = {path: _checksum(content) for path, content in raw_assets.items()}
+    router_checksum = assets.get(f"{CONTROL_PLANE}/AGENT_ROUTER.md")
+    if not router_checksum:
+        raise ValueError("release source must contain .circled-wiki/AGENT_ROUTER.md")
+    profiles = sorted(
+        Path(path).name
+        for path in assets
+        if path.startswith(f"{CONTROL_PLANE}/agent-rules/")
+        and path.endswith(".md")
+        and not path.endswith("/README.md")
+    )
+    if not profiles:
+        raise ValueError("release source must contain at least one Runtime Profile")
+    return {
+        "schema_version": 1,
+        "os_release": _release_id(assets),
+        "assets": assets,
+        "runtime_profiles": profiles,
+        "router_checksum": router_checksum,
+        "pending_proposals": [],
+    }
+
+
+def write_release_manifest(path: Path, manifest: Dict[str, object]) -> Dict[str, object]:
+    """Persist an immutable release manifest, allowing an identical replay."""
+    content = json.dumps(manifest, ensure_ascii=False, indent=2) + "\n"
+    if path.exists():
+        if path.read_text(encoding="utf-8") != content:
+            raise ValueError("an immutable release manifest already exists with different content")
+        return {"path": path.as_posix(), **manifest}
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+    return {"path": path.as_posix(), **manifest}
+
+
+def validate_release_validation(validation: Dict[str, str]) -> None:
+    """Validate release gates before any release artifact is persisted."""
+    if set(validation) != _REQUIRED_RELEASE_VALIDATION or any(
+        validation[key] != "passed" for key in _REQUIRED_RELEASE_VALIDATION
+    ):
+        raise ValueError("release validation must pass unit, integration, and repository_validator")
 
 
 def record_release_receipt(
@@ -65,11 +119,7 @@ def record_release_receipt(
     _validate_release_assets(assets)
     if assets.get(".circled-wiki/AGENT_ROUTER.md") != router_checksum:
         raise ValueError("release Router checksum does not match the manifest asset")
-    required_validation = {"unit", "integration", "repository_validator"}
-    if set(validation) != required_validation or any(
-        validation[key] != "passed" for key in required_validation
-    ):
-        raise ValueError("release validation must pass unit, integration, and repository_validator")
+    validate_release_validation(validation)
     receipt = {
         "receipt_type": "release",
         "release_id": release_id,
