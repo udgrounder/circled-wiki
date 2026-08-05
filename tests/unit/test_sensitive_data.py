@@ -77,6 +77,61 @@ class SensitiveDataPrecheckTests(unittest.TestCase):
         self.assertEqual(result.categories, ())
         self.assertEqual(result.policy_categories, ("credential",))
 
+    def test_masks_oauth_credentials_but_preserves_flow_metadata(self):
+        content = (
+            "https://login.example.test/oauth/authorize?client_id=public-client"
+            "&code=authorization-code&code_challenge=challenge-value"
+            "&code_verifier=verifier-value&state=csrf-state"
+            "&access_token=access-value&id_token=id-value"
+        )
+
+        result = redact_sensitive_data(content)
+
+        self.assertNotIn("authorization-code", result.content)
+        self.assertNotIn("verifier-value", result.content)
+        self.assertNotIn("access-value", result.content)
+        self.assertNotIn("id-value", result.content)
+        self.assertIn("client_id=public-client", result.content)
+        self.assertIn("code_challenge=challenge-value", result.content)
+        self.assertIn("state=csrf-state", result.content)
+        self.assertEqual(result.categories, ("credential",))
+        self.assertEqual(result.policy_categories, ("oauth_flow_metadata",))
+
+    def test_oauth_flow_metadata_is_sent_to_policy_review_without_hard_masking(self):
+        content = (
+            "https://login.example.test/oauth/authorize?client_id=public-client"
+            "&code_challenge=challenge-value&state=csrf-state"
+        )
+
+        result = redact_sensitive_data(content)
+
+        self.assertEqual(result.content, content)
+        self.assertEqual(result.categories, ())
+        self.assertEqual(result.policy_categories, ("oauth_flow_metadata",))
+
+    def test_disabling_credential_hard_mask_exposes_oauth_credentials_as_candidates(self):
+        content = (
+            "https://login.example.test/oauth/authorize?client_id=public-client"
+            "&code=authorization-code&state=csrf-state"
+        )
+
+        result = redact_sensitive_data(content, hard_mask_categories=set())
+
+        self.assertEqual(result.content, content)
+        self.assertEqual(result.categories, ())
+        self.assertEqual(
+            set(result.policy_categories), {"credential", "oauth_flow_metadata"},
+        )
+
+    def test_does_not_classify_state_or_code_as_oauth_outside_authorize_context(self):
+        content = "https://example.test/status?code=200&state=ready"
+
+        result = redact_sensitive_data(content)
+
+        self.assertEqual(result.content, content)
+        self.assertEqual(result.categories, ())
+        self.assertEqual(result.policy_categories, ())
+
     def test_does_not_mask_uuid_that_contains_a_phone_like_digit_sequence(self):
         task_id = "c2f29370-e7d6-0100-1234-56789abcdef0"
         result = redact_sensitive_data(f"task_id={task_id}")
@@ -133,6 +188,41 @@ class SensitiveDataPrecheckTests(unittest.TestCase):
         self.assertIn(REDACTED_VALUE, content)
         self.assertEqual(
             data["capture_details"]["sensitive_data_precheck"]["categories"], ["credential"]
+        )
+
+    def test_capture_masks_oauth_credentials_and_records_flow_metadata_candidate(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+
+        from circled_wiki.core.ingest import capture_conversation, read_conversation_intake
+
+        content = (
+            "https://login.example.test/oauth/authorize?client_id=public-client"
+            "&code=authorization-code&code_challenge=challenge-value&state=csrf-state"
+        )
+        with TemporaryDirectory() as directory:
+            knowledge_root = Path(directory) / "knowledge"
+            (knowledge_root / "organization.yaml").parent.mkdir(parents=True)
+            (knowledge_root / "organization.yaml").write_text(
+                "organization_id: test-org\n", encoding="utf-8"
+            )
+            captured = capture_conversation(
+                knowledge_root, content, "test", title="oauth test",
+                why_collected="unit test", intended_use=["test"],
+                idempotency_key="oauth-sensitive-data-test",
+            )
+            data, stored_content = read_conversation_intake(captured.inbox_path)
+
+        self.assertNotIn("authorization-code", stored_content)
+        self.assertIn("client_id=public-client", stored_content)
+        self.assertIn("code_challenge=challenge-value", stored_content)
+        self.assertIn("state=csrf-state", stored_content)
+        self.assertEqual(
+            data["capture_details"]["sensitive_data_precheck"]["categories"], ["credential"]
+        )
+        self.assertEqual(
+            data["capture_details"]["sensitive_data_precheck"]["policy_categories"],
+            ["oauth_flow_metadata"],
         )
 
     def test_data_protection_review_preserves_partner_contact_with_explicit_context(self):

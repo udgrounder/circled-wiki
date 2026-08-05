@@ -2,14 +2,15 @@
 
 This is intentionally not a general PII classifier.  The scanner supports a
 small set of high-confidence identifiers, credentials, mobile phone numbers,
-and email addresses.  The active hard-mask categories are supplied by the
-installation policy; the caller decides whether an omitted or disabled
-category should be processed elsewhere.
+email addresses and OAuth authorization-flow candidates.  The active hard-mask
+categories are supplied by the installation policy; the caller decides whether
+an omitted or disabled category should be processed elsewhere.
 """
 
 from dataclasses import dataclass
 import re
 from typing import Iterable, Optional
+from urllib.parse import parse_qsl, unquote, unquote_plus, urlsplit
 
 
 REDACTED_VALUE = "********"
@@ -35,8 +36,23 @@ _ACCOUNT_NUMBER = re.compile(
 _CREDENTIAL_ASSIGNMENT = re.compile(
     r"(?im)(?P<label>\b(?:api[_ -]?key|access[_ -]?token|refresh[_ -]?token|"
     r"token|password|passwd|secret|client[_ -]?secret|private[_ -]?key)\b"
-    r"\s*[:=]\s*)(?P<value>[^\s'\"`]+)"
+    r"\s*[:=]\s*)(?P<value>[^\s'\"`&#]+)"
 )
+_URL_CANDIDATE = re.compile(r"(?i)(?P<url>https?://[^\s<>\"'`]+)")
+_OAUTH_QUERY_PARAMETER = re.compile(
+    r"(?i)(?P<prefix>[?&])"
+    r"(?P<key>client_secret|code_verifier|access_token|refresh_token|id_token|code|"
+    r"client_id|code_challenge|state)"
+    r"(?P<separator>=)(?P<value>[^&#\s<>\"'`]+)"
+)
+_OAUTH_HARD_QUERY_KEYS = frozenset({
+    "client_secret", "code", "code_verifier", "access_token", "refresh_token", "id_token",
+})
+_OAUTH_FLOW_METADATA_KEYS = frozenset({"client_id", "code_challenge", "state"})
+_OAUTH_QUERY_MARKERS = frozenset({
+    "client_id", "code", "code_challenge", "code_verifier", "redirect_uri",
+    "response_type", "scope", "state",
+})
 _PRESIGNED_URL_CREDENTIAL = re.compile(
     r"(?i)(?P<label>[?&]X-Amz-(?:Security-Token|Credential|Signature)=)"
     r"(?P<value>[^&#\s'\"`\\)]+)"
@@ -163,6 +179,10 @@ def redact_sensitive_data(
     )
     if redacted != content:
         categories.add("credential")
+    redacted, oauth_categories = _redact_oauth_credentials(
+        redacted, hard_mask_enabled="credential" in active_hard_categories,
+    )
+    categories.update(oauth_categories)
     redacted = _PRESIGNED_URL_CREDENTIAL.sub(redact_credential, redacted)
     redacted = _CREDENTIAL_ASSIGNMENT.sub(redact_credential, redacted)
     redacted = _KNOWN_TOKEN.sub(
@@ -218,6 +238,11 @@ def _detect_unmasked_categories(content: str) -> tuple[str, ...]:
         )
     ):
         detected.add("credential")
+    oauth_credential, oauth_metadata = _detect_oauth_query_categories(content)
+    if oauth_credential:
+        detected.add("credential")
+    if oauth_metadata:
+        detected.add("oauth_flow_metadata")
     if any(
         13 <= len(re.sub(r"[ -]", "", match.group(0))) <= 19
         and _luhn_valid(re.sub(r"[ -]", "", match.group(0)))
@@ -229,6 +254,78 @@ def _detect_unmasked_categories(content: str) -> tuple[str, ...]:
     if _EMAIL_ADDRESS.search(content):
         detected.add("email_address")
     return tuple(sorted(detected))
+
+
+def _redact_oauth_credentials(content: str, *, hard_mask_enabled: bool) -> tuple[str, set[str]]:
+    """Mask only credential values in high-confidence OAuth authorize URLs.
+
+    ``client_id``, ``code_challenge`` and ``state`` are OAuth flow metadata, not
+    credentials.  They remain available as policy candidates for the integrated
+    sensitivity review and are never hard-masked by the credential switch.
+    """
+    categories: set[str] = set()
+
+    def replace_url(url_match: re.Match[str]) -> str:
+        original = url_match.group("url")
+        trailing = ""
+        while original and original[-1] in ".,;:!?)]}":
+            trailing = original[-1] + trailing
+            original = original[:-1]
+        if not original or not _is_oauth_authorize_url(original):
+            return url_match.group("url")
+
+        def replace_parameter(parameter_match: re.Match[str]) -> str:
+            key = parameter_match.group("key").lower()
+            value = parameter_match.group("value")
+            if hard_mask_enabled and key in _OAUTH_HARD_QUERY_KEYS and value != REDACTED_VALUE:
+                categories.add("credential")
+                return (
+                    f"{parameter_match.group('prefix')}{parameter_match.group('key')}"
+                    f"{parameter_match.group('separator')}{REDACTED_VALUE}"
+                )
+            return parameter_match.group(0)
+
+        return _OAUTH_QUERY_PARAMETER.sub(replace_parameter, original) + trailing
+
+    return _URL_CANDIDATE.sub(replace_url, content), categories
+
+
+def _detect_oauth_query_categories(content: str) -> tuple[bool, bool]:
+    """Return whether an OAuth URL contains credential or metadata values."""
+    credential_found = False
+    metadata_found = False
+    for url_match in _URL_CANDIDATE.finditer(content):
+        url = url_match.group("url").rstrip(".,;:!?)]}")
+        if not _is_oauth_authorize_url(url):
+            continue
+        for parameter_match in _OAUTH_QUERY_PARAMETER.finditer(url):
+            if parameter_match.group("value") == REDACTED_VALUE:
+                continue
+            key = parameter_match.group("key").lower()
+            credential_found |= key in _OAUTH_HARD_QUERY_KEYS
+            metadata_found |= key in _OAUTH_FLOW_METADATA_KEYS
+    return credential_found, metadata_found
+
+
+def _is_oauth_authorize_url(url: str) -> bool:
+    """Recognize OAuth authorization endpoints without treating arbitrary URLs as OAuth."""
+    try:
+        parsed = urlsplit(url)
+        if parsed.scheme.lower() not in {"http", "https"} or not parsed.netloc:
+            return False
+        path = unquote(parsed.path).lower()
+        query_keys = {
+            unquote_plus(key).lower()
+            for key, _value in parse_qsl(parsed.query, keep_blank_values=True)
+        }
+    except ValueError:
+        return False
+    path_signal = (
+        "/oauth" in path
+        and ("authorize" in path or path.endswith("/auth") or "/auth/" in path)
+    )
+    query_signal = "client_id" in query_keys and len(query_keys & _OAUTH_QUERY_MARKERS) >= 2
+    return path_signal or query_signal
 
 
 def _redact_token(categories: set[str]) -> str:

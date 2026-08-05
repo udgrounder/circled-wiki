@@ -36,7 +36,10 @@ Git 히스토리는 되돌리기 어렵다. 마스킹은 커밋 이전 단계에
 ## 자동 마스킹 대상 범주
 
 - 고위험 식별자: 주민등록번호, `계좌번호` 또는 `account number`로 명시된 계좌번호, Luhn 검증을 통과한 카드번호
-- 자격증명: password, API key, access/refresh token, private key, secret, client secret 및 알려진 provider token 형식
+- 자격증명: password, API key, access/refresh token, private key, secret, client secret 및 알려진 provider token 형식.
+  OAuth authorize URL에서는 `client_secret`, authorization `code`, `code_verifier`, `access_token`,
+  `refresh_token`, `id_token` 값도 같은 credential 하드 스캔으로 처리한다. `client_id`, `code_challenge`,
+  `state`는 인증 자격증명이 아닌 OAuth 흐름 메타데이터이므로 원문을 보존하고 민감도 검토 후보로 전달한다.
 
 이 Agent의 자동 점검은 이름, 지역번호·대표번호, 일반 계정 ID, 내부 IP·호스트명·URL을 기본적으로 마스킹하지 않는다.
 휴대전화와 이메일 탐지기도 기능적으로 지원하지만 `data-protection.yaml`의 범주별 토글이 `false`이면 하드
