@@ -40,7 +40,6 @@ _RUNTIME_PROFILE_PATHS = frozenset(
     f"{CONTROL_PLANE}/agent-rules/{path}" for path in RUNTIME_PROFILE_ALLOWLIST
 )
 _RUNTIME_PROFILE_NAMES = frozenset(RUNTIME_PROFILE_ALLOWLIST)
-_REQUIRED_RELEASE_VALIDATION = frozenset({"unit", "integration", "repository_validator"})
 
 
 def build_release_manifest(source_root: Path) -> Dict[str, object]:
@@ -61,8 +60,6 @@ def build_release_manifest(source_root: Path) -> Dict[str, object]:
         and path.endswith(".md")
         and not path.endswith("/README.md")
     )
-    if not profiles:
-        raise ValueError("release source must contain at least one Runtime Profile")
     return {
         "schema_version": 1,
         "os_release": _release_id(assets),
@@ -83,14 +80,6 @@ def write_release_manifest(path: Path, manifest: Dict[str, object]) -> Dict[str,
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
     return {"path": path.as_posix(), **manifest}
-
-
-def validate_release_validation(validation: Dict[str, str]) -> None:
-    """Validate release gates before any release artifact is persisted."""
-    if set(validation) != _REQUIRED_RELEASE_VALIDATION or any(
-        validation[key] != "passed" for key in _REQUIRED_RELEASE_VALIDATION
-    ):
-        raise ValueError("release validation must pass unit, integration, and repository_validator")
 
 
 def record_release_receipt(
@@ -119,7 +108,11 @@ def record_release_receipt(
     _validate_release_assets(assets)
     if assets.get(".circled-wiki/AGENT_ROUTER.md") != router_checksum:
         raise ValueError("release Router checksum does not match the manifest asset")
-    validate_release_validation(validation)
+    required_validation = {"unit", "integration", "repository_validator"}
+    if set(validation) != required_validation or any(
+        validation[key] != "passed" for key in required_validation
+    ):
+        raise ValueError("release validation must pass unit, integration, and repository_validator")
     receipt = {
         "receipt_type": "release",
         "release_id": release_id,

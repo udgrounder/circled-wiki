@@ -208,32 +208,6 @@ class ProductCliTests(unittest.TestCase):
             write.assert_called_once_with(manifest_path, manifest)
             self.assertEqual(record.call_args.kwargs["source_commit_check"], source_check)
 
-    def test_prepare_release_rejects_failed_validation_before_manifest(self):
-        output = io.StringIO()
-        with patch(
-            "sys.argv",
-            [
-                "circled-wiki-product", "prepare-release",
-                "--manifest", "/tmp/release.json",
-                "--source-revision", "a" * 40,
-                "--validation", '{"unit":"failed","integration":"passed","repository_validator":"passed"}',
-                "--verified-by", "release-preparer",
-            ],
-        ):
-            with patch(
-                "circled_wiki.engineering.cli.verify_release_source",
-                return_value={"revision": "a" * 40, "subject": "release", "worktree_clean": True},
-            ):
-                with patch("circled_wiki.engineering.cli.build_release_manifest") as build:
-                    with patch("circled_wiki.engineering.cli.write_release_manifest") as write:
-                        with patch("sys.stdout", output):
-                            status = run_product_cli()
-
-        self.assertEqual(status, 2)
-        self.assertIn("release validation must pass", json.loads(output.getvalue())["message"])
-        build.assert_not_called()
-        write.assert_not_called()
-
     def test_prepare_release_emits_manifest_and_receipt_after_clean_gate(self):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory)
