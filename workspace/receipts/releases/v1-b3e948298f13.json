@@ -1,0 +1,33 @@
+{
+  "receipt_type": "release",
+  "release_id": "v1-b3e948298f13",
+  "source_revision": "b93827a9f7a72b142f5954503694f6b143f26772",
+  "runtime_checksum": "sha256:c8ecc09a46e87ded1fa24b17c55b51e9074cd36dade166fd06473c51a834f26d",
+  "router_checksum": "sha256:2ad390b3da847ba87656acfb77882e52abfb67e1a442d1ff64f1bc2f5dc51e89",
+  "runtime_profiles": [
+    "evidence-ingest.md",
+    "inbox-capture.md",
+    "inbox-disposition.md",
+    "inbox-inspection.md",
+    "inbox-sensitivity-review.md",
+    "knowledge-curation.md",
+    "knowledge-query.md",
+    "publication.md",
+    "runtime-upgrade-verification.md",
+    "system-observation.md",
+    "workflow-execution.md"
+  ],
+  "included_issue_ids": [],
+  "validation": {
+    "unit": "passed",
+    "integration": "passed",
+    "repository_validator": "passed"
+  },
+  "verified_by": "codex",
+  "verified_at": "2026-08-06T06:47:40.779550+00:00",
+  "source_commit_check": {
+    "revision": "b93827a9f7a72b142f5954503694f6b143f26772",
+    "subject": "배포 절차 보완",
+    "worktree_clean": true
+  }
+}
