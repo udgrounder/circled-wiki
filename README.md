@@ -98,6 +98,13 @@ Circled Wiki는 별도의 상시 Agent 프로세스를 강제하지 않습니다
 
 운영 Agent는 요청을 받으면 `.circled-wiki/AGENT_ROUTER.md`와 `.circled-wiki/OPERATING_RULES.md`를 읽고, 요청에 맞는 작업 Profile을 선택합니다. 따라서 제품 source repository를 열어 두는 대신, 실제로 운영할 Wiki 프로젝트를 Agent의 작업 기준으로 지정해야 합니다.
 
+### 운영 사례
+
+| 운영 영역 | Inbox에 수집할 자료 | Wiki에 물어볼 수 있는 내용 |
+| --- | --- | --- |
+| 고객지원·운영 | 고객 문의 응대 기준, 서비스 변경 안내, 장애 대응 절차, 업무 인수인계 문서 | “고객 문의에 답변하는 현재 기준을 알려줘.” |
+| 인사·경영지원 | 신규 입사자 안내, 비용 정산 기준, 내부 승인 절차, 사내 정책 문서 | “신규 입사자의 첫 주 준비 절차를 알려줘.” |
+
 ### Obsidian 보관함으로 사용하기
 
 Obsidian에서는 프로젝트 전체가 아니라 설치한 Wiki의 `knowledge/` 폴더를 보관함(Vault)으로 엽니다. 이렇게 하면 사람은 Obsidian에서 지식을 읽고 검토·보완하고, 운영 Agent는 같은 Vault를 규칙에 따라 관리합니다.
@@ -124,11 +131,11 @@ CLI로 직접 수집해야 할 때는 설치 폴더에서 제공되는 실행 �
 cd /path/to/wiki-project
 python3 .circled-wiki/bin/circled-wiki.py capture-document \
   --provider manual \
-  --file ./refund-policy.md \
-  --title "2026년 예약 환불 정책" \
-  --why-collected "고객지원 정책 갱신" \
+  --file ./customer-support-guideline.md \
+  --title "고객 문의 응대 기준" \
+  --why-collected "고객 응대 기준을 최신화하기 위한 원본 수집" \
   --intended-use customer-support \
-  --idempotency-key "refund-policy-2026-08"
+  --idempotency-key "customer-support-guideline-2026-08"
 ```
 
 ### 2. Inbox 자료 처리 맡기기
@@ -146,11 +153,11 @@ Agent가 설치본의 Router와 Runtime 규칙을 읽고 처리 단계를 판단
 일상적인 사용자는 파일 경로나 CLI를 알 필요 없이, 운영 Agent에게 질문합니다. Agent는 기본적으로 활성(`active`) Bundle과 연결된 Evidence를 검색하고, 필요한 Bundle을 읽은 뒤 출처와 함께 답합니다.
 
 ```text
-현재 예약 취소와 환불 기준을 알려줘. 근거 문서와 적용 시점도 함께 보여줘.
+고객 문의에 답변하는 현재 기준을 알려줘. 근거 문서와 적용 시점도 함께 보여줘.
 ```
 
 ```text
-지난 캠핑 행사 포스터 제작 절차가 있으면 찾아서, 지금 요청에 적용 가능한지 알려줘.
+신규 입사자의 첫 주 준비 절차가 있으면 찾아서, 현재 팀에 적용할 수 있는지 알려줘.
 ```
 
 질문에 맞는 공식 지식이나 실행 가능한 Runbook이 없으면 Agent는 이를 추정해 표준 절차로 만들지 않고, 확인 가능한 근거와 일회성 계획 또는 추가 수집·검토 요청을 구분해 제시합니다.
