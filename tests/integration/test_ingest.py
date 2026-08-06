@@ -318,7 +318,7 @@ class IngestEvidenceTests(unittest.TestCase):
         self.assertNotIn(security, content)
         self.assertIn("일반 입사·퇴사 일정", content)
 
-    def test_data_protection_review_scans_before_and_after_agent_masking(self):
+    def test_data_protection_review_reuses_one_pii_scan_after_agent_masking(self):
         with tempfile.TemporaryDirectory() as temp_directory:
             knowledge_root = Path(temp_directory) / "knowledge"
             compensation = "월 급여는 6,000,000원"
@@ -337,17 +337,24 @@ class IngestEvidenceTests(unittest.TestCase):
                 observed_contents.append(content)
                 return result
 
-            with patch("circled_wiki.core.ingest.run_automatic_pii_scan", side_effect=observe_scan):
+            with (
+                patch("circled_wiki.core.ingest.run_automatic_pii_scan", side_effect=observe_scan),
+                patch(
+                    "circled_wiki.core.ingest._policy_candidates_for_inbox",
+                    side_effect=AssertionError("review must use candidates from the single PII scan"),
+                ),
+            ):
                 review_data_protection(
                     knowledge_root, captured.intake_id, "inspector", context="",
                     checks=["source_access_scope", "personal_context", "confidential_business_context", "publication_scope"],
                     rationale="PII scan precedes semantic masking and is rebound after the change.",
                     findings=[{"category": "compensation", "value": compensation}],
                 )
+            _, final_content = read_conversation_intake(captured.inbox_path)
 
-        self.assertEqual(len(observed_contents), 2)
+        self.assertEqual(len(observed_contents), 1)
         self.assertIn(compensation, observed_contents[0])
-        self.assertNotIn(compensation, observed_contents[1])
+        self.assertNotIn(compensation, final_content)
 
     def test_reprocessing_review_uses_intake_uuid_when_legacy_checksum_is_stale(self):
         with tempfile.TemporaryDirectory() as temp_directory:

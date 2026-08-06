@@ -540,17 +540,26 @@ def run_automatic_pii_scan(knowledge_root: Path, intake_id: str) -> Dict[str, ob
             and existing.get("candidate_checksum") == candidate_fingerprint
             and not pii_scan_receipt_errors(receipt_probe)
         ):
-            return {"intake_id": intake_id, "pii_scan_receipt": existing, "reused": True}
+            details = data.get("capture_details")
+            precheck = details.get("sensitive_data_precheck") if isinstance(details, dict) else {}
+            policy_categories = precheck.get("policy_categories", []) if isinstance(precheck, dict) else []
+            return {
+                "intake_id": intake_id, "pii_scan_receipt": existing, "reused": True,
+                "policy_candidates": [
+                    str(category) for category in policy_categories if isinstance(category, str)
+                ],
+            }
 
         # File payloads have no safe generic text representation.  Do not
         # claim they passed a text policy; retain them for an explicit review.
         if isinstance(content, Path):
-            return record_inbox_pii_scan_receipt(
+            recorded = record_inbox_pii_scan_receipt(
                 knowledge_root, intake_id, scanner="circled-wiki-pii-scan",
                 scanner_version="pii-scan-v1", result="needs_review",
                 reviewed_by="circled-wiki-pii-scan",
                 receipt=f"runtime://pii-scan/{data['checksum']}",
             )
+            return {**recorded, "policy_candidates": []}
 
         updated = dict(data)
         details = dict(data.get("capture_details", {})) if isinstance(data.get("capture_details"), dict) else {}
@@ -587,10 +596,8 @@ def run_automatic_pii_scan(knowledge_root: Path, intake_id: str) -> Dict[str, ob
             updated[field] = scan.content
         if isinstance(intended_use, list):
             updated["intended_use"] = [
-                redact_sensitive_data(
-                    value, hard_mask_categories=data_protection.hard_mask_categories,
-                ).content if isinstance(value, str) else value
-                for value in intended_use
+                scan.content if isinstance(value, str) else value
+                for value, scan in zip(intended_use, intended_use_scans)
             ]
         categories = sorted({
             *[str(category) for category in prior_categories if isinstance(category, str)],
@@ -660,13 +667,17 @@ def run_automatic_pii_scan(knowledge_root: Path, intake_id: str) -> Dict[str, ob
             and existing.get("candidate_checksum") == data_protection_candidate_checksum(data, content)
             and existing.get("result") == result
         ):
-            return {"intake_id": intake_id, "pii_scan_receipt": existing, "reused": True}
-        return record_inbox_pii_scan_receipt(
+            return {
+                "intake_id": intake_id, "pii_scan_receipt": existing, "reused": True,
+                "policy_candidates": policy_categories,
+            }
+        recorded = record_inbox_pii_scan_receipt(
             knowledge_root, intake_id, scanner="circled-wiki-pii-scan",
             scanner_version="pii-scan-v1", result=result,
             reviewed_by="circled-wiki-pii-scan",
             receipt=f"runtime://pii-scan/{data['checksum']}",
         )
+        return {**recorded, "policy_candidates": policy_categories}
     raise ValueError("intake_id must refer to an existing Inbox item")
 
 
@@ -758,10 +769,10 @@ def complete_inbox_sensitivity_review(
                 "status": str(data.get("status", "pending")),
                 "review_status": "reprocessing" if inbox_review_is_resolved(knowledge_root, intake_id) else "awaiting_user",
             }
-        policy_candidates = _policy_candidates_for_inbox(
+        policy_candidates = () if _integrated else _policy_candidates_for_inbox(
             data, content, hard_mask_categories=data_protection.hard_mask_categories,
         )
-        if policy_candidates and not _integrated:
+        if policy_candidates:
             raise ValueError(
                 "residual PII candidate requires review-data-protection before resolution"
             )
@@ -812,8 +823,9 @@ def review_data_protection(
     safe_rationale = _safe_data_protection_text(rationale, findings)
     safe_context = context.strip() if context.strip() in policy.agent_mask_categories else ""
     # The integrated procedure always starts with the canonical hard PII Scan.
-    # If Agent masking changes the candidate, the scan is repeated so the final
-    # Receipt is bound to the post-review checksum.
+    # Agent masking only removes exact text from that candidate, so the same
+    # deterministic scan result can be rebound to the final candidate without
+    # re-running the scanner.
     scan = run_automatic_pii_scan(knowledge_root, intake_id)
     for path in iter_active_inbox_items(knowledge_root):
         try:
@@ -845,14 +857,26 @@ def review_data_protection(
             path.write_text(render_markdown(metadata, body), encoding="utf-8")
             document = parse_markdown(path)
             data, content = read_conversation_intake(path)
-            scan = run_automatic_pii_scan(knowledge_root, intake_id)
-            document = parse_markdown(path)
-            data, content = read_conversation_intake(path)
+            # Sensitivity masking is subtractive: it cannot introduce a new
+            # machine-detectable PII value.  Preserve the single PII scan and
+            # bind its compatibility receipt to the final candidate instead of
+            # performing an identical second scan.
+            rebound_scan = dict(scan["pii_scan_receipt"])
+            rebound_scan.update({
+                "source_checksum": str(data["checksum"]),
+                "candidate_checksum": data_protection_candidate_checksum(data, content),
+                "receipt": f"runtime://pii-scan/{data['checksum']}",
+            })
+            scan = {
+                "intake_id": intake_id, "pii_scan_receipt": rebound_scan, "reused": True,
+                "policy_candidates": scan.get("policy_candidates", []),
+            }
         else:
             finding_summary = []
-        detected = _policy_candidates_for_inbox(
-            data, content, hard_mask_categories=policy.hard_mask_categories,
-        )
+        # The deterministic PII scan above also returned its residual policy
+        # candidates.  Do not walk the candidate through a second scanner just
+        # to feed the Agent sensitivity decision.
+        detected = tuple(scan.get("policy_candidates", ()))
         resolution = resolve_policy_context(policy, detected, context)
         # Once the Agent has supplied and masked an exact finding for its
         # selected target, unrelated residual contact data (for example an

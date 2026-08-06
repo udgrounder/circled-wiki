@@ -26,13 +26,15 @@ Inbox→Evidence 전환의 단일 Data Protection 단계이며, 이미 해소된
 `data_protection_receipt`를 기록한다. 기존 `pii_scan_receipt`와 `sensitivity_inspection`은 이 Receipt에서
 파생된 호환용 projection이며 Evidence·acceptance Gate의 정본이 아니다.
 
-1. `hard_mask_categories`가 `true`인 범주를 실제 Inbox 후보에서 기계적으로 마스킹한다. `false`인 범주는
-   하드 마스킹하지 않고 통합 민감도 판단에 전달한다.
-2. Data Protection Review는 하드 스캔이 켜진 범주도 현재 후보에서 다시 확인해 누락된 값을 추가 마스킹하고,
+1. Data Protection Review는 대상 Inbox 후보를 한 번 읽어 PII 탐지 결과와 민감도 판단 후보를 함께 만든다.
+   `hard_mask_categories`가 `true`인 범주는 기계적으로 마스킹하고, `false`인 범주는 하드 마스킹하지 않은
+   민감도 판단 입력으로 유지한다.
+2. Data Protection Review는 같은 처리 결과에서 하드 스캔 누락을 보완하고,
    `agent_mask_categories`의 `include` 경계에 해당하는 텍스트도 선택적으로 마스킹한다. 계약·법률 자문·분쟁·소송·
    규제 대응과 그 업무상 결정은 그 자체로 마스킹하지 않으며, 명시적인 불법 행위 실행·조장·은폐 또는 타인의
    권리·안전을 침해하는 구체적 지시만 `unlawful_content`로 다룬다.
-3. 변경된 후보를 다시 스캔해 최종 checksum·PII 결과·실제 잔여 후보를 확정한다.
+3. Agent 마스킹은 후보에서 정확한 텍스트를 제거하는 변환이므로, 최초 기계 PII Scan 결과를 최종 후보 checksum에
+   다시 결합한다. 같은 결정적 PII 규칙을 후보 전체에 다시 실행하지 않는다.
 4. `agent_mask_categories`에 선언된 대상만 Agent가 정확한 범위를 판단해 마스킹한다. 선언되지 않은
    잔여 후보는 보존 allowlist를 요구하지 않고 계속 처리한다.
 5. 위 결과를 하나의 `data_protection_receipt`로 기록한다. `passed` 또는 `masked`만 acceptance Gate를
