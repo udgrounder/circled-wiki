@@ -28,6 +28,7 @@ class DataProtectionPolicy:
     schema_version: int
     policy_ref: str
     hard_mask_categories: tuple[str, ...]
+    disabled_hard_mask_categories: tuple[str, ...]
     agent_mask_categories: tuple[str, ...]
     agent_mask_guidance: dict[str, dict[str, object]]
     missing_policy_action: str
@@ -102,7 +103,9 @@ def _parse_policy_payload(
             f"{POLICY_PATH} sensitivity_review contains unsupported fields: "
             f"{sorted(unknown_review_fields)}"
         )
-    hard_mask = _hard_mask_categories(pii_scan.get("hard_mask_categories"))
+    hard_mask_value = pii_scan.get("hard_mask_categories")
+    hard_mask = _hard_mask_categories(hard_mask_value)
+    disabled_hard_mask = _disabled_hard_mask_categories(hard_mask_value)
     agent_mask_value = review.get("agent_mask_categories")
     if agent_mask_value is None:
         agent_mask_value = _template_review_defaults(template_file)["agent_mask_categories"]
@@ -116,7 +119,7 @@ def _parse_policy_payload(
     if review.get("missing_policy_action") != "awaiting_user":
         raise ValueError(f"{POLICY_PATH} missing_policy_action must be awaiting_user")
     return DataProtectionPolicy(
-        1, POLICY_REF, tuple(hard_mask), tuple(agent_mask_categories),
+        1, POLICY_REF, tuple(hard_mask), tuple(disabled_hard_mask), tuple(agent_mask_categories),
         agent_mask_guidance, "awaiting_user",
     )
 
@@ -209,3 +212,17 @@ def _hard_mask_categories(value: Any) -> list[str]:
         category for category in SUPPORTED_HARD_MASK_CATEGORIES
         if value.get(category, True)
     ]
+
+
+def _disabled_hard_mask_categories(value: Any) -> list[str]:
+    """Return categories explicitly disabled by the installation policy."""
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [
+            category for category in SUPPORTED_HARD_MASK_CATEGORIES
+            if category not in value
+        ]
+    if isinstance(value, dict):
+        return [category for category, enabled in value.items() if enabled is False]
+    return []

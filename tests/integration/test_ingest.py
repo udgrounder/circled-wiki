@@ -163,7 +163,7 @@ class IngestEvidenceTests(unittest.TestCase):
             self.assertEqual(invalid[0]["status"], "invalid_receipt")
             self.assertEqual(invalid[0]["safe_next_action"], "repair_inbox_task_receipt")
 
-    def test_mobile_phone_number_is_preserved_only_after_data_protection_review(self):
+    def test_explicitly_disabled_mobile_phone_is_ingested_without_data_protection_review(self):
         with tempfile.TemporaryDirectory() as temp_directory:
             knowledge_root = Path(temp_directory) / "knowledge"
             captured = capture_document(
@@ -171,23 +171,16 @@ class IngestEvidenceTests(unittest.TestCase):
                 title="전화번호 포함", why_collected="PII 처리 회귀 검증",
                 intended_use=["test"], idempotency_key="mobile-phone-standard-scan",
             )
-            with self.assertRaisesRegex(ValueError, "requires review-data-protection"):
-                complete_inbox_sensitivity_review(
-                    knowledge_root, captured.intake_id, "inspector", "completed",
-                    policy_ref="inbox-sensitivity/v1",
-                    checks=["source_access_scope", "personal_context", "confidential_business_context", "publication_scope"],
-                    matched_categories=["mobile_phone_number"],
-                    rationale="업무용 연락처라고만 판단해서는 보존할 수 없다.",
-                )
             from circled_wiki.core.ingest import review_data_protection
-            review_data_protection(
+            review = review_data_protection(
                 knowledge_root, captured.intake_id, "inspector", context="",
                 checks=["source_access_scope", "personal_context", "confidential_business_context", "publication_scope"],
-                rationale="승인된 협력업체 업무용 연락처다.",
+                rationale="명시적으로 비활성화된 전화번호 범주는 검토 후보가 아니다.",
             )
             accept_conversation_intake(knowledge_root, captured.intake_id, "inspector")
             result = ingest_accepted_inbox(knowledge_root)
 
+            self.assertEqual(review["data_protection"]["resolution"], "no_policy_candidates")
             self.assertEqual(result["ingested_count"], 1)
             self.assertEqual(result["items"][0]["pii_scan_result"], "passed")
             evidence = (knowledge_root.parent / result["items"][0]["evidence_path"])

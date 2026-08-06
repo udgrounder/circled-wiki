@@ -574,6 +574,7 @@ def run_automatic_pii_scan(knowledge_root: Path, intake_id: str) -> Dict[str, ob
         )
         content_scan = redact_sensitive_data(
             str(content), hard_mask_categories=data_protection.hard_mask_categories,
+            disabled_hard_mask_categories=data_protection.disabled_hard_mask_categories,
         )
         field_scans = {}
         for field in ("title", "why_collected", "source_url", "source_locator"):
@@ -581,6 +582,7 @@ def run_automatic_pii_scan(knowledge_root: Path, intake_id: str) -> Dict[str, ob
             if isinstance(value, str):
                 field_scans[field] = redact_sensitive_data(
                     value, hard_mask_categories=data_protection.hard_mask_categories,
+                    disabled_hard_mask_categories=data_protection.disabled_hard_mask_categories,
                 )
         intended_use = updated.get("intended_use")
         intended_use_scans = []
@@ -588,6 +590,7 @@ def run_automatic_pii_scan(knowledge_root: Path, intake_id: str) -> Dict[str, ob
             intended_use_scans = [
                 redact_sensitive_data(
                     value, hard_mask_categories=data_protection.hard_mask_categories,
+                    disabled_hard_mask_categories=data_protection.disabled_hard_mask_categories,
                 ) for value in intended_use if isinstance(value, str)
             ]
 
@@ -771,6 +774,7 @@ def complete_inbox_sensitivity_review(
             }
         policy_candidates = () if _integrated else _policy_candidates_for_inbox(
             data, content, hard_mask_categories=data_protection.hard_mask_categories,
+            disabled_hard_mask_categories=data_protection.disabled_hard_mask_categories,
         )
         if policy_candidates:
             raise ValueError(
@@ -1018,6 +1022,7 @@ def _mask_sensitivity_findings_in_candidate(
 def _policy_candidates_for_inbox(
     data: Dict[str, object], content: object, *,
     hard_mask_categories: Optional[Iterable[str]] = None,
+    disabled_hard_mask_categories: Optional[Iterable[str]] = None,
 ) -> tuple[str, ...]:
     """Collect residual scanner candidates from body and copied metadata.
 
@@ -1041,6 +1046,7 @@ def _policy_candidates_for_inbox(
         for value in values
         for category in redact_sensitive_data(
             value, hard_mask_categories=hard_mask_categories,
+            disabled_hard_mask_categories=disabled_hard_mask_categories,
         ).policy_categories
     }))
 
@@ -1496,12 +1502,15 @@ def capture_conversation(
     data_protection = load_data_protection_policy(knowledge_root.resolve().parent)
     content_precheck = redact_sensitive_data(
         content, hard_mask_categories=data_protection.hard_mask_categories,
+        disabled_hard_mask_categories=data_protection.disabled_hard_mask_categories,
     )
     title_precheck = redact_sensitive_data(
         title, hard_mask_categories=data_protection.hard_mask_categories,
+        disabled_hard_mask_categories=data_protection.disabled_hard_mask_categories,
     )
     reason_precheck = redact_sensitive_data(
         why_collected, hard_mask_categories=data_protection.hard_mask_categories,
+        disabled_hard_mask_categories=data_protection.disabled_hard_mask_categories,
     )
     content = content_precheck.content
     title = title_precheck.content
@@ -1630,18 +1639,23 @@ def capture_document(
     data_protection = load_data_protection_policy(knowledge_root.resolve().parent)
     content_precheck = redact_sensitive_data(
         content, hard_mask_categories=data_protection.hard_mask_categories,
+        disabled_hard_mask_categories=data_protection.disabled_hard_mask_categories,
     )
     title_precheck = redact_sensitive_data(
         title, hard_mask_categories=data_protection.hard_mask_categories,
+        disabled_hard_mask_categories=data_protection.disabled_hard_mask_categories,
     )
     reason_precheck = redact_sensitive_data(
         why_collected, hard_mask_categories=data_protection.hard_mask_categories,
+        disabled_hard_mask_categories=data_protection.disabled_hard_mask_categories,
     )
     url_precheck = redact_sensitive_data(
         source_url or "", hard_mask_categories=data_protection.hard_mask_categories,
+        disabled_hard_mask_categories=data_protection.disabled_hard_mask_categories,
     )
     locator_precheck = redact_sensitive_data(
         source_locator or "", hard_mask_categories=data_protection.hard_mask_categories,
+        disabled_hard_mask_categories=data_protection.disabled_hard_mask_categories,
     )
     content = content_precheck.content
     title = title_precheck.content

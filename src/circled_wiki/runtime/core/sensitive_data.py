@@ -38,6 +38,11 @@ _CREDENTIAL_ASSIGNMENT = re.compile(
     r"token|password|passwd|secret|client[_ -]?secret|private[_ -]?key)\b"
     r"\s*[:=]\s*)(?P<value>[^\s'\"`&#]+)"
 )
+_KOREAN_CREDENTIAL_ASSIGNMENT = re.compile(
+    r"(?im)(?P<label>(?<![가-힣])(?:계정|비밀번호|패스워드|암호)"
+    r"(?:\s*[:=]\s*|[ \t]+|\s*\n[ \t]*))"
+    r"(?P<value>[^\s'\"`&#]+)"
+)
 _URL_CANDIDATE = re.compile(r"(?i)(?P<url>https?://[^\s<>\"'`]+)")
 _OAUTH_QUERY_PARAMETER = re.compile(
     r"(?i)(?P<prefix>[?&])"
@@ -104,6 +109,7 @@ def _luhn_valid(number: str) -> bool:
 def redact_sensitive_data(
     content: str, *, mask_policy_categories: bool = False,
     hard_mask_categories: Optional[Iterable[str]] = None,
+    disabled_hard_mask_categories: Optional[Iterable[str]] = None,
 ) -> SensitiveDataPrecheckResult:
     """Mask only high-confidence identifiers and credentials in ``content``.
 
@@ -116,6 +122,12 @@ def redact_sensitive_data(
 
     active_hard_categories = set(
         _DEFAULT_HARD_MASK_CATEGORIES if hard_mask_categories is None else hard_mask_categories
+    )
+    # A configuration may explicitly disable any supported hard-mask category.
+    # Disabled means excluded, not deferred to the sensitivity review queue.
+    disabled_hard_categories = set(
+        (_DEFAULT_HARD_MASK_CATEGORIES - active_hard_categories)
+        if disabled_hard_mask_categories is None else disabled_hard_mask_categories
     )
     if mask_policy_categories:
         # Review-queue and receipt text must not leak either supported
@@ -185,6 +197,7 @@ def redact_sensitive_data(
     categories.update(oauth_categories)
     redacted = _PRESIGNED_URL_CREDENTIAL.sub(redact_credential, redacted)
     redacted = _CREDENTIAL_ASSIGNMENT.sub(redact_credential, redacted)
+    redacted = _KOREAN_CREDENTIAL_ASSIGNMENT.sub(redact_credential, redacted)
     redacted = _KNOWN_TOKEN.sub(
         lambda _match: _redact_token(categories)
         if "credential" in active_hard_categories else _match.group(0),
@@ -197,7 +210,8 @@ def redact_sensitive_data(
     # high-risk credential/identifier masking has removed embedded secrets.
     policy_candidates_before_mask = tuple(sorted(
         category for category in _detect_unmasked_categories(redacted)
-        if mask_policy_categories or category not in active_hard_categories
+        if category not in disabled_hard_categories
+        and (mask_policy_categories or category not in active_hard_categories)
     ))
     redacted = _EMAIL_ADDRESS.sub(redact_email, redacted)
     redacted = _MOBILE_PHONE_NUMBER.sub(redact_mobile_phone, redacted)
@@ -205,7 +219,8 @@ def redact_sensitive_data(
         policy_candidates_before_mask
         if mask_policy_categories else tuple(sorted(
             category for category in _detect_unmasked_categories(redacted)
-            if category not in active_hard_categories
+            if category not in disabled_hard_categories
+            and category not in active_hard_categories
         ))
     )
     for index, value in enumerate(protected):
@@ -235,6 +250,10 @@ def _detect_unmasked_categories(content: str) -> tuple[str, ...]:
         or any(
             match.group("value") != REDACTED_VALUE
             for match in _CREDENTIAL_ASSIGNMENT.finditer(content)
+        )
+        or any(
+            match.group("value") != REDACTED_VALUE
+            for match in _KOREAN_CREDENTIAL_ASSIGNMENT.finditer(content)
         )
     ):
         detected.add("credential")

@@ -67,7 +67,7 @@ class SensitiveDataPrecheckTests(unittest.TestCase):
             set(result.policy_categories), {"mobile_phone_number", "email_address"},
         )
 
-    def test_disabling_credential_hard_mask_leaves_candidate_untouched(self):
+    def test_disabling_credential_hard_mask_excludes_it_from_review(self):
         result = redact_sensitive_data(
             "password: visible-secret",
             hard_mask_categories=set(),
@@ -75,7 +75,27 @@ class SensitiveDataPrecheckTests(unittest.TestCase):
 
         self.assertEqual(result.content, "password: visible-secret")
         self.assertEqual(result.categories, ())
-        self.assertEqual(result.policy_categories, ("credential",))
+        self.assertEqual(result.policy_categories, ())
+
+    def test_masks_korean_credential_labels_with_whitespace_or_newline_separator(self):
+        content = "계정 synthetic-user\n비밀번호 synthetic-password"
+
+        result = redact_sensitive_data(content)
+
+        self.assertNotIn("synthetic-user", result.content)
+        self.assertNotIn("synthetic-password", result.content)
+        self.assertEqual(result.content, "계정 ********\n비밀번호 ********")
+        self.assertEqual(result.categories, ("credential",))
+
+    def test_masks_korean_credential_labels_with_assignment_separator(self):
+        content = "계정: synthetic-user\n패스워드=synthetic-password\n암호 : synthetic-passcode"
+
+        result = redact_sensitive_data(content)
+
+        self.assertNotIn("synthetic-user", result.content)
+        self.assertNotIn("synthetic-password", result.content)
+        self.assertNotIn("synthetic-passcode", result.content)
+        self.assertEqual(result.categories, ("credential",))
 
     def test_masks_oauth_credentials_but_preserves_flow_metadata(self):
         content = (
@@ -109,7 +129,7 @@ class SensitiveDataPrecheckTests(unittest.TestCase):
         self.assertEqual(result.categories, ())
         self.assertEqual(result.policy_categories, ("oauth_flow_metadata",))
 
-    def test_disabling_credential_hard_mask_exposes_oauth_credentials_as_candidates(self):
+    def test_disabling_credential_hard_mask_keeps_only_oauth_metadata_for_review(self):
         content = (
             "https://login.example.test/oauth/authorize?client_id=public-client"
             "&code=authorization-code&state=csrf-state"
@@ -119,9 +139,7 @@ class SensitiveDataPrecheckTests(unittest.TestCase):
 
         self.assertEqual(result.content, content)
         self.assertEqual(result.categories, ())
-        self.assertEqual(
-            set(result.policy_categories), {"credential", "oauth_flow_metadata"},
-        )
+        self.assertEqual(result.policy_categories, ("oauth_flow_metadata",))
 
     def test_does_not_classify_state_or_code_as_oauth_outside_authorize_context(self):
         content = "https://example.test/status?code=200&state=ready"
@@ -190,6 +208,31 @@ class SensitiveDataPrecheckTests(unittest.TestCase):
             data["capture_details"]["sensitive_data_precheck"]["categories"], ["credential"]
         )
 
+    def test_capture_masks_korean_whitespace_separated_credentials_before_write(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+
+        from circled_wiki.core.ingest import capture_conversation, read_conversation_intake
+
+        with TemporaryDirectory() as directory:
+            knowledge_root = Path(directory) / "knowledge"
+            (knowledge_root / "organization.yaml").parent.mkdir(parents=True)
+            (knowledge_root / "organization.yaml").write_text(
+                "organization_id: test-org\n", encoding="utf-8"
+            )
+            captured = capture_conversation(
+                knowledge_root, "계정 synthetic-user\n비밀번호 synthetic-password", "test",
+                title="korean credential test", why_collected="unit test", intended_use=["test"],
+                idempotency_key="korean-sensitive-data-test",
+            )
+            data, content = read_conversation_intake(captured.inbox_path)
+
+        self.assertNotIn("synthetic-user", content)
+        self.assertNotIn("synthetic-password", content)
+        self.assertEqual(
+            data["capture_details"]["sensitive_data_precheck"]["categories"], ["credential"]
+        )
+
     def test_capture_masks_oauth_credentials_and_records_flow_metadata_candidate(self):
         from pathlib import Path
         from tempfile import TemporaryDirectory
@@ -225,12 +268,11 @@ class SensitiveDataPrecheckTests(unittest.TestCase):
             ["oauth_flow_metadata"],
         )
 
-    def test_data_protection_review_preserves_partner_contact_with_explicit_context(self):
+    def test_explicitly_disabled_mobile_phone_skips_data_protection_review(self):
         from pathlib import Path
         from tempfile import TemporaryDirectory
 
-        from circled_wiki.core.frontmatter import parse_markdown
-        from circled_wiki.core.ingest import capture_conversation, review_data_protection
+        from circled_wiki.core.ingest import capture_conversation, read_conversation_intake
 
         with TemporaryDirectory() as directory:
             knowledge_root = Path(directory) / "knowledge"
@@ -242,82 +284,10 @@ class SensitiveDataPrecheckTests(unittest.TestCase):
                 knowledge_root, "협력업체 담당자 010-1234-5678", "test", title="partner",
                 why_collected="unit test", intended_use=["test"], idempotency_key="partner-contact",
             )
-            review = review_data_protection(
-                knowledge_root, captured.intake_id, "inspector", context="",
-                checks=["source_access_scope", "personal_context", "confidential_business_context", "publication_scope"],
-                rationale="승인된 협력업체 업무용 연락처다.",
-            )
-            data, content = __import__("circled_wiki.core.ingest", fromlist=["read_conversation_intake"]).read_conversation_intake(captured.inbox_path)
+            data, content = read_conversation_intake(captured.inbox_path)
 
         self.assertIn("010-1234-5678", content)
-        self.assertEqual(
-            data["capture_details"]["sensitive_data_precheck"]["policy_categories"],
-            ["mobile_phone_number"],
-        )
-        self.assertEqual(review["data_protection"]["resolution"], "no_mask_target")
-        self.assertEqual(data["sensitivity_inspection"]["data_protection"]["context"], "")
-
-    def test_agent_mask_category_masks_customer_mobile_phone_only(self):
-        from pathlib import Path
-        from tempfile import TemporaryDirectory
-
-        from circled_wiki.core.frontmatter import parse_markdown
-        from circled_wiki.core.ingest import capture_conversation, review_data_protection
-
-        with TemporaryDirectory() as directory:
-            knowledge_root = Path(directory) / "knowledge"
-            (knowledge_root / "organization.yaml").parent.mkdir(parents=True)
-            (knowledge_root / "organization.yaml").write_text(
-                "organization_id: test-org\n", encoding="utf-8"
-            )
-            captured = capture_conversation(
-                knowledge_root, "고객 연락처 010-1234-5678 / customer@example.com", "test",
-                title="customer contact", why_collected="unit test", intended_use=["test"],
-                idempotency_key="customer-mobile-mask",
-            )
-            review = review_data_protection(
-                knowledge_root, captured.intake_id, "inspector",
-                context="customer_mobile_phone",
-                checks=["source_access_scope", "personal_context", "confidential_business_context", "publication_scope"],
-                rationale="고객 연락처의 휴대전화만 Agent 마스킹 대상이다.",
-                findings=[{"category": "customer_mobile_phone", "value": "010-1234-5678"}],
-            )
-            document = parse_markdown(captured.inbox_path)
-
-        self.assertEqual(review["data_protection"]["resolution"], "no_mask_target")
-        self.assertNotIn("010-1234-5678", document.body)
-        self.assertIn("customer@example.com", document.body)
-
-    def test_data_protection_review_transitions_unknown_context_to_user_contract(self):
-        from pathlib import Path
-        from tempfile import TemporaryDirectory
-        from circled_wiki.core.ingest import capture_conversation, review_data_protection
-        from circled_wiki.core.inbox_review_queue import get_inbox_review
-
-        with TemporaryDirectory() as directory:
-            knowledge_root = Path(directory) / "knowledge"
-            (knowledge_root / "organization.yaml").parent.mkdir(parents=True)
-            (knowledge_root / "organization.yaml").write_text(
-                "organization_id: test-org\n", encoding="utf-8"
-            )
-            captured = capture_conversation(
-                knowledge_root, "담당자 연락처 010-2222-3333", "test", title="unknown",
-                why_collected="unit test", intended_use=["test"], idempotency_key="unknown-context",
-            )
-            result = review_data_protection(
-                knowledge_root, captured.intake_id, "inspector", context="unknown_context",
-                checks=["source_access_scope", "personal_context", "confidential_business_context", "publication_scope"],
-                rationale="승인된 업무 맥락을 확인할 수 없다.",
-            )
-            review = get_inbox_review(knowledge_root, captured.intake_id)
-
-        self.assertEqual(result["status"], "awaiting_user")
-        self.assertEqual(review["current"]["status"], "awaiting_user")
-        requirement = next(
-            item for item in review["requirements"]
-            if item["reason_code"] == "sensitivity_review_required"
-        )
-        self.assertEqual(requirement["requested_action"], "review_data_protection")
+        self.assertNotIn("sensitive_data_precheck", data.get("capture_details", {}))
 
     def test_masks_presigned_url_credential_parameters(self):
         result = redact_sensitive_data(

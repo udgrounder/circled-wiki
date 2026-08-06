@@ -24,6 +24,10 @@ class DataProtectionPolicyTests(unittest.TestCase):
         self.assertNotIn("mobile_phone_number", policy.hard_mask_categories)
         self.assertNotIn("email_address", policy.hard_mask_categories)
         self.assertEqual(
+            set(policy.disabled_hard_mask_categories),
+            {"mobile_phone_number", "email_address"},
+        )
+        self.assertEqual(
             set(policy.agent_mask_categories),
             {
                 "customer_mobile_phone", "compensation", "performance_review", "disciplinary_action",
@@ -163,6 +167,7 @@ class DataProtectionPolicyTests(unittest.TestCase):
             policy = load_data_protection_policy(root)
 
         self.assertNotIn("credential", policy.hard_mask_categories)
+        self.assertIn("credential", policy.disabled_hard_mask_categories)
 
     def test_omitted_hard_mask_category_defaults_true(self):
         with tempfile.TemporaryDirectory() as directory:
