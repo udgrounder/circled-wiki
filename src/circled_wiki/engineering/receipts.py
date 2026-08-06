@@ -170,6 +170,19 @@ def record_deployment_receipt(
         if any(_is_user_plane_path(str(path)) for path in values):
             raise ValueError("deployment receipt cannot contain knowledge/ or workspace/ actions")
     release_id = _required_text(release, "release_id")
+    path = receipts_root / "deployments" / target_ref / f"{release_id}.json"
+    attempt = 1
+    if path.exists():
+        prior = _read_json(path, "existing deployment receipt")
+        if prior.get("status") != "failed":
+            raise ValueError("a non-failed deployment receipt already exists for this release and target")
+        attempt = 2
+        while True:
+            candidate = path.with_name(f"{release_id}.attempt-{attempt}.json")
+            if not candidate.exists():
+                path = candidate
+                break
+            attempt += 1
     receipt = {
         "receipt_type": "deployment",
         "release_id": release_id,
@@ -180,9 +193,9 @@ def record_deployment_receipt(
         "backup_ref": _non_empty(backup_ref, "backup_ref"),
         "actions": actions,
         "status": status,
+        "deployment_attempt": attempt,
         "release_receipt": release_receipt.as_posix(),
     }
-    path = receipts_root / "deployments" / target_ref / f"{release_id}.json"
     return _write_immutable(path, receipt)
 
 

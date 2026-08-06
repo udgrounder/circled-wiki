@@ -145,6 +145,30 @@ class ReceiptTests(unittest.TestCase):
                     actions={"applied": ["workspace/issues/x.md"], "preserved": [], "proposed": []},
                 )
 
+    def test_failed_deployment_allows_a_new_immutable_attempt_for_same_release(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            receipts = root / "workspace" / "receipts"
+            release = record_release_receipt(
+                receipts, manifest_path=self._manifest(root), source_revision="a" * 40,
+                included_issue_ids=[],
+                validation={"unit": "passed", "integration": "passed", "repository_validator": "passed"},
+                verified_by="reviewer",
+            )
+            failed = record_deployment_receipt(
+                receipts, release_receipt=Path(release["path"]), previous_release="v1",
+                target_ref="team-wiki", backup_ref="backup/v1",
+                actions={"applied": [], "preserved": [], "proposed": []}, status="failed",
+            )
+            retry = record_deployment_receipt(
+                receipts, release_receipt=Path(release["path"]), previous_release="v2",
+                target_ref="team-wiki", backup_ref="backup/v2",
+                actions={"applied": [], "preserved": [], "proposed": []}, status="verification_pending",
+            )
+            self.assertEqual(failed["deployment_attempt"], 1)
+            self.assertEqual(retry["deployment_attempt"], 2)
+            self.assertTrue(retry["path"].endswith("v2.attempt-2.json"))
+
     def test_release_receipt_records_a_verified_source_commit_check(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
