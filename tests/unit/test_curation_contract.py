@@ -14,6 +14,7 @@ class CurationContractTests(unittest.TestCase):
             "body": "# Steps\n\n1. Define the audience.", "evidence_ids": [EVIDENCE_ID],
             "rationale": "Contains repeatable steps.", "limitations": "Budget is not specified.",
             "existing_bundle_candidates": [], "confidence": "medium", "tags": ["sns", "campaign"],
+            "slug": "campaign-launch",
         }
 
     def test_accepts_typed_output_with_authorized_evidence(self):
@@ -22,6 +23,34 @@ class CurationContractTests(unittest.TestCase):
         self.assertEqual(output.bundle_type, "runbook")
         self.assertEqual(output.evidence_ids, (EVIDENCE_ID,))
         self.assertEqual(output.tags, ("sns", "campaign"))
+
+    def test_accepts_safe_slug(self):
+        payload = self._payload()
+        payload["slug"] = "campaign-launch-manual"
+
+        output = validate_curation_output(payload, [EVIDENCE_ID])
+
+        self.assertEqual(output.slug, "campaign-launch-manual")
+
+    def test_rejects_manual_or_runbook_without_content_derived_slug(self):
+        payload = self._payload()
+        payload.pop("slug")
+
+        with self.assertRaisesRegex(ValueError, "requires a slug derived from the content"):
+            validate_curation_output(payload, [EVIDENCE_ID])
+
+    def test_allows_existing_manual_update_without_a_new_slug(self):
+        payload = self._payload()
+        payload.pop("slug")
+        payload.update({
+            "existing_bundle_candidates": ["bundle/example/manual--11111111-1111-1111-1111-111111111111"],
+            "update_mode": "append",
+            "base_body_checksum": "sha256:" + "a" * 64,
+        })
+
+        output = validate_curation_output(payload, [EVIDENCE_ID])
+
+        self.assertEqual(output.slug, "")
 
     def test_rejects_empty_or_missing_topical_tags(self):
         payload = self._payload()
@@ -53,6 +82,8 @@ class CurationContractTests(unittest.TestCase):
             payload = self._payload()
             payload["action"] = bundle_type
             payload["bundle_type"] = bundle_type
+            if bundle_type not in {"manual", "runbook"}:
+                payload.pop("slug")
 
             output = validate_curation_output(payload, [EVIDENCE_ID])
 

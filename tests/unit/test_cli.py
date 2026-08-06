@@ -165,6 +165,23 @@ class CliTests(unittest.TestCase):
                 security_receipt="security://test", update_mode="append",
             )
 
+    def test_create_curation_review_accepts_output_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output_file = Path(directory) / "output.json"
+            output_file.write_text('{"action":"no_bundle"}', encoding="utf-8")
+            with patch("sys.argv", [
+                "circled-wiki", "create-curation-review", "--evidence", "evidence/test",
+                "--output-file", str(output_file), "--generated-by", "curator",
+                "--curation-receipt", "curation://test",
+            ]):
+                with patch("circled_wiki.cli.__main__.KnowledgeService") as service_class:
+                    service_class.return_value.create_curation_review.return_value = {"status": "pending"}
+                    self.assertEqual(run_cli(), 0)
+            service_class.return_value.create_curation_review.assert_called_once_with(
+                "evidence/test", {"action": "no_bundle"}, generated_by="curator",
+                curation_receipt="curation://test", user_review_request=None,
+            )
+
     def test_verify_curation_commit_cli_returns_gate_status(self):
         output = io.StringIO()
         with patch("sys.argv", ["circled-wiki", "verify-curation-commit"]):

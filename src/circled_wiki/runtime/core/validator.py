@@ -476,10 +476,15 @@ def _validate_bundle_placement(document: MarkdownDocument, result: ValidationRes
         result.profile_errors.append("only archived Bundles may be stored in bundles/.archive/")
     offset = 1 if archived else 0
     in_runbooks = len(relative_parts) >= offset + 3 and relative_parts[offset + 1] == "runbooks"
+    in_manuals = len(relative_parts) >= offset + 3 and relative_parts[offset + 1] == "manuals"
     if document.frontmatter.get("type") == "runbook" and not in_runbooks:
         result.profile_errors.append("Runbook must be stored in bundles/<domain>/runbooks/ or bundles/.archive/<domain>/runbooks/")
     if in_runbooks and document.frontmatter.get("type") != "runbook":
         result.profile_errors.append("only type runbook is allowed in bundles/<domain>/runbooks/")
+    if document.frontmatter.get("type") == "manual" and not in_manuals:
+        result.profile_errors.append("Manual must be stored in bundles/<domain>/manuals/ or bundles/.archive/<domain>/manuals/")
+    if in_manuals and document.frontmatter.get("type") != "manual":
+        result.profile_errors.append("only type manual is allowed in bundles/<domain>/manuals/")
 
 
 def _validate_governance(data: Dict[str, Any], result: ValidationResult) -> None:

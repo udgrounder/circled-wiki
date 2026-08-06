@@ -370,7 +370,9 @@ def main() -> int:
     apply_review_update.add_argument("--actor", required=True)
     create_review = subparsers.add_parser("create-curation-review")
     create_review.add_argument("--evidence", required=True)
-    create_review.add_argument("--output", required=True, help="Validated CurationOutput JSON")
+    create_review_output = create_review.add_mutually_exclusive_group(required=True)
+    create_review_output.add_argument("--output", help="Validated inline CurationOutput JSON")
+    create_review_output.add_argument("--output-file", help="UTF-8 file containing validated CurationOutput JSON")
     create_review.add_argument("--generated-by", required=True)
     create_review.add_argument("--curation-receipt", required=True)
     create_review.add_argument(
@@ -789,7 +791,8 @@ def main() -> int:
     if args.command == "apply-approved-curation-update":
         print(json.dumps(service.apply_approved_curation_update(args.review, actor=args.actor), ensure_ascii=False, indent=2)); return 0
     if args.command == "create-curation-review":
-        print(json.dumps(service.create_curation_review(args.evidence, json.loads(args.output), generated_by=args.generated_by, curation_receipt=args.curation_receipt, user_review_request=args.user_review_request), ensure_ascii=False, indent=2)); return 0
+        output_json = Path(args.output_file).read_text(encoding="utf-8") if args.output_file else args.output
+        print(json.dumps(service.create_curation_review(args.evidence, json.loads(output_json), generated_by=args.generated_by, curation_receipt=args.curation_receipt, user_review_request=args.user_review_request), ensure_ascii=False, indent=2)); return 0
     if args.command == "apply-automatic-curation-update":
         body = Path(args.body_file).read_text(encoding="utf-8")
         print(json.dumps(service.apply_automatic_curation_append(

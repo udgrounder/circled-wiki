@@ -406,6 +406,15 @@ def apply_automatic_curation_update(
         "applied_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     })
     curation["automatic_update_receipts"] = receipts
+    evidence_checksums = {}
+    for current_evidence_id in proposed["evidence"]:
+        current_evidence = find_document_by_id(knowledge_root, current_evidence_id)
+        if current_evidence is None or current_evidence.frontmatter.get("type") != "evidence":
+            raise ValueError("automatic update Evidence is unavailable")
+        evidence_checksums[current_evidence_id] = str(current_evidence.frontmatter["checksum"])
+    curation["evidence_checksums"] = evidence_checksums
+    if len(evidence_checksums) == 1:
+        curation["evidence_checksum"] = next(iter(evidence_checksums.values()))
     extensions["curation"] = curation
     proposed["extensions"] = extensions
     updated = _apply_bundle_revision(
@@ -496,7 +505,10 @@ def _safe_title(output: CurationOutput, evidence_title: object) -> str:
 
 
 def _review_body(output: CurationOutput) -> str:
-    return "# Review summary\n\n" + (output.summary or output.rationale or "Review the referenced Evidence before applying a change.") + "\n"
+    body = "# Review summary\n\n" + (output.summary or output.rationale or "Review the referenced Evidence before applying a change.") + "\n"
+    if output.bundle_type in {"manual", "runbook"} and output.slug:
+        body += "\n## Proposed identifier\n\n`" + output.slug + "`\n"
+    return body
 
 
 def _evidence_snapshot(evidence, evidence_path: str, checksum: str) -> Dict[str, object]:

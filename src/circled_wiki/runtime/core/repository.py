@@ -331,8 +331,8 @@ def create_bundle(
         knowledge_root, settings.organization_id
     )
     bundle_directory = knowledge_root / "bundles" / domain
-    if bundle_type == "runbook":
-        bundle_directory = bundle_directory / "runbooks"
+    if bundle_type in {"runbook", "manual"}:
+        bundle_directory = bundle_directory / f"{bundle_type}s"
     path = bundle_directory / f"{slug}.md"
     bundle_id = f"bundle/{organization_id}/{slug}--{bundle_uuid}"
     path.parent.mkdir(parents=True, exist_ok=True)

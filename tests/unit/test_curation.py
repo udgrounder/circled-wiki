@@ -153,7 +153,10 @@ class CurationMaterializationTests(unittest.TestCase):
         return root, evidence.evidence_id
 
     def _output(self, evidence_id, kind="guide"):
-        return validate_curation_output({"action": kind, "domain": "marketing", "bundle_type": kind, "title": "SNS campaign launch", "summary": "Launch a campaign.", "body": "# Steps\n\n1. Define audience.", "evidence_ids": [evidence_id], "rationale": "repeatable process", "limitations": "budget omitted", "existing_bundle_candidates": [], "confidence": "medium", "tags": ["sns", "campaign"]}, [evidence_id])
+        payload = {"action": kind, "domain": "marketing", "bundle_type": kind, "title": "SNS campaign launch", "summary": "Launch a campaign.", "body": "# Steps\n\n1. Define audience.", "evidence_ids": [evidence_id], "rationale": "repeatable process", "limitations": "budget omitted", "existing_bundle_candidates": [], "confidence": "medium", "tags": ["sns", "campaign"]}
+        if kind in {"manual", "runbook"}:
+            payload["slug"] = "campaign-launch"
+        return validate_curation_output(payload, [evidence_id])
 
     def test_creates_candidate_and_reuses_same_evidence_receipt(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -246,8 +249,12 @@ class CurationMaterializationTests(unittest.TestCase):
     def test_approved_manual_review_creates_draft(self):
         with tempfile.TemporaryDirectory() as directory:
             root, evidence_id = self._evidence(directory)
+            output = replace(
+                self._output(evidence_id, "manual"),
+                title="운영자 매뉴얼", slug="operator-manual",
+            )
             review = generate_curation_review(
-                root, evidence_id, self._output(evidence_id, "manual"),
+                root, evidence_id, output,
                 generated_by="curator", curation_receipt="test://curation",
             )
             UUID(review["review_id"].removeprefix("review-"))
@@ -260,6 +267,8 @@ class CurationMaterializationTests(unittest.TestCase):
 
             bundle = find_document_by_id(root, applied["result"]["bundle_id"])
             self.assertEqual(bundle.frontmatter["type"], "manual")
+            self.assertIn("/manuals/", bundle.path.as_posix())
+            self.assertEqual(bundle.path.stem, "operator-manual")
             self.assertEqual(
                 bundle.frontmatter["extensions"]["curation"]["review_decision"]["review_id"],
                 review["review_id"],
@@ -275,6 +284,18 @@ class CurationMaterializationTests(unittest.TestCase):
             self.assertTrue(applied["review_deleted"])
             review_path = root.parent / review["path"]
             self.assertFalse(review_path.exists())
+
+    def test_manual_requires_a_content_derived_slug(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, evidence_id = self._evidence(directory)
+            output = replace(self._output(evidence_id, "manual"), title="운영자 매뉴얼", slug="")
+
+            with self.assertRaisesRegex(ValueError, "requires a slug derived from the content"):
+                materialize_curation_candidate(
+                    root, evidence_id, output,
+                    generated_by="curator", curation_receipt="test://curation",
+                    approved_review_id="review-test",
+                )
 
     def test_general_revision_api_cannot_promote_any_draft_bundle(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -447,6 +468,7 @@ class CurationMaterializationTests(unittest.TestCase):
                 "action": "manual", "domain": "marketing", "bundle_type": "manual",
                 "title": "Curated manual", "summary": "Summary.", "body": "# Manual",
                 "evidence_ids": [evidence_id], "tags": ["curated", "manual"],
+                "slug": "curated-manual",
             }
             completed = type("Completed", (), {"stdout": json.dumps(output)})()
 
@@ -677,16 +699,23 @@ class CurationMaterializationTests(unittest.TestCase):
     def test_cli_append_update_reuses_target_metadata_and_completes_queue(self):
         with tempfile.TemporaryDirectory() as directory:
             root, evidence_id = self._evidence(directory)
+            extra_source = root / "inbox" / "manual" / "extra.txt"
+            extra_source.write_text("additional campaign evidence", encoding="utf-8")
+            extra_checksum = "sha256:" + hashlib.sha256(extra_source.read_bytes()).hexdigest()
+            extra_evidence = ingest_evidence(
+                root, extra_source, "manual", why_collected="test", intended_use=["marketing"],
+                pii_scan_receipt=build_pii_scan_receipt(
+                    extra_checksum, scanner="test", scanner_version="1", result="passed",
+                    reviewed_by="security", receipt="test://pii-extra",
+                ),
+            )
             target = create_bundle(
                 root, domain="marketing", slug="existing-guide", title="Existing",
                 bundle_type="guide", summary="Existing summary.", evidence_id=evidence_id,
                 body="# Existing guidance\n\nKeep this section.\n",
             )
-            evidence = find_document_by_id(root, evidence_id)
-            enqueue_curation_work(root, evidence_id, evidence.path)
-
             result = apply_automatic_curation_append(
-                root, evidence_id,
+                root, extra_evidence.evidence_id,
                 existing_bundle_id=target.frontmatter["id"],
                 body="## New evidence\n\nAdd this section.",
                 actor="curator",
@@ -702,9 +731,16 @@ class CurationMaterializationTests(unittest.TestCase):
             self.assertEqual(updated.frontmatter["summary"], "Existing summary.")
             self.assertIn("Keep this section.", updated.body)
             self.assertIn("## New evidence", updated.body)
+            self.assertEqual(
+                updated.frontmatter["extensions"]["curation"]["evidence_checksums"],
+                {
+                    evidence_id: find_document_by_id(root, evidence_id).frontmatter["checksum"],
+                    extra_evidence.evidence_id: extra_checksum,
+                },
+            )
             self.assertEqual(list_curation_queue(root), [])
             archives = list((root.parent / "workspace" / "task" / ".archive" / "curation_reconciliation").glob("*.md"))
-            self.assertEqual(len(archives), 1)
+            self.assertEqual(len(archives), 2)
 
     def test_cli_append_update_requires_pending_queue_item(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -945,6 +981,8 @@ class CurationMaterializationTests(unittest.TestCase):
                 {"policy", "guide", "runbook", "manual", "decision", "spec", "reference", "report"},
             )
             self.assertEqual(request["pre_creation_review_types"], ["manual", "runbook"])
+            self.assertIn("inspect the Evidence content", request["slug_rule"])
+            self.assertIn("non-ASCII title", request["slug_rule"])
             self.assertEqual(result["promotion"]["promotion_mode"], "automatic")
             promoted = find_document_by_id(root, result["bundle_id"])
             self.assertEqual(promoted.frontmatter["status"], "active")
@@ -975,6 +1013,7 @@ class CurationMaterializationTests(unittest.TestCase):
                 "action": "manual", "domain": "marketing", "bundle_type": "manual",
                 "title": "Curated manual", "summary": "Summary.", "body": "# Manual",
                 "evidence_ids": [evidence_id], "tags": ["curated", "manual"],
+                "slug": "curated-manual",
             }
             completed = type("Completed", (), {"stdout": json.dumps(output)})()
 
@@ -986,6 +1025,8 @@ class CurationMaterializationTests(unittest.TestCase):
             self.assertEqual(result["handoff"]["status"], "queued_for_review")
             self.assertEqual(len(list_curation_reviews(root)), 1)
             self.assertEqual(list_curation_candidates(root), [])
+            review = next(iter((root / "curation-reviews").rglob("*.md")))
+            self.assertIn("`curated-manual`", review.read_text(encoding="utf-8"))
 
     def test_configured_adapter_automatically_closes_a_valid_no_bundle_decision(self):
         with tempfile.TemporaryDirectory() as directory:

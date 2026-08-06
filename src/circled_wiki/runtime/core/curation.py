@@ -73,8 +73,11 @@ def materialize_curation_candidate(
         raise ValueError(
             f"{output.bundle_type} Bundle creation requires an approved pre-creation review"
         )
+    generated_slug = _safe_slug(output.title, checksum)
+    if output.bundle_type in PRE_CREATION_REVIEW_TYPES and not output.slug:
+        raise ValueError("manual and runbook CurationOutput requires a slug derived from the content")
     bundle = create_bundle(
-        knowledge_root, domain=output.domain, slug=_safe_slug(output.title, checksum),
+        knowledge_root, domain=output.domain, slug=output.slug or generated_slug,
         title=output.title, bundle_type=output.bundle_type, summary=output.summary,
         evidence_id=evidence_id, body=output.body, curated_by=generated_by,
         approved_review_id=approved_review_id, tags=output.tags,
@@ -157,6 +160,12 @@ def run_configured_curation(
         ),
         "bundle_taxonomy": curation_taxonomy(),
         "pre_creation_review_types": sorted(PRE_CREATION_REVIEW_TYPES),
+        "slug_rule": (
+            "For a new manual or runbook, inspect the Evidence content and return a "
+            "concise, meaningful lowercase ASCII slug that identifies the procedure "
+            "or manual. Do not derive it mechanically from a non-ASCII title; use the "
+            "body's subject and task instead."
+        ),
         "content": original[:config.max_input_bytes].decode("utf-8", errors="replace"),
     }
     command = shlex.split(config.command)

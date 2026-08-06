@@ -33,6 +33,7 @@ class CurationOutput:
     confidence: str = ""
     recheck_condition: str = ""
     tags: Tuple[str, ...] = ()
+    slug: str = ""
 
 
 def validate_curation_output(
@@ -83,6 +84,13 @@ def validate_curation_output(
     tags = _string_list(payload.get("tags"), "tags")
     if not tags:
         raise ValueError("curation tags must contain at least one topical tag")
+    slug = _optional_string(payload, "slug")
+    if slug and not re.fullmatch(r"[a-z0-9][a-z0-9_-]*", slug):
+        raise ValueError("curation slug must be a safe lowercase path segment")
+    if bundle_type in {"manual", "runbook"} and not existing and not slug:
+        raise ValueError(
+            "manual and runbook CurationOutput requires a slug derived from the content"
+        )
     return CurationOutput(
         action=action,
         domain=domain,
@@ -99,6 +107,7 @@ def validate_curation_output(
         replace_reason=replace_reason,
         confidence=_optional_string(payload, "confidence"),
         tags=tuple(tags),
+        slug=slug,
     )
 
 
