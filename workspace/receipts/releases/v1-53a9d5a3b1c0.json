@@ -1,0 +1,33 @@
+{
+  "receipt_type": "release",
+  "release_id": "v1-53a9d5a3b1c0",
+  "source_revision": "ecfb2c2d5fe85c6416f312d23e0c5165a62a9350",
+  "runtime_checksum": "sha256:c8ecc09a46e87ded1fa24b17c55b51e9074cd36dade166fd06473c51a834f26d",
+  "router_checksum": "sha256:2ad390b3da847ba87656acfb77882e52abfb67e1a442d1ff64f1bc2f5dc51e89",
+  "runtime_profiles": [
+    "evidence-ingest.md",
+    "inbox-capture.md",
+    "inbox-disposition.md",
+    "inbox-inspection.md",
+    "inbox-sensitivity-review.md",
+    "knowledge-curation.md",
+    "knowledge-query.md",
+    "publication.md",
+    "runtime-upgrade-verification.md",
+    "system-observation.md",
+    "workflow-execution.md"
+  ],
+  "included_issue_ids": [],
+  "validation": {
+    "unit": "passed",
+    "integration": "passed",
+    "repository_validator": "passed"
+  },
+  "verified_by": "codex",
+  "verified_at": "2026-08-06T04:47:04.423109+00:00",
+  "source_commit_check": {
+    "revision": "ecfb2c2d5fe85c6416f312d23e0c5165a62a9350",
+    "subject": "Update README.md",
+    "worktree_clean": true
+  }
+}
