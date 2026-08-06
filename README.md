@@ -66,7 +66,17 @@ python3 -m pytest
 
 ## 새 Wiki 설치 또는 안전한 업그레이드
 
-대상은 `knowledge/` 폴더 자체가 아니라 이를 포함할 프로젝트 루트입니다. 먼저 변경 계획을 확인하고, 결과를 검토한 뒤에만 `--apply`를 사용합니다.
+이 **제품 저장소를 작업 폴더로 Agent를 실행한 뒤**, 설치할 대상 프로젝트를 지정해 설치 또는 업그레이드를 요청할 수 있습니다. 대상은 `knowledge/` 폴더 자체가 아니라 이를 포함할 프로젝트 루트입니다.
+
+```text
+/path/to/wiki-project에 Circled Wiki를 설치해줘.
+```
+
+```text
+/path/to/wiki-project의 Circled Wiki를 업그레이드해줘.
+```
+
+Agent는 먼저 변경 계획과 보존 대상을 확인하고, 적용이 승인된 경우에만 설치·업그레이드를 수행합니다. CLI로 직접 실행할 때도 계획을 먼저 확인한 뒤에만 `--apply`를 사용합니다.
 
 ```sh
 circled-wiki bootstrap-circled-wiki --target /path/to/wiki-project
