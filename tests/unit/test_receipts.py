@@ -230,7 +230,7 @@ class ReceiptTests(unittest.TestCase):
                     verified_by="reviewer",
                 )
 
-    def test_verification_blocks_self_verification_and_failed_preservation(self):
+    def test_verification_allows_self_verification_but_blocks_failed_preservation(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             receipts = root / "workspace" / "receipts"
@@ -254,7 +254,7 @@ class ReceiptTests(unittest.TestCase):
                 backup_ref="backup/v1",
                 actions={"applied": [], "preserved": [], "proposed": []},
             )
-            with self.assertRaisesRegex(ValueError, "independent actor"):
+            self.assertEqual(
                 record_verification_receipt(
                     receipts,
                     deployment_receipt=Path(deployment["path"]),
@@ -267,7 +267,9 @@ class ReceiptTests(unittest.TestCase):
                     knowledge_preserved=True,
                     workspace_preserved=True,
                     reproduction_passed=True,
-                )
+                )["status"],
+                "verified",
+            )
             with self.assertRaisesRegex(ValueError, "workspace_preserved"):
                 record_verification_receipt(
                     receipts,

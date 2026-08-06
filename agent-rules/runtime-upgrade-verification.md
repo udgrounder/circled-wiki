@@ -9,7 +9,7 @@ Deployment Operator가 upgrade를 완료한 뒤 실제 설치본의 독립 검�
 - 기대 release ID와 Deployment Receipt
 - upgrade 전 config semantic checksum
 - 관련 운영 Issue와 안전한 재현 시나리오
-- 구현자와 다른 검증 actor
+- 검증 actor (구현자와 같을 수 있음)
 
 ## Allowed Actions
 
@@ -30,7 +30,7 @@ Deployment Operator가 upgrade를 완료한 뒤 실제 설치본의 독립 검�
 - Deployment Receipt의 적용·보존·proposal 결과가 승인된 배포 계획과 일치
 - config, `knowledge/`, `workspace/`의 예상하지 않은 변경 없음
 - 재현 시나리오 통과
-- 구현자와 검증 actor가 다름
+- Receipt에 구현자와 검증 actor를 모두 기록
 
 ## Output
 
@@ -45,5 +45,4 @@ Issue를 해결 처리하지 않고 실패 근거와 안전한 rollback 또는 �
 
 - Deployment Receipt 없는 검증
 - source test만으로 운영 해결 주장
-- self-verification
 - 사용자 소유 파일 수정

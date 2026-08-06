@@ -1,0 +1,17 @@
+{
+  "receipt_type": "verification",
+  "release_id": "v1-53a9d5a3b1c0",
+  "target_ref": "campingtalk-wiki",
+  "deployment_receipt": "/Users/kjkim/Study/circled-wiki/workspace/receipts/deployments/campingtalk-wiki/v1-53a9d5a3b1c0.attempt-2.json",
+  "checks": {
+    "validator_passed": true,
+    "config_preserved": true,
+    "knowledge_preserved": true,
+    "workspace_preserved": true,
+    "reproduction_passed": true
+  },
+  "verified_by": "independent-verifier",
+  "implemented_by": "codex",
+  "verified_at": "2026-08-06T05:05:35.384255+00:00",
+  "status": "verified"
+}

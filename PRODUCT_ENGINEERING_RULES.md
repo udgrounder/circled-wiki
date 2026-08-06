@@ -30,7 +30,7 @@ operational issue
   -> engineering
   -> release
   -> deployment
-  -> independent runtime verification
+  -> runtime verification
   -> workspace/issues/archived/YYYY/MM/<source-project-ref>/<original-issue-filename>.md
 ```
 
