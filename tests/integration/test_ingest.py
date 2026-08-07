@@ -658,7 +658,7 @@ class IngestEvidenceTests(unittest.TestCase):
             # reusable customer-support Runbook, then simulate owner review.
             evidence_ids = [item["evidence_id"] for item in ingested["items"]]
             proposal = propose_update(knowledge_root, evidence_ids[0])
-            self.assertEqual(proposal["recommended_action"], "create_draft_bundle")
+            self.assertEqual(proposal["recommended_action"], "request_new_bundle")
             draft = create_bundle(
                 knowledge_root,
                 domain="customer-support",
@@ -1052,7 +1052,7 @@ class IngestEvidenceTests(unittest.TestCase):
             procedure_evidence = ingest_accepted_inbox(knowledge_root)["items"][0]["evidence_id"]
             proposal = propose_update(knowledge_root, procedure_evidence)
             self.assertEqual(proposal["candidate_bundles"], [])
-            self.assertEqual(proposal["recommended_action"], "create_draft_bundle")
+            self.assertEqual(proposal["recommended_action"], "request_new_bundle")
             self.assertEqual(proposal["suggested_bundle_type"], "runbook")
 
     def test_moves_inbox_original_and_creates_valid_manifest(self):

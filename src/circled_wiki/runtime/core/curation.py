@@ -27,6 +27,8 @@ from .curation_reviews import (
 from .curation_queue import complete_curation_work, list_curation_queue, record_curation_blocker
 from .inbox_contracts import curation_blocker_policy
 from .bundle_types import PRE_CREATION_REVIEW_TYPES, curation_taxonomy
+from .notification_store import record_user_notification
+from .taxonomy_proposals import record_taxonomy_change_proposal
 
 
 def materialize_curation_candidate(
@@ -34,6 +36,7 @@ def materialize_curation_candidate(
     generated_by: str, curation_receipt: str,
     receipt_metadata: Optional[Dict[str, object]] = None,
     approved_review_id: Optional[str] = None,
+    taxonomy_rule: Optional[Dict[str, object]] = None,
 ) -> Dict[str, object]:
     """Create one idempotent Draft from validated output; never invokes a model."""
     if not generated_by.strip() or not curation_receipt.strip():
@@ -94,6 +97,8 @@ def materialize_curation_candidate(
     }
     if receipt_metadata is not None:
         extensions["curation"]["receipt"] = receipt_metadata
+    if taxonomy_rule is not None:
+        extensions["curation"]["taxonomy_rule"] = taxonomy_rule
     data["extensions"] = extensions
     bundle.path.write_text(render_markdown(data, bundle.body), encoding="utf-8")
     validation = validate_document(bundle.path, knowledge_root)
@@ -106,7 +111,32 @@ def materialize_curation_candidate(
     # Bundle materialization must not change the source Evidence.  Queue state
     # is derived from the Bundle's canonical ``evidence`` reference instead.
     complete_curation_work(knowledge_root, evidence_id)
-    return {"action": "created", "bundle_id": data["id"], "path": bundle.path.relative_to(knowledge_root.parent).as_posix()}
+    result: Dict[str, object] = {
+        "action": "created", "bundle_id": data["id"],
+        "path": bundle.path.relative_to(knowledge_root.parent).as_posix(),
+    }
+    if taxonomy_rule is not None:
+        try:
+            notification = record_user_notification(
+                knowledge_root.parent / "workspace",
+                event="bundle_created",
+                priority="attention",
+                title="새 Bundle이 생성되었습니다",
+                summary=f"승인된 curation taxonomy에 따라 {data['title']} Bundle을 생성했습니다.",
+                next_action="필요하면 생성된 Bundle을 검토하세요.",
+                resource_ref=bundle.path.relative_to(knowledge_root.parent).as_posix(),
+                approval_required=False,
+                dedupe_key=f"bundle_created:{data['id']}",
+                related_evidence_id=evidence_id,
+                related_bundle_id=data["id"],
+            )
+            notification["taxonomy_rule"] = taxonomy_rule
+            data["extensions"]["curation"]["user_notification"] = notification
+            bundle.path.write_text(render_markdown(data, bundle.body), encoding="utf-8")
+            result["user_notification"] = notification
+        except (OSError, ValueError) as error:
+            result["notification_delivery_error"] = str(error)
+    return result
 
 
 def run_configured_curation(
@@ -144,13 +174,21 @@ def run_configured_curation(
             "recommended_action": proposal.get("recommended_action"),
             "candidate_bundles": proposal.get("candidate_bundles", []),
             "evidence_freshness": proposal.get("evidence_freshness", {}),
+            "routing_hints": proposal.get("routing_hints", []),
+            "creation_authorized": proposal.get("creation_authorized", False),
         },
+        "routing_hint_rule": (
+            "routing_hints guide classification but never replace semantic relevance checks, "
+            "existing Bundle candidate selection, or publication and review Gates. A new Bundle "
+            "may be created only when creation_authorized is true and its domain/type exactly "
+            "match the single approved auto_create taxonomy rule."
+        ),
         "target_selection_rule": (
             "Use Bundle frontmatter (type, domain, tags, evidence references) for the "
-            "new-versus-update decision. If sources conflict, prefer the current Evidence "
+            "new-versus-update decision. Prefer a matching existing Bundle. If sources conflict, prefer the current Evidence "
             "only when its effective_at is at least as recent as the target Bundle's latest "
-            "Evidence. If no existing Bundle is a match, create a new Bundle; do not turn "
-            "an ambiguous match into a Review card."
+            "Evidence. If no existing Bundle is a match and creation_authorized is false, return "
+            "no_bundle with a recheck_condition requesting taxonomy approval; do not invent a new Bundle."
         ),
         "update_body_rule": (
             "For update_existing, provide the selected target's body_checksum as "
@@ -194,6 +232,30 @@ def run_configured_curation(
                     "action": "no_bundle", "evidence_id": evidence_id,
                     "review_id": review["review_id"], "decision": decision,
                 }
+            if (
+                not output.existing_bundle_candidates
+                and proposal.get("creation_authorized") is False
+                and not _is_taxonomy_authorized_creation(output, proposal)
+            ):
+                try:
+                    taxonomy_proposal = record_taxonomy_change_proposal(
+                        knowledge_root,
+                        evidence_id=evidence_id,
+                        domain=output.domain,
+                        bundle_type=output.bundle_type,
+                        rationale=(
+                            "Configured Curator identified a new classification route that is not "
+                            "authorized by the current installation taxonomy."
+                        ),
+                    )
+                except (OSError, ValueError) as error:
+                    taxonomy_proposal = {"notification_delivery_error": str(error)}
+                return _record_curation_failure(
+                    evidence, knowledge_root, provider=config.provider, model=config.model,
+                    profile_version=config.profile_version,
+                    failure_kind="taxonomy_creation_not_authorized",
+                    receipt_metadata=_completed_receipt(receipt_metadata, "taxonomy_creation_not_authorized"),
+                ) | {"taxonomy_proposal": taxonomy_proposal}
             if _is_eligible_automatic_update(knowledge_root, output, proposal):
                 updated = apply_automatic_curation_update(
                     knowledge_root, evidence_id, output, actor=settings.operator_agent,
@@ -217,11 +279,17 @@ def run_configured_curation(
                     knowledge_root, evidence_id, output,
                     generated_by=settings.operator_agent, curation_receipt=receipt,
                     receipt_metadata=completed_receipt,
+                    taxonomy_rule=_authorized_taxonomy_rule(proposal),
                 )
-                return _auto_promote_materialized_candidate(
+                result = _auto_promote_materialized_candidate(
                     knowledge_root, materialized, actor=settings.operator_agent,
                     security_receipt=_automatic_security_receipt(config, evidence),
                 )
+                notification = materialized.get("user_notification")
+                if isinstance(notification, dict):
+                    result["user_notification"] = notification
+                    result["user_message"] = notification["summary"]
+                return result
             review = generate_curation_review(
                 knowledge_root, evidence_id, output, generated_by=settings.operator_agent,
                 curation_receipt=receipt,
@@ -504,6 +572,19 @@ def _is_eligible_automatic_update(
     if isinstance(new_at, str) and isinstance(existing_at, str) and new_at < existing_at:
         return False
     return True
+
+
+def _authorized_taxonomy_rule(proposal: Dict[str, object]) -> Optional[Dict[str, object]]:
+    hints = proposal.get("routing_hints")
+    if proposal.get("creation_authorized") is not True or not isinstance(hints, list) or len(hints) != 1:
+        return None
+    rule = hints[0]
+    return dict(rule) if isinstance(rule, dict) else None
+
+
+def _is_taxonomy_authorized_creation(output: CurationOutput, proposal: Dict[str, object]) -> bool:
+    rule = _authorized_taxonomy_rule(proposal)
+    return bool(rule) and rule.get("domain") == output.domain and rule.get("bundle_type") == output.bundle_type
 
 
 def _auto_promote_materialized_candidate(

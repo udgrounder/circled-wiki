@@ -6,6 +6,8 @@ from typing import Any, Optional
 
 import yaml
 
+from .schema_validation import validate_yaml_payload
+
 
 POLICY_PATH = ".circled-wiki/data-protection.yaml"
 POLICY_TEMPLATE_PATH = ".circled-wiki/templates/data-protection.yaml"
@@ -37,7 +39,9 @@ class DataProtectionPolicy:
 def default_data_protection_policy(project_root: Optional[Path] = None) -> DataProtectionPolicy:
     """Load the product default from the bundled YAML template."""
     template = _policy_template_file(project_root)
-    return _parse_policy_payload(_read_policy_yaml(template), template_file=template)
+    return _parse_policy_payload(
+        _read_policy_yaml(template), template_file=template, project_root=project_root,
+    )
 
 
 def render_data_protection_policy(template_root: Optional[Path] = None) -> str:
@@ -54,7 +58,9 @@ def load_data_protection_policy(project_root: Path) -> DataProtectionPolicy:
         payload = _read_policy_yaml(path)
     except ValueError as error:
         raise ValueError(f"{POLICY_PATH} is invalid") from error
-    return _parse_policy_payload(payload, template_file=_policy_template_file(project_root))
+    return _parse_policy_payload(
+        payload, template_file=_policy_template_file(project_root), project_root=project_root,
+    )
 
 
 def _policy_template_file(project_root: Optional[Path] = None) -> Path:
@@ -82,8 +88,14 @@ def _read_policy_yaml(path: Path) -> dict[str, object]:
 
 
 def _parse_policy_payload(
-    payload: dict[str, object], *, template_file: Optional[Path] = None,
+    payload: dict[str, object], *, template_file: Optional[Path] = None, project_root: Optional[Path] = None,
 ) -> DataProtectionPolicy:
+    validate_yaml_payload(
+        payload,
+        project_root=project_root,
+        schema_name="data-protection",
+        instance_name=POLICY_PATH,
+    )
     if not isinstance(payload, dict) or payload.get("schema_version") != 1:
         raise ValueError(f"{POLICY_PATH} schema_version must be 1")
     pii_scan = payload.get("pii_scan")

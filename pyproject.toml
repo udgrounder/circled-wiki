@@ -7,7 +7,7 @@ name = "circled-wiki"
 version = "0.1.0"
 description = "Circled Wiki agent-operated knowledge workspace and CLI"
 requires-python = ">=3.9"
-dependencies = ["PyYAML>=6.0"]
+dependencies = ["PyYAML>=6.0", "jsonschema>=4.18,<5"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]

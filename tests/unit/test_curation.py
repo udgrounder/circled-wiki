@@ -25,7 +25,7 @@ from circled_wiki.core.frontmatter import parse_markdown, render_markdown
 from circled_wiki.core.pii import build_pii_scan_receipt
 from circled_wiki.core.service import KnowledgeService
 from circled_wiki.core.candidates import list_curation_candidates
-from circled_wiki.core.repository import apply_bundle_revision, create_bundle, find_document_by_id
+from circled_wiki.core.repository import apply_bundle_revision, create_bundle, find_document_by_id, propose_bundle_reclassification, apply_bundle_reclassification
 from circled_wiki.core.validator import validate_document
 from circled_wiki.core.candidates import promote_curation_candidate, review_curation_candidate
 from circled_wiki.core.curation_reviews import (
@@ -43,6 +43,8 @@ from circled_wiki.core.curation_queue import (
     list_curation_queue,
     refresh_curation_queue,
 )
+from circled_wiki.core.notification_store import acknowledge_user_notification
+from circled_wiki.core.taxonomy_proposals import record_taxonomy_change_proposal
 import circled_wiki.core.curation_queue as curation_queue
 from circled_wiki.worker.jobs import reconcile_curation
 
@@ -54,6 +56,81 @@ def _acquire_queue_transaction(knowledge_root, started, acquired):
 
 
 class CurationMaterializationTests(unittest.TestCase):
+    def test_explicit_reclassification_moves_bundle_and_preserves_identity(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, evidence_id = self._evidence(directory)
+            (root.parent / ".circled-wiki").mkdir()
+            (root.parent / ".circled-wiki" / "curation-taxonomy.yaml").write_text(
+                """schema_version: 1
+domains:
+  - id: cs
+    description: Customer support knowledge.
+routing_rules: []
+""",
+                encoding="utf-8",
+            )
+            bundle = create_bundle(root, domain="operations", slug="customer-inquiry", title="Customer inquiry", bundle_type="guide", summary="Summary", evidence_id=evidence_id, tags=["customer"])
+            proposal = propose_bundle_reclassification(root, bundle_id=bundle.frontmatter["id"], domain="cs", bundle_type="manual")
+            self.assertTrue(proposal["requires_explicit_approval"])
+            change = record_taxonomy_change_proposal(
+                root, evidence_id=evidence_id, domain="cs", bundle_type="manual",
+                rationale="The approved taxonomy change identifies this existing Bundle.",
+                impacted_bundle_ids=[bundle.frontmatter["id"]],
+            )
+            approval_id = str(change["reclassification_notification"]["notification_id"])
+            acknowledge_user_notification(root.parent / "workspace", notification_id=approval_id, actor="owner")
+            moved = apply_bundle_reclassification(root, bundle_id=bundle.frontmatter["id"], expected_revision=proposal["expected_revision"], domain="cs", bundle_type="manual", actor="operator", rationale="The local taxonomy classifies this as a manual.", approval_notification_id=approval_id)
+        self.assertEqual(moved.frontmatter["id"], bundle.frontmatter["id"])
+        self.assertEqual(moved.frontmatter["bundle_uuid"], bundle.frontmatter["bundle_uuid"])
+        self.assertEqual(moved.path.parts[-3:], ("cs", "manuals", "customer-inquiry.md"))
+        self.assertEqual(moved.frontmatter["type"], "manual")
+        self.assertEqual(moved.frontmatter["extensions"]["reclassification_history"][0]["reclassified_by"], "operator")
+    def test_proposal_returns_matching_install_local_routing_hint_without_selecting_target(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            (project / ".circled-wiki").mkdir()
+            (project / ".circled-wiki" / "curation-taxonomy.yaml").write_text(
+                """schema_version: 1
+domains:
+  - id: operations
+    description: Customer-facing operational guidance.
+routing_rules:
+  - match_terms: [customer, inquiry]
+    description: Customer inquiry guidance.
+    domain: operations
+    bundle_type: guide
+    auto_create: true
+    slug_prefix: customer-inquiry
+""",
+                encoding="utf-8",
+            )
+            root = project / "knowledge"
+            source = root / "inbox" / "manual" / "source.txt"
+            source.parent.mkdir(parents=True)
+            source.write_text("customer inquiry", encoding="utf-8")
+            checksum = "sha256:" + hashlib.sha256(source.read_bytes()).hexdigest()
+            evidence = ingest_evidence(
+                root, source, "manual", title="Customer inquiry",
+                why_collected="test", intended_use=["customer", "inquiry"],
+                pii_scan_receipt=build_pii_scan_receipt(
+                    checksum, scanner="test", scanner_version="1", result="passed",
+                    reviewed_by="security", receipt="test://pii",
+                ),
+            )
+            proposal = propose_update(root, evidence.evidence_id)
+        self.assertEqual(proposal["routing_hints"], [{
+            "match_terms": ["customer", "inquiry"], "description": "Customer inquiry guidance.", "domain": "operations",
+            "bundle_type": "guide", "auto_create": True, "slug_prefix": "customer-inquiry",
+        }])
+        self.assertEqual(proposal["recommended_action"], "create_draft_bundle")
+        self.assertTrue(proposal["creation_authorized"])
+
+    def test_proposal_requests_taxonomy_review_when_installation_taxonomy_is_missing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, evidence_id = self._evidence(directory)
+            proposal = propose_update(root, evidence_id)
+        self.assertEqual(proposal["taxonomy_status"]["configured"], False)
+        self.assertIn("do not create it automatically", proposal["taxonomy_status"]["next_action"])
     def test_automatic_update_policy_excludes_only_runbook_and_manual(self):
         self.assertEqual(AUTOMATIC_UPDATE_TYPES, DIRECT_DRAFT_TYPES)
         self.assertNotIn("runbook", AUTOMATIC_UPDATE_TYPES)
@@ -76,6 +153,9 @@ class CurationMaterializationTests(unittest.TestCase):
             metadata = parse_markdown(root.parent / review["path"]).frontmatter["extensions"]["curation_review"]
             self.assertEqual(metadata["review_route"], "explicit_user_request")
             self.assertEqual(metadata["user_review_request"], "user-request://test/123")
+            notification_files = list((root.parent / "workspace" / "notifications" / "inbox").glob("notification-*.json"))
+            self.assertEqual(len(notification_files), 1)
+            self.assertEqual(json.loads(notification_files[0].read_text(encoding="utf-8"))["event"], "review_requested")
 
     def test_frontmatter_candidate_uses_latest_evidence_for_automatic_update(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -472,7 +552,10 @@ class CurationMaterializationTests(unittest.TestCase):
             }
             completed = type("Completed", (), {"stdout": json.dumps(output)})()
 
-            with patch("circled_wiki.core.curation.propose_update", return_value={"recommended_action": "create_draft_bundle", "blocking_conditions": []}):
+            with patch("circled_wiki.core.curation.propose_update", return_value={
+                "recommended_action": "create_draft_bundle", "blocking_conditions": [],
+                "routing_hints": [{"domain": "operations", "bundle_type": "guide"}],
+            }):
                 with patch("circled_wiki.core.curation.subprocess.run", return_value=completed):
                     result = reconcile_curation(root, limit=1)
 
@@ -970,7 +1053,10 @@ class CurationMaterializationTests(unittest.TestCase):
                 "evidence_ids": [evidence_id], "tags": ["curated", "report"],
             }
             completed = type("Completed", (), {"stdout": json.dumps(output)})()
-            with patch("circled_wiki.core.curation.propose_update", return_value={"recommended_action": "create_draft_bundle", "blocking_conditions": []}):
+            with patch("circled_wiki.core.curation.propose_update", return_value={
+                "recommended_action": "create_draft_bundle", "blocking_conditions": [],
+                "routing_hints": [{"domain": "operations", "bundle_type": "guide"}],
+            }):
                 with patch("circled_wiki.core.curation.subprocess.run", return_value=completed) as adapter:
                     result = run_configured_curation(root, evidence_id)
 
@@ -981,6 +1067,8 @@ class CurationMaterializationTests(unittest.TestCase):
                 {"policy", "guide", "runbook", "manual", "decision", "spec", "reference", "report"},
             )
             self.assertEqual(request["pre_creation_review_types"], ["manual", "runbook"])
+            self.assertEqual(request["proposal"]["routing_hints"], [{"domain": "operations", "bundle_type": "guide"}])
+            self.assertIn("auto_create", request["routing_hint_rule"])
             self.assertIn("inspect the Evidence content", request["slug_rule"])
             self.assertIn("non-ASCII title", request["slug_rule"])
             self.assertEqual(result["promotion"]["promotion_mode"], "automatic")
@@ -1521,6 +1609,8 @@ class CurationMaterializationTests(unittest.TestCase):
             archived = list((root / "curation-reviews" / ".archive").rglob("*.md"))
             self.assertEqual(len(archived), 1)
             self.assertEqual(parse_markdown(archived[0]).frontmatter["status"], "stale")
+            self.assertEqual(list((root.parent / "workspace" / "notifications" / "inbox").glob("notification-*.json")), [])
+            self.assertEqual(len(list((root.parent / "workspace" / "notifications" / "archive").glob("notification-*.json"))), 1)
             self.assertEqual(list_curation_queue(root)[0]["evidence_id"], evidence_id)
             refreshed = refresh_curation_queue(root)
             self.assertEqual(refreshed["pending_count"], 1)

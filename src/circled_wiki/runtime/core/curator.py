@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 from typing import Dict, List, Optional, Tuple
 
+from ..config.curation_taxonomy import load_curation_taxonomy
 from .evidence import evidence_content_mode, evidence_original_bytes, evidence_original_path
 from .repository import find_document_by_id
 from .search import search_knowledge
@@ -31,6 +32,9 @@ def propose_update(
     query = str(evidence.frontmatter.get("title", ""))
     extensions = evidence.frontmatter.get("extensions", {})
     capture_context = extensions.get("capture_context", {}) if isinstance(extensions, dict) else {}
+    routing_hints, taxonomy_configured = _routing_hints(
+        knowledge_root, str(evidence.frontmatter.get("title", "")), capture_context,
+    )
     candidates = []
     for candidate_query in _candidate_queries(query, capture_context):
         candidates += _cached_search(knowledge_root, candidate_query, {}, search_cache)
@@ -46,7 +50,8 @@ def propose_update(
     ]
     active_candidates = [candidate for candidate in candidates if candidate.status == "active"]
     draft_candidates = [candidate for candidate in candidates if candidate.status == "draft"]
-    recommended_action = "create_draft_bundle"
+    creation_authorized = not candidates and len(routing_hints) == 1 and bool(routing_hints[0].get("auto_create"))
+    recommended_action = "request_new_bundle"
     if active_candidates:
         recommended_action = "review_existing_bundle"
     elif draft_candidates:
@@ -55,6 +60,8 @@ def propose_update(
             if any(not candidate.owners for candidate in draft_candidates)
             else "review_draft_bundle"
         )
+    elif creation_authorized:
+        recommended_action = "create_draft_bundle"
     return {
         "evidence_id": evidence_id,
         "source_uuid": evidence.frontmatter["source_uuid"],
@@ -66,6 +73,16 @@ def propose_update(
             for hit in candidates
         ],
         "capture_context": capture_context,
+        "routing_hints": routing_hints,
+        "creation_authorized": creation_authorized,
+        "taxonomy_status": {
+            "configured": taxonomy_configured,
+            "next_action": (
+                "Use the installation-local taxonomy as approved classification policy; existing Bundle selection and all Gates still apply."
+                if taxonomy_configured else
+                "Inspect relevant existing Bundles and request user approval for a curation-taxonomy.yaml draft; do not create it automatically."
+            ),
+        },
         "suggested_bundle_type": _suggest_bundle_type(excerpt, capture_context),
         "promotion_candidates": _promotion_candidates(original, original_bytes),
         "recommended_action": recommended_action,
@@ -79,6 +96,29 @@ def propose_update(
             "Any resulting Bundle must pass both OKF and the configured organization Profile validation.",
         ],
     }
+
+
+def _routing_hints(knowledge_root: Path, title: str, capture_context: object) -> tuple[List[Dict[str, object]], bool]:
+    """Return matching installation-local hints without making a routing decision."""
+    context = title
+    if isinstance(capture_context, dict):
+        intended_use = capture_context.get("intended_use", [])
+        if isinstance(intended_use, list):
+            context += " " + " ".join(map(str, intended_use))
+    normalized = context.casefold()
+    taxonomy = load_curation_taxonomy(knowledge_root.resolve().parent)
+    return ([
+        {
+            "match_terms": list(rule.match_terms),
+            **({"description": rule.description} if rule.description else {}),
+            "domain": rule.domain,
+            "bundle_type": rule.bundle_type,
+            "auto_create": rule.auto_create,
+            **({"slug_prefix": rule.slug_prefix} if rule.slug_prefix else {}),
+        }
+        for rule in taxonomy.routing_rules
+        if all(term in normalized for term in rule.match_terms)
+    ], taxonomy.configured)
 
 
 def _cached_search(

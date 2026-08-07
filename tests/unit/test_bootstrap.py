@@ -133,6 +133,9 @@ class BootstrapKnowledgeRootTests(unittest.TestCase):
             self.assertTrue((target / ".circled-wiki" / "AUTONOMOUS_AGENT_STARTUP.md").is_file())
             self.assertTrue((target / ".circled-wiki" / "GRAPHIFY.md").is_file())
             self.assertTrue((target / ".circled-wiki" / "config.yaml").is_file())
+            taxonomy = target / ".circled-wiki" / "curation-taxonomy.yaml"
+            self.assertTrue(taxonomy.is_file())
+            self.assertIn("routing_rules: []", taxonomy.read_text(encoding="utf-8"))
             data_protection = target / ".circled-wiki" / "data-protection.yaml"
             self.assertTrue(data_protection.is_file())
             self.assertIn("customer_mobile_phone:", data_protection.read_text(encoding="utf-8"))

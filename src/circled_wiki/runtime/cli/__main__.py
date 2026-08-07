@@ -7,6 +7,9 @@ import sys
 import unicodedata
 
 from circled_wiki.config.paths import project_root
+from circled_wiki.config.settings import load_settings
+from circled_wiki.config.data_protection import load_data_protection_policy
+from circled_wiki.config.curation_taxonomy import load_curation_taxonomy
 from circled_wiki.core.ingest import CaptureIdempotencyConflict
 from circled_wiki.core.repository import apply_bundle_revision, create_bundle, find_document_by_id
 from circled_wiki.core.evidence import evidence_original_path
@@ -30,6 +33,11 @@ from circled_wiki.core.open_questions import (
     reconcile_open_question_deliveries,
     record_open_question,
     resolve_open_question,
+)
+from circled_wiki.core.notification_store import (
+    acknowledge_user_notification,
+    archive_user_notification,
+    list_user_notifications,
 )
 
 
@@ -82,6 +90,7 @@ def main() -> int:
     parser = StructuredArgumentParser(prog="circled-wiki")
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("validate")
+    subparsers.add_parser("validate-configuration")
     evidence_links = subparsers.add_parser("backfill-evidence-links")
     evidence_links.add_argument("--apply", action="store_true", help="write only validated Evidence file-link repairs")
     migrate_ids = subparsers.add_parser("migrate-document-ids")
@@ -135,6 +144,14 @@ def main() -> int:
     claim_slack = subparsers.add_parser("claim-slack-decision")
     claim_slack.add_argument("--delivery", required=True)
     subparsers.add_parser("reconcile-open-questions")
+    notifications = subparsers.add_parser("list-user-notifications")
+    notifications.add_argument("--include-acknowledged", action="store_true")
+    acknowledge_notification = subparsers.add_parser("acknowledge-user-notification")
+    acknowledge_notification.add_argument("--notification", required=True)
+    acknowledge_notification.add_argument("--actor", required=True)
+    archive_notification = subparsers.add_parser("archive-user-notification")
+    archive_notification.add_argument("--notification", required=True)
+    archive_notification.add_argument("--reason", required=True)
     bootstrap = subparsers.add_parser("bootstrap-circled-wiki")
     bootstrap.add_argument("--target", required=True, help="Knowledge root to install or safely upgrade")
     bootstrap.add_argument("--apply", action="store_true", help="Apply the planned changes")
@@ -413,6 +430,11 @@ def main() -> int:
     revise_bundle.add_argument("--frontmatter-file", required=True, help="UTF-8 JSON frontmatter proposal")
     revise_bundle.add_argument("--body-file", required=True, help="UTF-8 Markdown body")
     revise_bundle.add_argument("--actor", required=True)
+    reclassify_proposal = subparsers.add_parser("propose-bundle-reclassification")
+    reclassify_proposal.add_argument("--bundle", required=True); reclassify_proposal.add_argument("--domain", required=True); reclassify_proposal.add_argument("--type", required=True)
+    reclassify = subparsers.add_parser("apply-bundle-reclassification")
+    reclassify.add_argument("--bundle", required=True); reclassify.add_argument("--expected-revision", required=True, type=int)
+    reclassify.add_argument("--domain", required=True); reclassify.add_argument("--type", required=True); reclassify.add_argument("--actor", required=True); reclassify.add_argument("--rationale", required=True); reclassify.add_argument("--approval-notification", required=True)
     args = parser.parse_args()
     if args.command == "bootstrap-circled-wiki":
         configuration = _bootstrap_configuration(args)
@@ -491,6 +513,21 @@ def main() -> int:
     if args.command == "reconcile-open-questions":
         result = reconcile_open_question_deliveries(root.parent / ".runtime")
         print(json.dumps(result, ensure_ascii=False, indent=2)); return 0
+    if args.command == "list-user-notifications":
+        print(json.dumps(
+            list_user_notifications(root.parent / "workspace", include_acknowledged=args.include_acknowledged),
+            ensure_ascii=False, indent=2,
+        )); return 0
+    if args.command == "acknowledge-user-notification":
+        result = acknowledge_user_notification(
+            root.parent / "workspace", notification_id=args.notification, actor=args.actor,
+        )
+        print(json.dumps(result, ensure_ascii=False, indent=2)); return 0
+    if args.command == "archive-user-notification":
+        result = archive_user_notification(
+            root.parent / "workspace", notification_id=args.notification, reason=args.reason,
+        )
+        print(json.dumps(result, ensure_ascii=False, indent=2)); return 0
     if args.command == "validate":
         results = validate_repository(root); invalid = [r for r in results if not r.is_valid]
         for result in results:
@@ -498,6 +535,18 @@ def main() -> int:
             for warning in result.warnings: print(f"WARN {result.path}: {warning}")
         print(f"validated={len(results)} invalid={len(invalid)}")
         return 1 if invalid else 0
+    if args.command == "validate-configuration":
+        settings = load_settings(root)
+        policy = load_data_protection_policy(root)
+        taxonomy = load_curation_taxonomy(root)
+        print(json.dumps({
+            "valid": True,
+            "schema_version": 1,
+            "organization_id": settings.organization_id,
+            "data_protection_policy_ref": policy.policy_ref,
+            "curation_taxonomy_configured": taxonomy.configured,
+        }, ensure_ascii=False, indent=2))
+        return 0
     if args.command == "backfill-evidence-links":
         print(json.dumps(service.backfill_evidence_links(apply=args.apply), ensure_ascii=False, indent=2))
         return 0
@@ -778,6 +827,10 @@ def main() -> int:
             "status": document.frontmatter["status"],
             "knowledge_revision": document.frontmatter["extensions"]["knowledge_revision"],
         }, ensure_ascii=False, indent=2)); return 0
+    if args.command == "propose-bundle-reclassification":
+        print(json.dumps(service.propose_bundle_reclassification(args.bundle, domain=args.domain, bundle_type=args.type), ensure_ascii=False, indent=2)); return 0
+    if args.command == "apply-bundle-reclassification":
+        print(json.dumps(service.apply_bundle_reclassification(args.bundle, expected_revision=args.expected_revision, domain=args.domain, bundle_type=args.type, actor=args.actor, rationale=args.rationale, approval_notification_id=args.approval_notification), ensure_ascii=False, indent=2)); return 0
     if args.command == "list-curation-candidates":
         print(json.dumps(service.list_curation_candidates(), ensure_ascii=False, indent=2)); return 0
     if args.command == "list-curation-reviews":

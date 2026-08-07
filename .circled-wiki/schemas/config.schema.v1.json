@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "circled-wiki/config/schema/v1",
+  "title": "Circled Wiki Installation Configuration",
+  "description": "Schema for .circled-wiki/config.yaml. An unversioned legacy file is accepted by the runtime and migrated in memory to schema_version 1.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": 1 },
+    "organization": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/safeIdentifier" },
+        "name": { "type": "string", "minLength": 1 }
+      }
+    },
+    "agent": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": { "operator": { "$ref": "#/$defs/safeIdentifier" } }
+    },
+    "graphify": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "installation": { "const": "external" },
+        "command": { "type": "string", "minLength": 1 },
+        "graph_path": { "$ref": "#/$defs/projectRelativePath" },
+        "source_paths": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/projectRelativePath" }
+        }
+      }
+    },
+    "workflow": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "default_owners": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/safeIdentifier" }
+        }
+      }
+    },
+    "publication": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "allowed_paths": { "const": ["knowledge"] },
+        "push_enabled": { "type": "boolean" },
+        "push_remote": { "$ref": "#/$defs/simpleName" },
+        "push_branch": { "$ref": "#/$defs/simpleName" }
+      },
+      "allOf": [{
+        "if": { "properties": { "push_enabled": { "const": true } }, "required": ["push_enabled"] },
+        "then": { "required": ["push_remote", "push_branch"], "properties": {
+          "push_remote": { "minLength": 1 }, "push_branch": { "minLength": 1 }
+        } }
+      }]
+    },
+    "curation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "provider": { "type": "string" },
+        "model": { "type": "string" },
+        "command": { "type": "string" },
+        "timeout_seconds": { "type": "integer", "minimum": 1 },
+        "max_retries": { "type": "integer", "minimum": 0 },
+        "max_input_bytes": { "type": "integer", "minimum": 1 },
+        "profile_version": { "type": "string", "minLength": 1 }
+      },
+      "allOf": [{
+        "if": { "properties": { "enabled": { "const": true } }, "required": ["enabled"] },
+        "then": { "required": ["provider", "model", "command"], "properties": {
+          "provider": { "minLength": 1 }, "model": { "minLength": 1 }, "command": { "minLength": 1 }
+        } }
+      }]
+    },
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "knowledge_owner": { "anyOf": [{ "const": "" }, { "$ref": "#/$defs/safeIdentifier" }] }
+      }
+    }
+  },
+  "$defs": {
+    "safeIdentifier": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]*$" },
+    "simpleName": { "type": "string", "pattern": "^(|[A-Za-z0-9][A-Za-z0-9_.-]*)$" },
+    "projectRelativePath": { "type": "string", "minLength": 1, "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$" }
+  }
+}

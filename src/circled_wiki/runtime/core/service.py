@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 from .repository import (
     apply_bundle_revision, backfill_evidence_links, create_bundle,
     find_document_by_id, inspect_legacy_evidence_backlinks, knowledge_root_path, migrate_document_ids,
+    propose_bundle_reclassification, apply_bundle_reclassification,
 )
 from .curator import propose_update
 from .ingest import (
@@ -232,6 +233,13 @@ class KnowledgeService:
 
     def propose_update(self, evidence_id: str) -> Dict[str, object]:
         return propose_update(self.knowledge_root, evidence_id)
+
+    def propose_bundle_reclassification(self, bundle_id: str, *, domain: str, bundle_type: str) -> Dict[str, object]:
+        return propose_bundle_reclassification(self.knowledge_root, bundle_id=bundle_id, domain=domain, bundle_type=bundle_type)
+
+    def apply_bundle_reclassification(self, bundle_id: str, *, expected_revision: int, domain: str, bundle_type: str, actor: str, rationale: str, approval_notification_id: str) -> Dict[str, object]:
+        document = apply_bundle_reclassification(self.knowledge_root, bundle_id=bundle_id, expected_revision=expected_revision, domain=domain, bundle_type=bundle_type, actor=actor, rationale=rationale, approval_notification_id=approval_notification_id)
+        return {"bundle_id": document.frontmatter["id"], "path": document.path.relative_to(self.knowledge_root.parent).as_posix(), "knowledge_revision": document.frontmatter["extensions"]["knowledge_revision"]}
 
     def propose_pending(self, limit: int = 100) -> Dict[str, object]:
         from circled_wiki.worker.jobs import run_curation_batch

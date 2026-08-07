@@ -87,7 +87,16 @@ class DataProtectionPolicyTests(unittest.TestCase):
             payload["sensitivity_review"]["non_sensitive_categories"] = []
             path.write_text(yaml.safe_dump(payload, allow_unicode=True, sort_keys=False), encoding="utf-8")
 
-            with self.assertRaisesRegex(ValueError, "unsupported fields"):
+            with self.assertRaisesRegex(ValueError, "does not match .*data-protection.schema.v1.json"):
+                load_data_protection_policy(root)
+
+    def test_policy_version_must_match_the_declared_schema(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / POLICY_PATH
+            path.parent.mkdir()
+            path.write_text(render_data_protection_policy().replace("policy_version: v1", "policy_version: v2"), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "does not match .*data-protection.schema.v1.json"):
                 load_data_protection_policy(root)
 
     def test_omitted_agent_mask_categories_use_product_defaults(self):
@@ -126,7 +135,7 @@ class DataProtectionPolicyTests(unittest.TestCase):
             payload["sensitivity_review"]["agent_mask_categories"]["compensation"]["include"] = []
             path.write_text(yaml.safe_dump(payload, allow_unicode=True, sort_keys=False), encoding="utf-8")
 
-            with self.assertRaisesRegex(ValueError, "include must contain at least one item"):
+            with self.assertRaisesRegex(ValueError, "does not match .*data-protection.schema.v1.json"):
                 load_data_protection_policy(root)
 
     def test_empty_agent_mask_categories_explicitly_disables_agent_masking(self):
@@ -152,7 +161,7 @@ class DataProtectionPolicyTests(unittest.TestCase):
             )
             path.write_text(rendered, encoding="utf-8")
 
-            with self.assertRaisesRegex(ValueError, "unsupported fields"):
+            with self.assertRaisesRegex(ValueError, "does not match .*data-protection.schema.v1.json"):
                 load_data_protection_policy(root)
 
     def test_policy_can_disable_supported_hard_mask_category(self):
@@ -191,13 +200,13 @@ class DataProtectionPolicyTests(unittest.TestCase):
                 "    email_address: false", "    email_address: false\n    unknown: true"
             )
             path.write_text(unknown, encoding="utf-8")
-            with self.assertRaisesRegex(ValueError, "unsupported categories"):
+            with self.assertRaisesRegex(ValueError, "does not match .*data-protection.schema.v1.json"):
                 load_data_protection_policy(root)
 
             path.write_text(render_data_protection_policy().replace(
                 "    credential: true", "    credential: 'enabled'"
             ), encoding="utf-8")
-            with self.assertRaisesRegex(ValueError, "values must be booleans"):
+            with self.assertRaisesRegex(ValueError, "does not match .*data-protection.schema.v1.json"):
                 load_data_protection_policy(root)
 
     def test_metadata_change_reopens_integrated_receipt(self):

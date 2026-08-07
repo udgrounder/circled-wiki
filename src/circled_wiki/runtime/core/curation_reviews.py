@@ -19,6 +19,7 @@ from .frontmatter import parse_markdown, render_markdown
 from .repository import _apply_bundle_revision, find_document_by_id
 from .validator import validate_document
 from .bundle_types import DIRECT_DRAFT_TYPES, PRE_CREATION_REVIEW_TYPES
+from .notification_store import archive_notifications_for_resource, record_user_notification
 
 
 REVIEW_STATUSES = {"pending", "approved", "no_bundle", "needs_changes", "needs_review", "stale", "applied", "archived"}
@@ -123,18 +124,41 @@ def generate_curation_review(
         )
         if existing is not None:
             _complete_curation_work_unlocked(knowledge_root, evidence_id)
-            return existing
-        path.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            path.write_text(render_markdown(data, _review_body(output)), encoding="utf-8")
-            validation = validate_document(path, knowledge_root)
-            if not validation.is_valid:
-                raise ValueError("curation review validation failed: " + "; ".join(validation.profile_errors))
-            _complete_curation_work_unlocked(knowledge_root, evidence_id)
-        except Exception:
-            path.unlink(missing_ok=True)
-            raise
-    return {"action": "created_review", "review_id": review_id, "path": path.relative_to(knowledge_root.parent).as_posix(), "recommendation": recommendation}
+            review_result = existing
+        else:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                path.write_text(render_markdown(data, _review_body(output)), encoding="utf-8")
+                validation = validate_document(path, knowledge_root)
+                if not validation.is_valid:
+                    raise ValueError("curation review validation failed: " + "; ".join(validation.profile_errors))
+                _complete_curation_work_unlocked(knowledge_root, evidence_id)
+            except Exception:
+                path.unlink(missing_ok=True)
+                raise
+            review_result = {
+                "action": "created_review", "review_id": review_id,
+                "path": path.relative_to(knowledge_root.parent).as_posix(),
+                "recommendation": recommendation,
+            }
+    try:
+        notification = record_user_notification(
+            knowledge_root.parent / "workspace",
+            event="review_requested",
+            priority="action_required",
+            title="Curation 검토가 필요합니다",
+            summary="Bundle 생성 또는 갱신에 대한 사용자 검토가 필요합니다.",
+            next_action="Curation Review를 검토하고 승인, 보완 요청 또는 보류를 선택하세요.",
+            resource_ref=str(review_result["path"]),
+            approval_required=True,
+            dedupe_key=f"review_requested:{review_result['review_id']}",
+            related_evidence_id=evidence_id,
+            related_bundle_id=target_bundle_id or "",
+        )
+        review_result["user_notification"] = notification
+    except (OSError, ValueError) as error:
+        review_result["notification_delivery_error"] = str(error)
+    return review_result
 
 
 def decide_curation_review(knowledge_root: Path, review_id: str, *, action: str, actor: str, note: str = "") -> Dict[str, object]:
@@ -244,6 +268,7 @@ def decide_curation_review(knowledge_root: Path, review_id: str, *, action: str,
         except Exception:
             bundle.path.write_text(original_bundle, encoding="utf-8")
             raise
+        _archive_review_notification(knowledge_root, path)
         return {
             "review_id": review_id,
             "status": data["status"],
@@ -252,6 +277,7 @@ def decide_curation_review(knowledge_root: Path, review_id: str, *, action: str,
         }
     if delete_review_after_decision:
         _archive_review(path, data, document.body)
+        _archive_review_notification(knowledge_root, path)
         return {
             "review_id": review_id,
             "status": data["status"],
@@ -344,10 +370,24 @@ def apply_approved_curation_update(
         if path.exists():
             path.write_text(render_markdown(document.frontmatter, document.body), encoding="utf-8")
         raise
+    _archive_review_notification(knowledge_root, path)
     return {
         "review_id": review_id, "status": "applied", "bundle_id": target_id,
         "knowledge_revision": updated.frontmatter["extensions"]["knowledge_revision"],
     }
+
+
+def _archive_review_notification(knowledge_root: Path, path: Path) -> None:
+    """Do not leave a user-facing review request open after its source resolves."""
+    try:
+        archive_notifications_for_resource(
+            knowledge_root.parent / "workspace",
+            resource_ref=path.relative_to(knowledge_root.parent).as_posix(),
+            reason="Curation Review resolved",
+        )
+    except (OSError, ValueError):
+        # The review receipt is canonical; notification delivery must not undo it.
+        pass
 
 
 def apply_automatic_curation_update(
@@ -574,3 +614,4 @@ def _stale_review(
             data["status"] = previous_status
             path.write_text(render_markdown(data, body), encoding="utf-8")
             raise
+    _archive_review_notification(knowledge_root, path)

@@ -32,8 +32,14 @@ Launcher는 현재 작업 디렉터리에 관계없이 이 프로젝트 root와 
 배포 자산의 checksum·proposal·backup은 Product Agent의 upgrade dry-run과 manifest·Receipt 대조에서 확인한다.
 일상 운영은 선택한 Profile의 입력·권한·Evidence·revision Gate와 필요한 경우 `validate`만 적용한다.
 
-설치별 조직 ID, 운영 Agent와 선택적 Graphify 경계는 `.circled-wiki/config.yaml`에서 확인한다. 이 파일은 설치 시
+설치별 조직 ID, 운영 Agent와 Graphify 경계는 `.circled-wiki/config.yaml`과 `.circled-wiki/schemas/config.schema.v1.json`에서, Data Protection 정책은 `.circled-wiki/data-protection.yaml`과 `.circled-wiki/schemas/data-protection.schema.v1.json`에서, 선택적 Curation taxonomy는 RB-KNW-027에 따라 `.circled-wiki/curation-taxonomy.yaml`에서 확인한다. 이 파일들은 설치 시
 생성되고 이후 upgrade에서 덮어쓰지 않는 설치 로컬 설정이다.
+
+taxonomy를 만들거나 바꾸거나 이를 근거로 기존 Bundle을 재분류할 때는 `.circled-wiki/agent-rules/curation-taxonomy.md`, `.circled-wiki/schemas/schema-registry.json`과 현재 버전의 `curation-taxonomy.schema.v<version>.json`을 먼저 읽는다.
+
+운영 Agent는 YAML 설정을 읽기 전 공용 JSON Schema 검증을 통과시켜야 한다. Runtime이 읽는 새 설치별 YAML을 만들거나 형식을 바꿀 때는 RB-KNW-028에 따라 동명 JSON Schema 작성·Schema 목록 등록·공용 검증 연결을 같은 변경에서 완료한다. 계약 버전은 YAML `schema_version`, 지원 버전·현재 버전은 `.circled-wiki/schemas/schema-registry.json`, 승격·migration·지원 종료는 RB-KNW-029를 따른다. 설치 루트에서 `circled-wiki validate-configuration`을 실행하면 `config.yaml`, `data-protection.yaml`, `curation-taxonomy.yaml`을 같은 검증기로 점검한다.
+
+사용자에게 알려야 할 Curation·taxonomy 이벤트는 RB-NOTIFY-001에 따라 `workspace/notifications/`의 공통 파일 DB에 기록한다. 기존 Review·taxonomy·Queue 상태를 그 폴더로 옮기지 않으며, 사용자의 확인은 acknowledgement 파일로만 기록한다.
 
 ## Agent Operation
 

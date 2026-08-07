@@ -5,7 +5,7 @@
 
 ## Startup Sequence
 
-1. `.circled-wiki/config.yaml`을 읽어 조직 ID, 운영 Agent, Graphify 사용 여부, Curation 활성화 여부와 `approval.knowledge_owner`를 확인한다.
+1. `.circled-wiki/config.yaml`을 읽어 조직 ID, 운영 Agent, Graphify 사용 여부, Curation 활성화 여부와 `approval.knowledge_owner`를 확인하고, `.circled-wiki/curation-taxonomy.yaml`에서 로컬 routing rule을 확인한다.
 2. `.circled-wiki/OPERATING_RULES.md`를 읽는다.
 3. `.circled-wiki/AGENT_ROUTER.md` Routing Table로 요청을 분류하고 해당
    `.circled-wiki/agent-rules/*.md` 하나만 읽는다.

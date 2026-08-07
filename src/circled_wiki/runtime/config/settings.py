@@ -9,6 +9,8 @@ from typing import Any, Dict, Tuple
 
 import yaml
 
+from .schema_validation import validate_yaml_payload
+
 
 SAFE_IDENTIFIER = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 DEFAULT_ORGANIZATION_ID = "example-org"
@@ -147,7 +149,14 @@ def load_settings(project_root: Path) -> CircledWikiSettings:
         payload = yaml.safe_load(path.read_text(encoding="utf-8"))
     except (OSError, yaml.YAMLError) as error:
         raise ValueError(".circled-wiki/config.yaml is invalid") from error
-    return _validate_settings(_migrate_settings_payload(payload))
+    migrated = _migrate_settings_payload(payload)
+    validate_yaml_payload(
+        migrated,
+        project_root=project_root,
+        schema_name="config",
+        instance_name=".circled-wiki/config.yaml",
+    )
+    return _validate_settings(migrated)
 
 
 def _migrate_settings_payload(payload: object) -> Dict[str, Any]:
@@ -155,13 +164,13 @@ def _migrate_settings_payload(payload: object) -> Dict[str, Any]:
     if not isinstance(payload, dict):
         raise ValueError(".circled-wiki/config.yaml must be an object")
     version = payload.get("schema_version", 0)
-    if version == 1:
+    if isinstance(version, int) and not isinstance(version, bool) and version >= 1:
         return payload
     if version == 0:
         migrated = dict(payload)
         migrated["schema_version"] = 1
         return migrated
-    raise ValueError(".circled-wiki/config.yaml schema_version is unsupported")
+    raise ValueError(".circled-wiki/config.yaml schema_version must be a positive integer")
 
 
 def organization_id_for(knowledge_root: Path) -> str:
@@ -175,7 +184,8 @@ def settings_semantic_checksum(project_root: Path) -> str:
         "organization_id": settings.organization_id, "organization_name": settings.organization_name,
         "operator_agent": settings.operator_agent, "graphify": settings.graphify.__dict__,
         "workflow": settings.workflow.__dict__, "publication": settings.publication.__dict__,
-        "curation": settings.curation.__dict__, "approval": settings.approval.__dict__,
+        "curation": settings.curation.__dict__,
+        "approval": settings.approval.__dict__,
     }
     encoded = json.dumps(payload, sort_keys=True, default=list, separators=(",", ":")).encode("utf-8")
     return "sha256:" + hashlib.sha256(encoded).hexdigest()
@@ -196,6 +206,7 @@ def _validate_settings(payload: Dict[str, Any]) -> CircledWikiSettings:
         raise ValueError(
             "organization, agent, graphify, workflow, publication, curation, and approval settings must be objects"
         )
+
     organization_id = organization.get("id", DEFAULT_ORGANIZATION_ID)
     organization_name = organization.get("name", DEFAULT_ORGANIZATION_NAME)
     operator_agent = agent.get("operator", DEFAULT_OPERATOR_AGENT)

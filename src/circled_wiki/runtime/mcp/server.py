@@ -18,6 +18,7 @@ TOOLS = [
     {"name": "read_bundle", "description": "Read one Bundle with frontmatter and Markdown body.", "inputSchema": {"type": "object", "required": ["bundle_id"], "properties": {"bundle_id": {"type": "string"}}}},
     {"name": "prepare_context", "description": "Create a source-preserving context package for a task.", "inputSchema": {"type": "object", "required": ["task_description"], "properties": {"task_description": {"type": "string"}, "bundle_ids": {"type": "array", "items": {"type": "string"}}}}},
     {"name": "propose_update", "description": "Create a non-writing Evidence-based curation proposal.", "inputSchema": {"type": "object", "required": ["evidence_id"], "properties": {"evidence_id": {"type": "string"}}}},
+    {"name": "propose_bundle_reclassification", "description": "Read-only proposal for an explicit Bundle type/domain/path reclassification.", "inputSchema": {"type": "object", "required": ["bundle_id", "domain", "bundle_type"], "properties": {"bundle_id": {"type": "string"}, "domain": {"type": "string"}, "bundle_type": {"type": "string"}}}},
     {"name": "propose_pending", "description": "Batch pending non-restricted Evidence into non-writing curation proposals.", "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer", "minimum": 1, "maximum": 1000, "default": 100}}}},
     {"name": "capture_conversation", "description": "Land a UTF-8 conversation as a pending self-contained Markdown item under inbox/<provider>/ without ingesting it. Capture always starts sensitivity_review as required.", "inputSchema": {"type": "object", "required": ["content", "provider", "title", "why_collected", "intended_use", "idempotency_key"], "properties": {"content": {"type": "string", "minLength": 1}, "provider": {"type": "string"}, "title": {"type": "string"}, "why_collected": {"type": "string"}, "intended_use": {"type": "array", "minItems": 1, "items": {"type": "string"}}, "idempotency_key": {"type": "string"}, "thread_ref": {"type": "string"}, "turn_from": {"type": "integer", "minimum": 0}, "turn_to": {"type": "integer", "minimum": 0}, "artifacts": {"type": "array", "items": {"type": "object"}}}}},
     {"name": "capture_document", "description": "Land an external source document as a pending Inbox item with provenance; it does not ingest or curate it. Capture always starts sensitivity_review as required.", "inputSchema": {"type": "object", "required": ["content", "provider", "title", "why_collected", "intended_use", "idempotency_key"], "properties": {"content": {"type": "string", "minLength": 1}, "provider": {"type": "string"}, "title": {"type": "string"}, "why_collected": {"type": "string"}, "intended_use": {"type": "array", "minItems": 1, "items": {"type": "string"}}, "idempotency_key": {"type": "string"}, "source_url": {"type": "string"}, "source_locator": {"type": "string"}, "captured_from": {"type": "string", "enum": ["api", "webhook", "manual", "upload", "sync"], "default": "sync"}}}},
@@ -46,6 +47,7 @@ TOOLS = [
     {"name": "review_curation_candidate", "description": "Record needs-changes, approval, rejection, or merge of a Draft candidate. Approval remains Draft until a separate Active-publication Gate passes.", "inputSchema": {"type": "object", "required": ["bundle_id", "action", "actor"], "properties": {"bundle_id": {"type": "string"}, "action": {"type": "string", "enum": ["needs_changes", "approve", "reject", "merge"]}, "actor": {"type": "string"}, "note": {"type": "string"}, "merged_into": {"type": "string"}}}},
     {"name": "promote_curation_candidate", "description": "Promote an approved Draft with a Security receipt, or automatically promote a pending/approved policy, guide, decision, spec, reference, or report through the RB-CUR-006 Gate. Runbook and manual promotion requires the configured knowledge-owner.", "inputSchema": {"type": "object", "required": ["bundle_id", "actor", "security_receipt"], "properties": {"bundle_id": {"type": "string"}, "actor": {"type": "string"}, "security_receipt": {"type": "string"}, "automated": {"type": "boolean", "default": False}}}},
     {"name": "apply_bundle_revision", "description": "Apply a validated Bundle revision using optimistic concurrency. Evidence is read-only and referenced only from the Bundle.", "inputSchema": {"type": "object", "required": ["bundle_id", "expected_revision", "frontmatter", "body", "actor"], "properties": {"bundle_id": {"type": "string"}, "expected_revision": {"type": "integer", "minimum": 1}, "frontmatter": {"type": "object"}, "body": {"type": "string"}, "actor": {"type": "string"}}}},
+    {"name": "apply_bundle_reclassification", "description": "Apply an acknowledged, impact-scoped Bundle type/domain/path move with revision protection and audit history.", "inputSchema": {"type": "object", "required": ["bundle_id", "expected_revision", "domain", "bundle_type", "actor", "rationale", "approval_notification_id"], "properties": {"bundle_id": {"type": "string"}, "expected_revision": {"type": "integer", "minimum": 1}, "domain": {"type": "string"}, "bundle_type": {"type": "string"}, "actor": {"type": "string"}, "rationale": {"type": "string", "minLength": 1}, "approval_notification_id": {"type": "string", "minLength": 1}}}},
     {"name": "publish_changes", "description": "Validate and automatically Git commit knowledge changes.", "inputSchema": {"type": "object", "required": ["commit_message"], "properties": {"commit_message": {"type": "string"}}}},
     {"name": "push_committed_changes", "description": "Push the current committed HEAD only when installation remote/branch allowlist enables it.", "inputSchema": {"type": "object", "required": ["commit"], "properties": {"commit": {"type": "string"}}}},
     {"name": "resume_pending_push", "description": "Before starting a new workflow stage, retry the failed processing-actor transition or terminal Push recorded as publication_pending.", "inputSchema": {"type": "object", "properties": {}}},
@@ -74,7 +76,7 @@ TOOLS = [
 ]
 
 READ_ONLY_TOOLS = {
-    "search_knowledge", "read_bundle", "prepare_context", "propose_update", "propose_pending", "inspect_inbox", "list_inbox_review_queue", "list_inbox_disposals", "list_curation_candidates", "list_curation_reviews", "list_curation_queue",
+    "search_knowledge", "read_bundle", "prepare_context", "propose_update", "propose_bundle_reclassification", "propose_pending", "inspect_inbox", "list_inbox_review_queue", "list_inbox_disposals", "list_curation_candidates", "list_curation_reviews", "list_curation_queue",
     "validate_result", "find_workflow", "audit_knowledge", "list_knowledge_inventory", "audit_hardcoded_install_values", "curation_backlog_metrics",
     "validate_claim_support", "measure_runbook_effectiveness", "get_task",
 }
@@ -176,6 +178,9 @@ def handle_request(
                 summary=arguments["summary"], evidence_id=arguments["evidence_id"],
                 body=arguments["body"], actor=arguments["actor"], tags=arguments["tags"],
             )
+            elif name == "propose_bundle_reclassification": content = service.propose_bundle_reclassification(
+                arguments["bundle_id"], domain=arguments["domain"], bundle_type=arguments["bundle_type"],
+            )
             elif name == "list_curation_candidates": content = service.list_curation_candidates()
             elif name == "list_curation_reviews": content = service.list_curation_reviews(include_resolved=arguments.get("include_resolved", False))
             elif name == "list_curation_queue": content = service.list_curation_queue(include_resolved=arguments.get("include_resolved", False))
@@ -199,6 +204,12 @@ def handle_request(
                 arguments["bundle_id"], expected_revision=arguments["expected_revision"],
                 frontmatter=arguments["frontmatter"], body=arguments["body"],
                 actor=arguments["actor"],
+            )
+            elif name == "apply_bundle_reclassification": content = service.apply_bundle_reclassification(
+                arguments["bundle_id"], expected_revision=arguments["expected_revision"],
+                domain=arguments["domain"], bundle_type=arguments["bundle_type"],
+                actor=arguments["actor"], rationale=arguments["rationale"],
+                approval_notification_id=arguments["approval_notification_id"],
             )
             elif name == "publish_changes": content = service.publish_changes(arguments["commit_message"])
             elif name == "push_committed_changes": content = service.push_committed_changes(arguments["commit"])

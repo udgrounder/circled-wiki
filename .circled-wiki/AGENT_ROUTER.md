@@ -25,6 +25,9 @@ Vault 구조·domain·provider·운영 흐름을 관리하거나 변경하는 �
 | `manual`·`runbook` 직접 Review 카드 생성 또는 검증 | `agent-rules/knowledge-curation.md` |
 | 승인된 `update_existing` Review로 기존 Bundle 보완 적용 | `agent-rules/knowledge-curation.md` |
 | Bundle 파일명·Frontmatter ID 규칙 확인 또는 현재 충돌 점검 | 아래 **Bundle Identity Routing**의 1~3단계를 먼저 수행. 변경 전에는 `agent-rules/knowledge-curation.md` |
+| 기존 Bundle의 domain·type 재분류 또는 `bundles/` 내 경로 이동 | `agent-rules/knowledge-curation.md` — 먼저 read-only reclassification proposal, 이후 사용자 또는 허용된 운영 Agent의 명시 판단 |
+| `curation-taxonomy.yaml` 부재 상태의 Curation 분류 요청 | `agent-rules/knowledge-curation.md` — 관련 Bundle 조사와 사용자 승인 전에는 taxonomy 파일을 만들지 않음 |
+| `curation-taxonomy.yaml` 생성·검토·갱신 또는 taxonomy 기반 재분류 제안 | `agent-rules/curation-taxonomy.md` |
 | 승인된 Bundle 파일명·Frontmatter ID 일괄 정규화 | 아래 **Bundle Identity Routing** 전체와 `agent-rules/publication.md` |
 | 검토된 지식 발행 또는 검증된 Queue·Review·Draft 상태 공유 Commit·Push | `agent-rules/publication.md` |
 | 처리 주체 변경(`agent ↔ user`) 또는 최종 종료 상태 공유 | `agent-rules/publication.md` — 처리 주체·작업 상태 전이/종료 Receipt를 Commit·Push하고 Push 실패 시 `publication_pending` 재시도 |

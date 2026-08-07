@@ -8,12 +8,14 @@ from typing import Any, Dict, Iterable, Optional
 from uuid import uuid4
 
 from circled_wiki.config.settings import load_settings
+from circled_wiki.config.curation_taxonomy import load_curation_taxonomy
 
 from .frontmatter import parse_markdown, render_markdown
 from .models import MarkdownDocument
 from .namespace import require_stable_organization_id
 from .validator import validate_document, validate_repository
 from .bundle_types import PRE_CREATION_REVIEW_TYPES
+from .taxonomy_proposals import require_reclassification_approval
 
 
 SAFE_PATH_SEGMENT = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
@@ -412,6 +414,110 @@ def apply_bundle_revision(
         proposed_frontmatter=proposed_frontmatter, body=body, actor=actor,
         allow_active_curation_revision=False,
     )
+
+
+def propose_bundle_reclassification(
+    knowledge_root: Path, *, bundle_id: str, domain: str, bundle_type: str,
+) -> Dict[str, object]:
+    """Describe a non-writing Bundle type/domain/path change."""
+    existing = find_document_by_id(knowledge_root, bundle_id)
+    if existing is None or "bundles" not in existing.path.parts:
+        raise ValueError("bundle_id must resolve to an existing Bundle")
+    if not SAFE_PATH_SEGMENT.fullmatch(domain) or not SAFE_PATH_SEGMENT.fullmatch(bundle_type):
+        raise ValueError("domain and bundle_type must be safe lowercase identifiers")
+    if existing.frontmatter.get("status") == "archived":
+        raise ValueError("archived Bundle reclassification requires an explicit restore workflow")
+    relative = existing.path.relative_to(knowledge_root / "bundles")
+    current_domain = _bundle_domain(relative)
+    destination = _bundle_destination(knowledge_root, domain, bundle_type, existing.path.name)
+    revision = existing.frontmatter.get("extensions", {}).get("knowledge_revision")
+    if not isinstance(revision, int):
+        raise ValueError("Bundle must have an integer knowledge_revision")
+    return {
+        "bundle_id": bundle_id,
+        "expected_revision": revision,
+        "from": {"domain": current_domain, "bundle_type": existing.frontmatter.get("type"), "path": existing.path.relative_to(knowledge_root.parent).as_posix()},
+        "to": {"domain": domain, "bundle_type": bundle_type, "path": destination.relative_to(knowledge_root.parent).as_posix()},
+        "id_preserved": True,
+        "bundle_uuid_preserved": True,
+        "requires_explicit_approval": True,
+    }
+
+
+def apply_bundle_reclassification(
+    knowledge_root: Path, *, bundle_id: str, expected_revision: int, domain: str,
+    bundle_type: str, actor: str, rationale: str, approval_notification_id: str,
+) -> MarkdownDocument:
+    """Atomically apply an explicitly approved Bundle reclassification and move."""
+    if not actor.strip() or not rationale.strip() or not approval_notification_id.strip():
+        raise ValueError("actor, rationale, and approval_notification_id are required")
+    taxonomy = load_curation_taxonomy(knowledge_root.parent)
+    if domain not in {item.identifier for item in taxonomy.domains}:
+        raise ValueError("reclassification domain must be registered in the approved taxonomy")
+    approval = require_reclassification_approval(
+        knowledge_root,
+        notification_id=approval_notification_id,
+        bundle_id=bundle_id,
+        domain=domain,
+        bundle_type=bundle_type,
+    )
+    proposal = propose_bundle_reclassification(
+        knowledge_root, bundle_id=bundle_id, domain=domain, bundle_type=bundle_type,
+    )
+    if proposal["expected_revision"] != expected_revision:
+        raise ValueError("Bundle revision conflict; reload reclassification proposal")
+    existing = find_document_by_id(knowledge_root, bundle_id)
+    assert existing is not None
+    destination = (knowledge_root.parent / str(proposal["to"]["path"])).resolve()
+    if destination == existing.path:
+        raise ValueError("reclassification must change the Bundle type or domain")
+    if destination.exists():
+        raise ValueError("reclassification destination already exists")
+    data = deepcopy(existing.frontmatter)
+    extensions = data.get("extensions")
+    if not isinstance(extensions, dict):
+        raise ValueError("Bundle extensions must be an object")
+    history = list(extensions.get("reclassification_history", []))
+    history.append({
+        "reclassified_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "reclassified_by": actor.strip(), "rationale": rationale.strip(),
+        "approval_notification_id": approval_notification_id,
+        "taxonomy_proposal_id": approval.get("proposal_id"),
+        "from": proposal["from"], "to": proposal["to"],
+    })
+    extensions["reclassification_history"] = history
+    extensions["knowledge_revision"] = expected_revision + 1
+    extensions["updated_by"] = actor.strip()
+    data["extensions"] = extensions
+    data["type"] = bundle_type
+    data["tags"] = _normalized_bundle_tags(
+        data.get("tags"), bundle_type=bundle_type, domain=domain, topic_fallback=existing.path.stem,
+    )
+    data["updated_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    original = existing.path.read_text(encoding="utf-8")
+    try:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        existing.path.replace(destination)
+        destination.write_text(render_markdown(data, existing.body), encoding="utf-8")
+        invalid = [result for result in validate_repository(knowledge_root) if not result.is_valid]
+        if invalid:
+            messages = [error for result in invalid for error in result.okf_errors + result.profile_errors]
+            raise ValueError("Bundle reclassification validation failed: " + "; ".join(messages))
+    except Exception:
+        if destination.exists():
+            destination.replace(existing.path)
+        existing.path.write_text(original, encoding="utf-8")
+        raise
+    return parse_markdown(destination)
+
+
+def _bundle_destination(knowledge_root: Path, domain: str, bundle_type: str, filename: str) -> Path:
+    directory = knowledge_root / "bundles" / domain
+    if bundle_type == "runbook":
+        directory /= "runbooks"
+    elif bundle_type == "manual":
+        directory /= "manuals"
+    return directory / filename
 
 
 def _apply_bundle_revision(

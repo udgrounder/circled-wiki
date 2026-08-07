@@ -1,0 +1,14 @@
+schema_version: 1
+# Installation-local Curation classification policy (RB-KNW-027).
+# Domains and rules are user-approved, installation-local classification policy.
+# They never bypass semantic, review, security, or publication Gates. Existing
+# Bundles are never reclassified automatically.
+# match_terms: every term must occur in the Evidence title or intended_use.
+# description: the classification boundary and intended use, so an Agent can
+# decide whether the rule applies without inferring a convention from names.
+# domains: approved domain IDs and descriptions; rule domain must be registered.
+# bundle_type: safe lowercase identifier; slug_prefix is optional.
+# auto_create: true permits a new Bundle only after no matching existing Bundle
+# is found. The created Bundle records a user notification in its Curation history.
+domains: []
+routing_rules: []

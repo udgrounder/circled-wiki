@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 
 from circled_wiki.config.settings import load_settings, render_settings, settings_semantic_checksum
+from circled_wiki.config.curation_taxonomy import load_curation_taxonomy
 from circled_wiki.core.ingest import capture_document, capture_file, ingest_evidence
 from circled_wiki.core.namespace import inspect_organization_namespace
 from circled_wiki.core.repository import (
@@ -33,6 +34,15 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(settings.workflow.default_owners, ())
         self.assertEqual(settings.publication.allowed_paths, ("knowledge",))
 
+    def test_unsupported_configuration_schema_version_is_rejected_by_registry(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            config = project / ".circled-wiki" / "config.yaml"
+            config.parent.mkdir()
+            config.write_text("schema_version: 2\n", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "schema-registry.json has no supported config schema_version"):
+                load_settings(project)
+
     def test_unversioned_legacy_config_migrates_without_identity_change(self):
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)
@@ -61,7 +71,19 @@ class SettingsTests(unittest.TestCase):
             config = project / ".circled-wiki" / "config.yaml"
             config.parent.mkdir()
             config.write_text("schema_version: 1\npublication:\n  push_enabled: true\n", encoding="utf-8")
-            with self.assertRaisesRegex(ValueError, "push requires"):
+            with self.assertRaisesRegex(ValueError, "does not match .*config.schema.v1.json"):
+                load_settings(project)
+
+    def test_unknown_config_fields_are_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            config = project / ".circled-wiki" / "config.yaml"
+            config.parent.mkdir()
+            config.write_text(
+                "schema_version: 1\norganization:\n  id: acme\n  name: Acme\n  display_name: Acme Wiki\n",
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "does not match .*config.schema.v1.json"):
                 load_settings(project)
 
     def test_two_installations_keep_identity_and_inbox_uris_isolated(self):
@@ -169,6 +191,73 @@ class SettingsTests(unittest.TestCase):
     def test_enabled_curation_requires_explicit_adapter_identity(self):
         with self.assertRaisesRegex(ValueError, "enabled curation requires"):
             render_settings(curation_enabled=True)
+
+    def test_curation_routing_rules_are_install_local_and_validated(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            config = project / ".circled-wiki" / "curation-taxonomy.yaml"
+            config.parent.mkdir()
+            config.write_text(
+                """schema_version: 1
+domains:
+  - id: operations
+    description: Customer-facing operational guidance.
+routing_rules:
+  - match_terms: [customer, inquiry]
+    description: Customer inquiry guidance.
+    domain: operations
+    bundle_type: guide
+    auto_create: true
+    slug_prefix: customer-inquiry
+""",
+                encoding="utf-8",
+            )
+            taxonomy = load_curation_taxonomy(project)
+            self.assertEqual(taxonomy.routing_rules[0].domain, "operations")
+            self.assertEqual(taxonomy.routing_rules[0].match_terms, ("customer", "inquiry"))
+
+    def test_curation_routing_rule_must_use_a_registered_domain(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            config = project / ".circled-wiki" / "curation-taxonomy.yaml"
+            config.parent.mkdir()
+            config.write_text(
+                """schema_version: 1
+domains: []
+routing_rules:
+  - match_terms: [customer]
+    description: Customer inquiry guidance.
+    domain: operations
+    bundle_type: guide
+    auto_create: true
+""",
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "unknown domain"):
+                load_curation_taxonomy(project)
+
+    def test_invalid_curation_routing_rule_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            config = project / ".circled-wiki" / "curation-taxonomy.yaml"
+            config.parent.mkdir()
+            config.write_text(
+                "schema_version: 1\ndomains:\n  - id: operations\n    description: Customer-facing operational guidance.\nrouting_rules:\n  - match_terms: []\n    description: Customer inquiry guidance.\n    domain: operations\n    bundle_type: guide\n    auto_create: true\n",
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "match_terms"):
+                load_curation_taxonomy(project)
+
+    def test_curation_routing_rule_allows_an_installation_defined_type(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            config = project / ".circled-wiki" / "curation-taxonomy.yaml"
+            config.parent.mkdir()
+            config.write_text(
+                "schema_version: 1\ndomains:\n  - id: operations\n    description: Customer-facing operational guidance.\nrouting_rules:\n  - match_terms: [playbook]\n    description: Field playbook guidance.\n    domain: operations\n    bundle_type: field-note\n    auto_create: true\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(load_curation_taxonomy(project).routing_rules[0].bundle_type, "field-note")
 
     def test_invalid_default_owner_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "workflow.default_owners"):

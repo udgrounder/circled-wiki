@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "circled-wiki/curation-taxonomy/schema/v1",
+  "title": "Circled Wiki Curation Taxonomy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "domains", "routing_rules"],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "domains": {
+      "type": "array",
+      "description": "Installation-approved Bundle domains and their classification boundaries.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "description"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]*$" },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The domain's scope, inclusion boundary, and exclusion boundary for the operating Agent."
+          }
+        }
+      }
+    },
+    "routing_rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["match_terms", "description", "domain", "bundle_type", "auto_create"],
+        "properties": {
+          "match_terms": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The inclusion boundary and intended meaning of this classification rule."
+          },
+          "domain": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_-]*$"
+          },
+          "bundle_type": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_-]*$"
+          },
+          "auto_create": {
+            "type": "boolean",
+            "description": "Permit automatic creation only when no semantically matching existing Bundle exists."
+          },
+          "slug_prefix": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          }
+        }
+      }
+    }
+  }
+}

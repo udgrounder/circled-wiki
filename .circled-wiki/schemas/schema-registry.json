@@ -1,0 +1,26 @@
+{
+  "registry_version": 1,
+  "schemas": {
+    "config": {
+      "instance_path": ".circled-wiki/config.yaml",
+      "current_version": 1,
+      "versions": {
+        "1": "config.schema.v1.json"
+      }
+    },
+    "data-protection": {
+      "instance_path": ".circled-wiki/data-protection.yaml",
+      "current_version": 1,
+      "versions": {
+        "1": "data-protection.schema.v1.json"
+      }
+    },
+    "curation-taxonomy": {
+      "instance_path": ".circled-wiki/curation-taxonomy.yaml",
+      "current_version": 1,
+      "versions": {
+        "1": "curation-taxonomy.schema.v1.json"
+      }
+    }
+  }
+}
