@@ -376,6 +376,27 @@ class BootstrapKnowledgeRootTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn("invalid=0", result.stdout)
 
+    def test_apply_stops_before_backup_when_target_runtime_dependency_is_missing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "team-knowledge"
+            bootstrap_circled_wiki(target, ROOT, apply=True)
+            manifest_before = (target / MANIFEST_PATH).read_bytes()
+
+            with patch(
+                "circled_wiki.core.bootstrap._runtime_dependency_report",
+                return_value={
+                    "python": "python3",
+                    "requirements": ["PyYAML>=6.0", "jsonschema>=4.18,<5"],
+                    "missing": ["jsonschema>=4.18,<5"],
+                    "status": "missing",
+                },
+            ):
+                with self.assertRaisesRegex(ValueError, "runtime dependencies are missing before apply"):
+                    bootstrap_circled_wiki(target, ROOT, apply=True)
+
+            self.assertEqual((target / MANIFEST_PATH).read_bytes(), manifest_before)
+            self.assertFalse((target / ".circled-wiki-backups").exists())
+
     def test_installed_runtime_contains_every_router_profile(self):
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory) / "team-knowledge"

@@ -2,7 +2,10 @@
 
 import hashlib
 import json
+import os
 import shutil
+import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -83,6 +86,45 @@ MANAGED_DIRECTORIES = (
 GITIGNORE_BEGIN = "# BEGIN circled-wiki:generated-artifacts"
 GITIGNORE_END = "# END circled-wiki:generated-artifacts"
 LEGACY_GITIGNORE_MARKER = "# circled-wiki:generated-artifacts"
+RUNTIME_DEPENDENCIES = (
+    ("PyYAML>=6.0", "yaml"),
+    ("jsonschema>=4.18,<5", "jsonschema"),
+)
+
+
+def _runtime_dependency_report(runtime_python: Optional[str] = None) -> Dict[str, object]:
+    """Check the interpreter the installed launcher will use before mutation.
+
+    The installer itself can be invoked from a source checkout with a temporary
+    ``PYTHONPATH``.  That does not prove the target's normal ``python3`` can
+    import Runtime dependencies, so the probe intentionally removes it.
+    """
+    executable = runtime_python or shutil.which("python3") or sys.executable
+    modules = [module for _, module in RUNTIME_DEPENDENCIES]
+    probe = (
+        "import importlib.util, json; "
+        f"print(json.dumps({{name: importlib.util.find_spec(name) is not None for name in {modules!r}}}))"
+    )
+    environment = dict(os.environ)
+    environment.pop("PYTHONPATH", None)
+    try:
+        result = subprocess.run(
+            [executable, "-c", probe],
+            capture_output=True,
+            check=False,
+            env=environment,
+            text=True,
+        )
+        available = json.loads(result.stdout) if result.returncode == 0 else {}
+    except (OSError, ValueError, json.JSONDecodeError):
+        available = {}
+    missing = [requirement for requirement, module in RUNTIME_DEPENDENCIES if not available.get(module)]
+    return {
+        "python": executable,
+        "requirements": [requirement for requirement, _ in RUNTIME_DEPENDENCIES],
+        "missing": missing,
+        "status": "ready" if not missing else "missing",
+    }
 
 
 def _load_knowledge_readme_template(source_root: Path) -> str:
@@ -412,6 +454,7 @@ def bootstrap_circled_wiki(
     organization_name: str = DEFAULT_ORGANIZATION_NAME,
     operator_agent: str = DEFAULT_OPERATOR_AGENT,
     graphify_enabled: bool = False,
+    runtime_python: Optional[str] = None,
 ) -> Dict[str, object]:
     """Plan or safely apply OS assets at a user-designated project root.
 
@@ -422,6 +465,13 @@ def bootstrap_circled_wiki(
     target, source_root = target.expanduser().resolve(), source_root.resolve()
     if target == source_root or target == source_root / "knowledge" or target in source_root.parents:
         raise ValueError("bootstrap target must be a separate project root outside the source project")
+    runtime_dependencies = _runtime_dependency_report(runtime_python)
+    if apply and runtime_dependencies["status"] != "ready":
+        missing = ", ".join(runtime_dependencies["missing"])
+        raise ValueError(
+            "runtime dependencies are missing before apply: " + missing
+            + "; install them for the target runtime and run the dry-run again"
+        )
     control_root = target / CONTROL_PLANE
     manifest_exists = (target / MANIFEST_PATH).exists()
     agent_entrypoint = target / AGENT_ENTRYPOINT_PATH
@@ -753,6 +803,7 @@ def bootstrap_circled_wiki(
             "gitignore_missing_patterns": gitignore_missing_patterns,
             "configuration_action": configuration_action,
             "configuration": configuration_report,
+            "runtime_dependencies": runtime_dependencies,
             "data_protection_action": data_protection_action,
             "curation_taxonomy_action": taxonomy_action,
             "legacy_asset_warnings": legacy_asset_warnings,

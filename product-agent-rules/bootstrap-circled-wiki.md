@@ -20,6 +20,7 @@
 ## Checks
 
 - manifest, 이전 checksum, Runtime Profile allowlist와 Router
+- 대상 Runtime Python과 릴리스 `pyproject.toml` 의존성. 누락 의존성은 dry-run에서 `runtime_dependencies.missing`으로 보고한다.
 - manifest의 미해결 Control Plane proposal·미기록 파일 Issue와 Agent 진입점·launcher smoke check
 - `knowledge/`, `workspace/`, 기존 `config.yaml`·`data-protection.yaml`과 root Agent 파일의 보존
 - launcher smoke check, validate와 backup 결과
@@ -27,6 +28,7 @@
 ## Gates
 
 - 기존 OS 변경 전 Control Plane 백업 성공
+- `runtime_dependencies.status`가 `ready`일 것. 누락 시 apply·backup 전에 중단하고, 사용자가 대상 Runtime 의존성 설치를 승인한 뒤 새 dry-run을 실행할 것
 - Product Profile이 Runtime package에 없을 것
 - `knowledge/`와 `workspace/`에 upgrade action이 없을 것
 - `data-protection.yaml`은 없을 때만 기본값으로 생성하고, 기존 파일은 덮어쓰지 않을 것

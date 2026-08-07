@@ -159,6 +159,7 @@ def main() -> int:
     bootstrap.add_argument("--organization-name")
     bootstrap.add_argument("--operator-agent")
     bootstrap.add_argument("--graphify", choices=("enabled", "disabled"))
+    bootstrap.add_argument("--runtime-python", help="Python executable used by the installed Runtime")
     initialize_workspace = subparsers.add_parser("initialize-operational-workspace")
     initialize_workspace.add_argument("--apply", action="store_true")
     inbox_pii = subparsers.add_parser("record-inbox-pii-scan")
@@ -440,13 +441,15 @@ def main() -> int:
         configuration = _bootstrap_configuration(args)
         report = bootstrap_circled_wiki(
             Path(args.target), project_root(), apply=args.apply,
+            runtime_python=args.runtime_python,
             **configuration,
         )
         print(json.dumps(report, ensure_ascii=False, indent=2)); return 0
     if args.command == "initialize-operational-workspace":
         report = initialize_operational_workspace(project_root(), apply=args.apply)
         print(json.dumps(report, ensure_ascii=False, indent=2)); return 0
-    root = project_root() / "knowledge"
+    project = project_root()
+    root = project / "knowledge"
     service = KnowledgeService(root)
     if args.command == "record-system-issue":
         result = record_system_issue(
@@ -536,9 +539,9 @@ def main() -> int:
         print(f"validated={len(results)} invalid={len(invalid)}")
         return 1 if invalid else 0
     if args.command == "validate-configuration":
-        settings = load_settings(root)
-        policy = load_data_protection_policy(root)
-        taxonomy = load_curation_taxonomy(root)
+        settings = load_settings(project)
+        policy = load_data_protection_policy(project)
+        taxonomy = load_curation_taxonomy(project)
         print(json.dumps({
             "valid": True,
             "schema_version": 1,

@@ -20,6 +20,7 @@ Deployment Operator가 upgrade를 완료한 뒤 실제 설치본의 독립 검�
 
 ## Checks
 
+- apply 전 dry-run의 `runtime_dependencies.status`가 `ready`였는지와 대상 Runtime Python을 확인한다. 누락이 있으면 apply하지 않고 의존성 설치 승인과 새 dry-run을 요청한다.
 - 실행 release와 Deployment Receipt, 적용·보존·proposal 결과
 - config semantic checksum, organization ID와 사용자 Plane 보존
 - 관련 증상의 재현 여부

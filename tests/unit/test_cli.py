@@ -5,6 +5,7 @@ import io
 import json
 import argparse
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from circled_wiki.cli.__main__ import (
@@ -88,6 +89,25 @@ class CliTests(unittest.TestCase):
         self.assertIn('"error": "operation_failed"', payload)
         self.assertIn('"stage": "record-task-step"', payload)
         self.assertNotIn("Traceback", payload)
+
+    def test_validate_configuration_uses_the_project_root_not_knowledge_root(self):
+        project = Path("/tmp/circled-wiki-project")
+        output = io.StringIO()
+        settings = SimpleNamespace(organization_id="camping-talk")
+        policy = SimpleNamespace(policy_ref="inbox-sensitivity/v1")
+        taxonomy = SimpleNamespace(configured=True)
+
+        with patch("sys.argv", ["circled-wiki", "validate-configuration"]):
+            with patch("circled_wiki.cli.__main__.project_root", return_value=project):
+                with patch("circled_wiki.cli.__main__.load_settings", return_value=settings) as load_settings_mock:
+                    with patch("circled_wiki.cli.__main__.load_data_protection_policy", return_value=policy):
+                        with patch("circled_wiki.cli.__main__.load_curation_taxonomy", return_value=taxonomy):
+                            with patch("circled_wiki.cli.__main__.KnowledgeService"):
+                                with patch("sys.stdout", output):
+                                    self.assertEqual(run_cli(), 0)
+
+        load_settings_mock.assert_called_once_with(project)
+        self.assertEqual(json.loads(output.getvalue())["organization_id"], "camping-talk")
 
     def test_find_workflow_uses_named_request_option(self):
         output = io.StringIO()
