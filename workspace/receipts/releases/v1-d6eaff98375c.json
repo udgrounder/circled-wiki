@@ -1,0 +1,35 @@
+{
+  "receipt_type": "release",
+  "release_id": "v1-d6eaff98375c",
+  "source_revision": "fb8ff1add2b1a8452a410ebe3002efa4608564bc",
+  "runtime_checksum": "sha256:564a0961f420a669bff86ef32d435ccc6112325c70b1c9b402f92aaa89803edb",
+  "router_checksum": "sha256:b5523394337ee7705dc9f647fc5100e11ab14e7d8a7ff30887b09f2d485fd12d",
+  "runtime_profiles": [
+    "bundle-rebuilding.md",
+    "curation-taxonomy.md",
+    "evidence-ingest.md",
+    "inbox-capture.md",
+    "inbox-disposition.md",
+    "inbox-inspection.md",
+    "inbox-sensitivity-review.md",
+    "knowledge-curation.md",
+    "knowledge-query.md",
+    "publication.md",
+    "runtime-upgrade-verification.md",
+    "system-observation.md",
+    "workflow-execution.md"
+  ],
+  "included_issue_ids": [],
+  "validation": {
+    "unit": "passed",
+    "integration": "passed",
+    "repository_validator": "passed"
+  },
+  "verified_by": "codex-product-agent",
+  "verified_at": "2026-08-07T11:45:32.183236+00:00",
+  "source_commit_check": {
+    "revision": "fb8ff1add2b1a8452a410ebe3002efa4608564bc",
+    "subject": "보완 릴리즈",
+    "worktree_clean": true
+  }
+}
