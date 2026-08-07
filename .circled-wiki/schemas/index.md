@@ -21,6 +21,10 @@ Schema 작성·`schema_version` 선언·이 목록 등록·공용 `validate_yaml
 변경은 새 `schema_version`과 새 Schema 파일을 추가하고 이전 파일을 보존한다. 모든 Runtime YAML Schema는 처음부터
 `<name>.schema.v<version>.json`으로 병존시킨다. 자세한 승격·migration·지원 종료 규칙은 RB-KNW-029를 따른다.
 
+모든 Schema의 `$id`는 `https://schemas.circled-wiki.invalid/` 아래의 절대 URI를 사용한다. 이는 외부 네트워크
+조회용 주소가 아니라 내부 `$ref`의 안정적인 base URI다. 상대 경로 `$id`는 지원하는 JSON Schema 해석기 사이에서
+fragment `$ref`를 다르게 결합할 수 있으므로 사용하지 않는다.
+
 - [Bundle JSON Schema](./bundle.schema.json)
 - [Evidence Record JSON Schema](./evidence-manifest.schema.json)
 - [Curation Taxonomy JSON Schema v1](./curation-taxonomy.schema.v1.json)

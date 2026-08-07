@@ -1,6 +1,10 @@
 import tempfile
 import unittest
+import json
 from pathlib import Path
+from urllib.parse import urlparse
+
+from jsonschema import RefResolver
 
 from circled_wiki.config.settings import load_settings, render_settings, settings_semantic_checksum
 from circled_wiki.config.curation_taxonomy import load_curation_taxonomy
@@ -14,7 +18,40 @@ from circled_wiki.core.frontmatter import parse_markdown, render_markdown
 from circled_wiki.core.validator import validate_document
 
 
+def _internal_references(value):
+    if isinstance(value, dict):
+        if isinstance(value.get("$ref"), str) and value["$ref"].startswith("#"):
+            yield value["$ref"]
+        for child in value.values():
+            yield from _internal_references(child)
+    elif isinstance(value, list):
+        for child in value:
+            yield from _internal_references(child)
+
+
 class SettingsTests(unittest.TestCase):
+    def test_schema_ids_are_absolute_and_internal_refs_resolve(self):
+        schemas = Path(__file__).resolve().parents[2] / ".circled-wiki" / "schemas"
+        names = (
+            "bundle.schema.json",
+            "evidence-manifest.schema.json",
+            "config.schema.v1.json",
+            "data-protection.schema.v1.json",
+            "curation-taxonomy.schema.v1.json",
+            "user-notification.schema.v1.json",
+        )
+        for name in names:
+            schema = json.loads((schemas / name).read_text(encoding="utf-8"))
+            identifier = schema["$id"]
+            parsed = urlparse(identifier)
+            self.assertEqual(parsed.scheme, "https", name)
+            self.assertEqual(parsed.netloc, "schemas.circled-wiki.invalid", name)
+            references = _internal_references(schema)
+            for reference in references:
+                resolved_url, resolved = RefResolver.from_schema(schema).resolve(reference)
+                self.assertTrue(resolved_url.startswith(identifier), name)
+                self.assertIsInstance(resolved, dict, name)
+
     def test_absent_configuration_uses_safe_defaults(self):
         with tempfile.TemporaryDirectory() as directory:
             settings = load_settings(Path(directory))

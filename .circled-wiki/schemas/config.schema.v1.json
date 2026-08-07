@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "circled-wiki/config/schema/v1",
+  "$id": "https://schemas.circled-wiki.invalid/config/v1",
   "title": "Circled Wiki Installation Configuration",
   "description": "Schema for .circled-wiki/config.yaml. An unversioned legacy file is accepted by the runtime and migrated in memory to schema_version 1.",
   "type": "object",

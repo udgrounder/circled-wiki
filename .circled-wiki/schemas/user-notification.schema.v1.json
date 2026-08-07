@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "circled-wiki/user-notification/schema/v1",
+  "$id": "https://schemas.circled-wiki.invalid/user-notification/v1",
   "title": "Circled Wiki User Notification",
   "type": "object",
   "additionalProperties": false,

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "circled-wiki/curation-taxonomy/schema/v1",
+  "$id": "https://schemas.circled-wiki.invalid/curation-taxonomy/v1",
   "title": "Circled Wiki Curation Taxonomy",
   "type": "object",
   "additionalProperties": false,

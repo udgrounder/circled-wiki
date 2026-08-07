@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": ".circled-wiki/schemas/evidence-manifest.schema.json",
+  "$id": "https://schemas.circled-wiki.invalid/evidence-manifest/v1",
   "title": "Circled Wiki Evidence Record Frontmatter",
   "type": "object",
   "additionalProperties": true,
