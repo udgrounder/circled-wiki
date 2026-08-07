@@ -1,0 +1,37 @@
+{
+  "receipt_type": "release",
+  "release_id": "v1-a237bfbf42c1",
+  "source_revision": "ce32f55b65f68e453ffc69cb2c06bec431f3019d",
+  "runtime_checksum": "sha256:3fd87347b437407f8d9c0726bbf856d59108f9f0429555675518ab0ca347a1ea",
+  "router_checksum": "sha256:b5523394337ee7705dc9f647fc5100e11ab14e7d8a7ff30887b09f2d485fd12d",
+  "runtime_profiles": [
+    "bundle-rebuilding.md",
+    "curation-taxonomy.md",
+    "evidence-ingest.md",
+    "inbox-capture.md",
+    "inbox-disposition.md",
+    "inbox-inspection.md",
+    "inbox-sensitivity-review.md",
+    "knowledge-curation.md",
+    "knowledge-query.md",
+    "publication.md",
+    "runtime-upgrade-verification.md",
+    "system-observation.md",
+    "workflow-execution.md"
+  ],
+  "included_issue_ids": [
+    "workspace-issue-4ac3abbedb6c4c4e907d47bc6c0a3713"
+  ],
+  "validation": {
+    "unit": "passed",
+    "integration": "passed",
+    "repository_validator": "passed"
+  },
+  "verified_by": "codex-product-agent",
+  "verified_at": "2026-08-07T11:15:34.342476+00:00",
+  "source_commit_check": {
+    "revision": "ce32f55b65f68e453ffc69cb2c06bec431f3019d",
+    "subject": "이슈 업데이트",
+    "worktree_clean": true
+  }
+}
