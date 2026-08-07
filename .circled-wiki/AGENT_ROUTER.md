@@ -26,6 +26,7 @@ Vault 구조·domain·provider·운영 흐름을 관리하거나 변경하는 �
 | 승인된 `update_existing` Review로 기존 Bundle 보완 적용 | `agent-rules/knowledge-curation.md` |
 | Bundle 파일명·Frontmatter ID 규칙 확인 또는 현재 충돌 점검 | 아래 **Bundle Identity Routing**의 1~3단계를 먼저 수행. 변경 전에는 `agent-rules/knowledge-curation.md` |
 | 기존 Bundle의 domain·type 재분류 또는 `bundles/` 내 경로 이동 | `agent-rules/knowledge-curation.md` — 먼저 read-only reclassification proposal, 이후 사용자 또는 허용된 운영 Agent의 명시 판단 |
+| 사용자가 요청한 Bundle 또는 Bundle 시리즈 리빌딩·통합·분리·archive | `agent-rules/bundle-rebuilding.md` — 자동 후보 탐지 없이 최신 Evidence를 기준으로 요청 범위를 수행 |
 | `curation-taxonomy.yaml` 부재 상태의 Curation 분류 요청 | `agent-rules/knowledge-curation.md` — 관련 Bundle 조사와 사용자 승인 전에는 taxonomy 파일을 만들지 않음 |
 | `curation-taxonomy.yaml` 생성·검토·갱신 또는 taxonomy 기반 재분류 제안 | `agent-rules/curation-taxonomy.md` |
 | 승인된 Bundle 파일명·Frontmatter ID 일괄 정규화 | 아래 **Bundle Identity Routing** 전체와 `agent-rules/publication.md` |

@@ -41,6 +41,8 @@ taxonomy를 만들거나 바꾸거나 이를 근거로 기존 Bundle을 재분�
 
 사용자에게 알려야 할 Curation·taxonomy 이벤트는 RB-NOTIFY-001에 따라 `workspace/notifications/`의 공통 파일 DB에 기록한다. 기존 Review·taxonomy·Queue 상태를 그 폴더로 옮기지 않으며, 사용자의 확인은 acknowledgement 파일로만 기록한다.
 
+사용자가 Bundle 또는 Bundle 시리즈 리빌딩을 요청하면 `.circled-wiki/agent-rules/bundle-rebuilding.md`를 선택한다. 일반 Curation을 주기적으로 검사하거나 자동 통합하지 않으며, Agent는 요청 대상을 검토한 뒤 최신 Evidence를 기준으로 요청 범위의 통합·갱신·archive를 수행한다.
+
 ## Agent Operation
 
 1. 지식 질문은 `knowledge-query` Profile을 선택하고 `search`, `read-bundle`로 근거를 조회한다. 직접 `find`,

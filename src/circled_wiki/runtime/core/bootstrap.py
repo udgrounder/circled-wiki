@@ -42,6 +42,7 @@ RUNTIME_PROFILE_ALLOWLIST = (
     "contracts/inbox.yaml",
     "contracts/curation.yaml",
     "README.md",
+    "bundle-rebuilding.md",
     "curation-taxonomy.md",
     "evidence-ingest.md",
     "inbox-capture.md",
