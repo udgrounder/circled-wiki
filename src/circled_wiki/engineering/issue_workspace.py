@@ -459,7 +459,17 @@ def _require_committed_clean_issue(project_root: Path, issue_path: Path) -> str:
     if tracked.returncode != 0:
         raise ValueError("operational Issue must be tracked by Git")
     status = _run_git(project_root, "status", "--porcelain", "--", relative)
-    if status.returncode != 0 or status.stdout.strip():
+    if status.returncode == 0:
+        clean = not status.stdout.strip()
+    else:
+        # Some installations track unrelated large files through Git LFS but do
+        # not have the optional git-lfs executable on the Product Agent host.
+        # Verify the requested tracked Issue directly from Git's index instead
+        # of bypassing the clean gate or moving the file blindly.
+        staged = _run_git(project_root, "diff-index", "--quiet", "HEAD", "--", relative)
+        unstaged = _run_git(project_root, "diff-files", "--quiet", "--", relative)
+        clean = staged.returncode == 0 and unstaged.returncode == 0
+    if not clean:
         raise ValueError("operational Issue must not have uncommitted changes")
     revision = _run_git(project_root, "log", "-1", "--format=%H", "--", relative)
     if revision.returncode != 0 or not revision.stdout.strip():

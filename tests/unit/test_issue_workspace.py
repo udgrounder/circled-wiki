@@ -142,6 +142,29 @@ class IssueWorkspaceTests(unittest.TestCase):
 
             self.assertTrue(issue.is_file())
 
+    def test_intake_uses_index_clean_check_when_git_status_is_unavailable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = self._source_repo(root)
+            real_run_git = issue_workspace._run_git
+
+            def lfs_unavailable_status(project_root, *arguments):
+                if arguments[:2] == ("status", "--porcelain"):
+                    return subprocess.CompletedProcess(arguments, 1, "", "git-lfs: command not found")
+                return real_run_git(project_root, *arguments)
+
+            with patch.object(issue_workspace, "_run_git", side_effect=lfs_unavailable_status):
+                result = intake_operational_issue(
+                    root / "product" / "workspace",
+                    source,
+                    project_ref="team-wiki",
+                    issue_ref="issue-runtime-1",
+                    requested_by="user-1",
+                    moved_by="agent-1",
+                )
+
+            self.assertTrue(Path(result["path"]).is_file())
+
     def test_review_is_required_before_triage_and_archive(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
