@@ -51,14 +51,22 @@ PYTHONPATH=src python3 -m circled_wiki.engineering.cli --help
 
 ## 검증
 
-변경 전후에는 Runtime Validator와 전체 테스트를 실행합니다.
+변경 후 및 release Gate에서는 Runtime Validator와 전체 테스트를 각각 한 번 실행합니다.
+`unittest discover`가 제품의 정본 전체 테스트 명령입니다.
 
 ```sh
 PYTHONPATH=src python3 -m circled_wiki.runtime.cli.__main__ validate
 PYTHONPATH=src python3 -m unittest discover -s tests -q
 ```
 
-개발 의존성을 설치했다면 아래 명령도 사용할 수 있습니다.
+특정 변경을 빠르게 확인할 때는 관련 모듈만 먼저 실행할 수 있습니다. 이는 전체 Gate를 대체하지 않습니다.
+
+```sh
+PYTHONPATH=src python3 -m unittest tests.unit.test_curation -q
+```
+
+개발 의존성을 설치했다면 `pytest`를 같은 테스트의 대체 실행기로 사용할 수 있습니다. 현재 pytest와
+`unittest discover`는 같은 `tests/` 모음을 수집하므로 release·CI에서 두 명령을 연속 실행하지 않습니다.
 
 ```sh
 python3 -m pytest

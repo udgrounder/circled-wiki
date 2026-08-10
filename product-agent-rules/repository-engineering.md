@@ -42,6 +42,10 @@ PYTHONPATH=src python3 -m circled_wiki.cli validate
 PYTHONPATH=src python3 -m unittest discover -s tests -q
 ```
 
+변경 범위의 단위 테스트는 전체 실행 전에 빠른 피드백을 위해 추가할 수 있지만, 전체 회귀 Gate의 대체나
+별도 release Gate가 아니다. `pytest`는 동일한 `tests/` 모음을 실행하는 개발용 대체 수단이므로 위 전체
+명령과 같은 검증 단계에서 함께 실행하지 않는다.
+
 ## Output
 
 - 변경 파일과 검증 결과

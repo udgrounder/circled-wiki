@@ -123,7 +123,7 @@ Bundle `evidence` 참조는 Evidence 존재 여부로 검사한다.
 구현 완료 시 아래 명령이 동작해야 한다.
 
 ```text
-python3 -m pytest
+PYTHONPATH=src python3 -m unittest discover -s tests -q
 PYTHONPATH=src python3 -m circled_wiki.cli validate
 PYTHONPATH=src python3 -m circled_wiki.cli ingest-evidence --provider manual --file <inbox-file> \
   --why-collected <수집-이유> --intended-use <적용-업무>
@@ -131,3 +131,6 @@ PYTHONPATH=src python3 -m circled_wiki.cli search --query <query>
 PYTHONPATH=src python3 -m circled_wiki.cli audit-knowledge
 PYTHONPATH=src python3 -m circled_wiki.cli list-knowledge-inventory
 ```
+
+`pytest`는 개발자가 같은 테스트 모음을 편리하게 실행할 수 있는 대체 도구이며, release Gate에서
+`unittest discover`와 중복 실행하지 않는다.

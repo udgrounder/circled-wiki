@@ -55,7 +55,9 @@ release ID, 식별된 검증자, 실행한 검증 명령과 결과를 `current_r
 
 ## Verification and Publication
 
-- 관련 테스트와 `circled_wiki.cli validate`를 통과한다.
+- 관련 범위 테스트와 `circled_wiki.cli validate`를 통과한다. release·배포 전 전체 회귀 Gate는
+  `PYTHONPATH=src python3 -m unittest discover -s tests -q`를 한 번 실행하는 것으로 한다. `pytest`는
+  같은 테스트 모음의 개발용 대체 실행기이며 두 실행기를 같은 Gate에서 중복 실행하지 않는다.
 - 배포 release는 Runtime Router, Runtime Profile allowlist와 관리 자산 checksum을 재현할 수 있어야 한다.
 - `knowledge/`와 설치본 `workspace/`의 보존을 canary upgrade에서 확인한다.
 - Commit, push, 외부 배포는 각각 명시적으로 승인된 범위에서만 수행한다.
