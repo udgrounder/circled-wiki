@@ -1,0 +1,38 @@
+{
+  "receipt_type": "release",
+  "release_id": "v1-d3fee3e88ad2",
+  "source_revision": "58e6fe603c12de19f947204f63b3ab75dc8b24f5",
+  "runtime_checksum": "sha256:c95dd8dfc2fdc6fd0a1aba42a3a68704b4f7e98aa8d9de9f6bf3a05b38cfd7a8",
+  "router_checksum": "sha256:b5523394337ee7705dc9f647fc5100e11ab14e7d8a7ff30887b09f2d485fd12d",
+  "runtime_profiles": [
+    "bundle-rebuilding.md",
+    "curation-taxonomy.md",
+    "evidence-ingest.md",
+    "inbox-capture.md",
+    "inbox-disposition.md",
+    "inbox-inspection.md",
+    "inbox-sensitivity-review.md",
+    "knowledge-curation.md",
+    "knowledge-query.md",
+    "publication.md",
+    "runtime-upgrade-verification.md",
+    "system-observation.md",
+    "workflow-execution.md"
+  ],
+  "included_issue_ids": [
+    "workspace-issue-364bfce624a44a3090a746f0acf9fad8",
+    "workspace-issue-e0e69f054d054a07aae11767f3771852"
+  ],
+  "validation": {
+    "unit": "passed",
+    "integration": "passed",
+    "repository_validator": "passed"
+  },
+  "verified_by": "codex-product-agent",
+  "verified_at": "2026-08-10T11:42:52.661284+00:00",
+  "source_commit_check": {
+    "revision": "58e6fe603c12de19f947204f63b3ab75dc8b24f5",
+    "subject": "이슈 처리 완료",
+    "worktree_clean": true
+  }
+}
