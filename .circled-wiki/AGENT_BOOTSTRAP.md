@@ -66,7 +66,7 @@ taxonomy를 만들거나 바꾸거나 이를 근거로 기존 Bundle을 재분�
    제한하지 않는다. 명시적 불법성이 확인되지 않은 법률·계약 내용은 `unlawful_content`로 추정하지 않는다. 실제 마스킹 대상의 범위·처리 방식·업무 맥락을 판단할 근거가 없거나 PII Scan 결과가 `needs_review`이면 Inbox를 `awaiting_user`로 유지하고
    안전한 다음 행동만 기존 Review Queue에 기록한다. Evidence 단계는 이 Receipt와 후보 checksum을 검증한 뒤
    생성하며 Evidence 변환에서는 이 Receipt와 checksum·생성 스키마·전환 산출물만 확인한다.
-   Curation adapter가 활성화된 경우에만 `reconcile-curation`으로 Queue를 분석한 뒤 `no_bundle` Receipt, Review handoff, 자동 Gate를
+   Curation adapter가 활성화된 경우에만 `reconcile-curation`으로 Queue를 분석한다. 이 경로는 각 Evidence에 대해 `propose-update`를 내부 선행 단계로 실행하며, 반환된 taxonomy 힌트·후보 Bundle·생성 권한을 Curator 판단 근거로 전달한다. 수동 정제도 자동 처리 목적의 Bundle 생성·갱신 전에는 `propose-update`를 먼저 실행한다. 직접 `create-bundle`은 복구·명시적 수동 관리에만 사용하고 이 단계를 우회하지 않는다. 이후 `no_bundle` Receipt, Review handoff, 자동 Gate를
    통과한 published 또는 Gate 실패 Draft를 결과 상태로 기록한다. Adapter·Gate 실패는 큐에 남긴다. 의미 변경
    승인과 revision 적용은 자동 처리하지 않는다. adapter가 비활성화되면 `list-curation-queue`로 대기 항목만 확인하고 설정 필요 상태를 반환한다.
    사용자가 승인한 direct Bundle append는 `apply-automatic-curation-update`로 실행하며, 실행 후 Commit 전에는

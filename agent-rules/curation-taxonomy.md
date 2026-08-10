@@ -26,7 +26,7 @@
 ## Rules
 
 - `match_terms`는 Evidence 제목 또는 `intended_use`에 모두 나타날 때만 rule 후보가 된다.
-- `domains`는 설치별 승인 domain 카탈로그이며 각 `id`의 필수 `description`이 Agent의 분류 경계다. rule의 `domain`은 반드시 등록된 domain이어야 한다. `bundle_type`, `slug_prefix`는 새 문서 또는 재분류의 힌트이며, 기존 Bundle 후보 탐색과 의미 검증을 대체하지 않는다. `auto_create: true`는 단일 rule이 일치하고 적합한 기존 Bundle이 없을 때만 신규 Draft 생성을 허용하며, 생성 결과의 사용자 알림을 Bundle Curation 이력에 기록한다.
+- `domains`는 설치별 승인 domain 카탈로그이며 각 `id`의 필수 `description`이 Agent의 분류 경계다. rule의 `domain`은 반드시 등록된 domain이어야 한다. `bundle_type`, `slug_prefix`는 새 문서 또는 재분류의 힌트이며, 기존 Bundle 후보 탐색과 의미 검증을 대체하지 않는다. `routing_hints`는 이 설치별 정책을 제안 결과로 보인 것이며 `suggested_bundle_type`보다 분류 정책상 우선하지만 기존 Bundle을 선택하거나 재분류하지는 않는다. `candidate_bundles`는 탐색 후보일 뿐 빈 목록도 부재 증명이 아니다. `auto_create: true`는 단일 rule이 일치하고 발견된 후보가 없을 때만 `creation_authorized`로 신규 Draft 검토를 허용하며, 생성 결과의 사용자 알림을 Bundle Curation 이력에 기록한다.
 - 파일이 없으면 관련 Bundle의 제목·요약·type·domain·태그·경로를 조사해 초안을 제시하고, 사용자 승인 전에는 파일을 만들지 않는다.
 - taxonomy 승인과 새 domain·Bundle 생성은 앞으로의 분류에만 적용한다. 영향 Bundle 목록은 자동으로 제안·알림할 수 있지만, 기존 Bundle의 domain·type·경로는 바꾸지 않는다.
 - Agent는 한 번의 Evidence나 Bundle만으로 규칙을 일반화하지 않는다. 충돌·예외·불충분 근거는 rule을 만들지 않고 `needs_review`로 남긴다.

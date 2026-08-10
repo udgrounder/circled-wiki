@@ -75,6 +75,26 @@ def propose_update(
         "capture_context": capture_context,
         "routing_hints": routing_hints,
         "creation_authorized": creation_authorized,
+        "proposal_interpretation": {
+            "routing_hints": (
+                "Installation-local taxonomy policy hints. They define an approved "
+                "new-Bundle route only through creation_authorized; they do not select "
+                "an existing Bundle or replace semantic, security, review, or publication Gates."
+            ),
+            "suggested_bundle_type": (
+                "Non-binding heuristic inferred from the Evidence excerpt and capture context. "
+                "It is not a taxonomy rule and does not authorize creation or reclassification."
+            ),
+            "candidate_bundles": (
+                "Keyword and frontmatter discovery candidates, filtered by a lightweight "
+                "semantic relevance check. An empty list is not proof that no relevant Bundle exists."
+            ),
+            "creation_authorized": (
+                "The only proposal field that authorizes automatic new Draft consideration: "
+                "there must be no discovered candidate and exactly one matching auto_create taxonomy rule. "
+                "All remaining Gates still apply."
+            ),
+        },
         "taxonomy_status": {
             "configured": taxonomy_configured,
             "next_action": (

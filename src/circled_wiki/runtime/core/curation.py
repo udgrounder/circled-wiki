@@ -176,6 +176,7 @@ def run_configured_curation(
             "evidence_freshness": proposal.get("evidence_freshness", {}),
             "routing_hints": proposal.get("routing_hints", []),
             "creation_authorized": proposal.get("creation_authorized", False),
+            "interpretation": proposal.get("proposal_interpretation", {}),
         },
         "routing_hint_rule": (
             "routing_hints guide classification but never replace semantic relevance checks, "
@@ -188,7 +189,9 @@ def run_configured_curation(
             "new-versus-update decision. Prefer a matching existing Bundle. If sources conflict, prefer the current Evidence "
             "only when its effective_at is at least as recent as the target Bundle's latest "
             "Evidence. If no existing Bundle is a match and creation_authorized is false, return "
-            "no_bundle with a recheck_condition requesting taxonomy approval; do not invent a new Bundle."
+            "no_bundle with a recheck_condition requesting taxonomy approval; do not invent a new Bundle. "
+            "candidate_bundles is discovery evidence only: an empty list is never conclusive proof "
+            "that a relevant Bundle does not exist."
         ),
         "update_body_rule": (
             "For update_existing, provide the selected target's body_checksum as "

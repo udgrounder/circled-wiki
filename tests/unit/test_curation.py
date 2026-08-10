@@ -124,6 +124,9 @@ routing_rules:
         }])
         self.assertEqual(proposal["recommended_action"], "create_draft_bundle")
         self.assertTrue(proposal["creation_authorized"])
+        self.assertIn("Installation-local taxonomy", proposal["proposal_interpretation"]["routing_hints"])
+        self.assertIn("Non-binding heuristic", proposal["proposal_interpretation"]["suggested_bundle_type"])
+        self.assertIn("empty list is not proof", proposal["proposal_interpretation"]["candidate_bundles"])
 
     def test_proposal_requests_taxonomy_review_when_installation_taxonomy_is_missing(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -131,6 +134,45 @@ routing_rules:
             proposal = propose_update(root, evidence_id)
         self.assertEqual(proposal["taxonomy_status"]["configured"], False)
         self.assertIn("do not create it automatically", proposal["taxonomy_status"]["next_action"])
+
+    def test_proposal_keeps_taxonomy_policy_distinct_from_heuristic_type_hint(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            (project / ".circled-wiki").mkdir()
+            (project / ".circled-wiki" / "curation-taxonomy.yaml").write_text(
+                """schema_version: 1
+domains:
+  - id: operations
+    description: Operational knowledge.
+routing_rules:
+  - match_terms: [executive, meeting]
+    description: Executive meeting records are retained as guides.
+    domain: operations
+    bundle_type: guide
+    auto_create: true
+""",
+                encoding="utf-8",
+            )
+            root = project / "knowledge"
+            source = root / "inbox" / "manual" / "report.txt"
+            source.parent.mkdir(parents=True)
+            source.write_text("Weekly report from the executive meeting.", encoding="utf-8")
+            checksum = "sha256:" + hashlib.sha256(source.read_bytes()).hexdigest()
+            evidence = ingest_evidence(
+                root, source, "manual", title="Executive meeting weekly report",
+                why_collected="test", intended_use=["executive", "meeting"],
+                pii_scan_receipt=build_pii_scan_receipt(
+                    checksum, scanner="test", scanner_version="1", result="passed",
+                    reviewed_by="security", receipt="test://pii",
+                ),
+            )
+
+            proposal = propose_update(root, evidence.evidence_id)
+
+        self.assertEqual(proposal["routing_hints"][0]["bundle_type"], "guide")
+        self.assertEqual(proposal["suggested_bundle_type"], "report")
+        self.assertTrue(proposal["creation_authorized"])
+        self.assertIn("does not authorize creation", proposal["proposal_interpretation"]["suggested_bundle_type"])
     def test_automatic_update_policy_excludes_only_runbook_and_manual(self):
         self.assertEqual(AUTOMATIC_UPDATE_TYPES, DIRECT_DRAFT_TYPES)
         self.assertNotIn("runbook", AUTOMATIC_UPDATE_TYPES)
@@ -1068,7 +1110,9 @@ routing_rules:
             )
             self.assertEqual(request["pre_creation_review_types"], ["manual", "runbook"])
             self.assertEqual(request["proposal"]["routing_hints"], [{"domain": "operations", "bundle_type": "guide"}])
+            self.assertEqual(request["proposal"]["interpretation"], {})
             self.assertIn("auto_create", request["routing_hint_rule"])
+            self.assertIn("empty list is never conclusive", request["target_selection_rule"])
             self.assertIn("inspect the Evidence content", request["slug_rule"])
             self.assertIn("non-ASCII title", request["slug_rule"])
             self.assertEqual(result["promotion"]["promotion_mode"], "automatic")

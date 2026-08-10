@@ -31,7 +31,9 @@ Evidence를 기존 Bundle과 비교하거나 신규 Draft를 작성한다.
 - Bundle을 만들거나 기존 Bundle의 `id`·파일명 관계를 판단할 때 `OPERATING_RULES.md`의 RB-KNW-026 Bundle Identity Contract
 - 여러 단계 정제 작업에서 독립·제한된 조사 또는 검증 작업을 위임할 수 있는지와, 위임해도 Owner 승인·Security Gate·최종 책임이 유지되는지
 - 후보의 제목·요약과 Evidence 제목·intended use 간 의미 관련성, 그리고 적합한 Bundle type
+- 자동 Curation 또는 자동 처리 목적의 수동 Curation은 Bundle 생성·갱신 전에 반드시 `propose-update`를 실행한다. Runtime의 `reconcile-curation`은 이를 내부 선행 단계로 수행하며, 직접 `create-bundle`·revision 명령으로 이 단계를 대체하지 않는다. 명시적 수동 복구·관리 작업은 예외로 하되, 실행 사유와 적용한 기존 Gate를 기록한다.
 - 설치본 `.circled-wiki/curation-taxonomy.yaml`의 `routing_rules`를 분류 기준으로 먼저 읽는다. 기존 Bundle 후보 탐색·의미 관련성·Review·Security Gate는 계속 적용하며, 적합한 기존 Bundle이 없고 단일 일치 rule의 `auto_create: true`일 때만 해당 rule의 domain/type으로 신규 Draft를 자동 생성하고 RB-NOTIFY-001 형식의 사용자 알림을 Bundle Curation 이력과 결과에 남긴다.
+- proposal의 `routing_hints`는 설치별 taxonomy 정책 힌트이고, `suggested_bundle_type`은 Evidence 기반의 비구속적 휴리스틱이다. `candidate_bundles`는 키워드·Frontmatter 기반 탐색 후보이므로 빈 목록도 기존 Bundle 부재의 증거가 아니다. 자동 신규 Draft 검토 권한은 `creation_authorized`만 표현하며, 이것도 의미 검증·Security·Review·Publication Gate를 대체하지 않는다.
 - `curation-taxonomy.yaml`이 없으면 관련 기존 Bundle의 domain·type·제목·태그·경로를 읽기 전용으로 조사해 taxonomy 초안을 사용자에게 제시한다. Agent는 Bundle 구조만으로 분류 관례를 확정하거나 파일을 자동 생성하지 않으며, 사용자 승인 뒤에만 설치별 파일을 만든다.
 - Bundle 태그는 구조 태그(`bundles`, Bundle type, domain)만으로 끝내지 않는다. Evidence·제목·요약·본문에서 확인한 (1) 핵심 주제·개념, (2) 적용 대상 또는 업무 영역, (3) 주요 행위·산출물·결정 특성 중 해당하는 것을 태그로 함께 사용해, 태그만으로도 문서의 성격을 빠르게 파악할 수 있게 한다. 서로 중복하거나 근거가 약한 태그를 채우기 위해 만들지 않으며, 원문에 없는 사실·민감정보·자격증명을 태그로 만들지 않는다. 태그의 표기 언어는 원문 표현을 따르며, 한글 개념·용어를 별도로 영어로 번역한 태그를 추가로 만들지 않는다.
 - 신규 `manual`과 `runbook` CurationOutput은 Evidence 본문의 주제·업무를 확인해 생성한, 안전한 ASCII `slug`를 반드시 명시한다. 기존 Bundle 갱신에는 새 slug를 요구하지 않는다. 한글 제목을 기계적으로 변환하거나 checksum을 식별자로 쓰지 않는다. 생성된 slug는 Review 카드의 Proposed identifier에서 검토한다. 신규 manual은 `bundles/<domain>/manuals/`, runbook은 `bundles/<domain>/runbooks/`에 둔다.
