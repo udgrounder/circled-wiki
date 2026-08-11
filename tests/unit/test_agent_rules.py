@@ -129,9 +129,14 @@ class AgentRuleProfileTests(unittest.TestCase):
 
     def test_inbox_profiles_require_two_pass_masking_without_false_scan_attestation(self):
         capture = (ROOT / "agent-rules" / "inbox-capture.md").read_text(encoding="utf-8")
-        self.assertIn("외부 수집 Agent Handoff 조회", capture)
-        self.assertIn("get-collection-handoff()", capture)
-        self.assertIn("Inspection·Data Protection Review·Evidence 전환을 설명하거나 실행하지 않는다", capture)
+        handoff = (ROOT / "agent-rules" / "collection-handoff.md").read_text(encoding="utf-8")
+        router = (ROOT / ".circled-wiki" / "AGENT_ROUTER.md").read_text(encoding="utf-8")
+        self.assertIn("get-collection-handoff()", handoff)
+        self.assertIn("수집 Agent에게 전달", handoff)
+        self.assertIn("필요할 때 반환된 문서 경로를 읽어 처리", router)
+        self.assertIn("Capture·Inspection·Data Protection Review·Evidence 전환의 절차", handoff)
+        self.assertIn("collection-handoff.md", router)
+        self.assertIn("가이드·수집 방식만 조회하는 요청은 이 Profile의 Trigger가 아니다", capture)
         inspection = (ROOT / "agent-rules" / "inbox-inspection.md").read_text(
             encoding="utf-8"
         )

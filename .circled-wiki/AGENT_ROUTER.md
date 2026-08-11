@@ -15,6 +15,7 @@ Vault 구조·domain·provider·운영 흐름을 관리하거나 변경하는 �
 | --- | --- |
 | 지식 조회·질문 답변 | `agent-rules/knowledge-query.md` |
 | 사용자 업무 Runbook 실행 | `agent-rules/workflow-execution.md` |
+| 원문 없이 외부 원문 전달 가이드·Inbox 입력 가이드·수집 방식만 조회 | `agent-rules/collection-handoff.md` — `get-collection-handoff()` 결과를 수집 Agent에 전달한다. 수집 Agent는 필요할 때 반환된 문서 경로를 읽어 처리하며, Wiki Agent는 Capture Profile을 읽거나 설명하지 않음 |
 | 대화·파일을 Inbox에 넣기 | `agent-rules/inbox-capture.md` — 수집 Agent·Adapter 구분 없이 공통 민감정보 사전 점검을 먼저 실행 |
 | Inbox 업무성 분류·비업무 항목 격리·격리 일괄 검토 | `agent-rules/inbox-disposition.md` — `non_business_confirmed`일 때만 `quarantine-inbox-item`, `list-inbox-disposals`, `decide-inbox-disposal`을 사용. 애매하거나 분류할 수 없는 항목은 일반 Inbox Inspection으로 보냄 |
 | Inbox 항목 검사·승인 | `agent-rules/inbox-inspection.md` — 현재 `sensitivity_review: required`이면 `agent-rules/inbox-sensitivity-review.md`를 함께 적용 |

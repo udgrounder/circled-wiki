@@ -1,18 +1,10 @@
 # Inbox Capture Profile
 
-## 외부 수집 Agent Handoff 조회
-
-외부 수집 Agent가 아직 원문을 제공하지 않고 “Inbox 원문 입력 가이드”, “외부 원문 전달 가이드” 또는 수집 방식을 요청한 경우에는 Capture 작업이 아니다.
-
-1. `get-collection-handoff()`를 호출한다.
-2. 반환된 `handoff_version`, `method_spec_document`, `collection_guide_document`만 전달한다.
-3. 수집 Agent는 저장한 버전과 비교해 최초이거나 변경된 경우에만 두 문서를 읽는다.
-
-이 조회에서는 원문을 받지 않고, Capture·Inspection·Data Protection Review·Evidence 전환을 설명하거나 실행하지 않는다. 실제 원문과 메소드 스펙의 필수 입력이 제공된 경우에만 아래 Capture 절차를 적용한다.
-
 ## Trigger
 
 사용자·Agent·Batch가 제공한 대화, URL에서 수집한 텍스트·HTML, PDF·Word·기타 원본 파일을 처리 대기열에 적재한다.
+
+원문 없이 가이드·수집 방식만 조회하는 요청은 이 Profile의 Trigger가 아니다. Router의 `collection-handoff.md`를 선택한다.
 
 ## Input
 

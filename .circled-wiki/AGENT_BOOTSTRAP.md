@@ -39,7 +39,7 @@ taxonomy를 만들거나 바꾸거나 이를 근거로 기존 Bundle을 재분�
 
 운영 Agent는 YAML 설정을 읽기 전 공용 JSON Schema 검증을 통과시켜야 한다. Runtime이 읽는 새 설치별 YAML을 만들거나 형식을 바꿀 때는 RB-KNW-028에 따라 동명 JSON Schema 작성·Schema 목록 등록·공용 검증 연결을 같은 변경에서 완료한다. 계약 버전은 YAML `schema_version`, 지원 버전·현재 버전은 `.circled-wiki/schemas/schema-registry.json`, 승격·migration·지원 종료는 RB-KNW-029를 따른다. 설치 루트에서 `circled-wiki validate-configuration`을 실행하면 `config.yaml`, `data-protection.yaml`, `curation-taxonomy.yaml`을 같은 검증기로 점검한다.
 
-외부 수집 Agent가 원문 없이 입력 가이드 또는 수집 방식을 요청하면 `get-collection-handoff`을 호출해 `handoff_version`, 메소드 스펙 문서 경로와 수집 가이드 문서 경로만 전달한다. 실제 원문 입력이 제공될 때까지 Capture·Inspection·Data Protection Review·Evidence 전환을 설명하거나 실행하지 않는다. 메소드 스펙은 수집 Agent가 제출할 원문 종류별 파라미터와 설명을 제공한다. 수집 Agent가 Runtime을 실행할 수 없으면 Wiki Agent가 같은 입력을 받아 대행 제출한다. Inbox Markdown의 Frontmatter·checksum·marker는 수집 Agent가 직접 만들지 않는다.
+외부 수집 Agent가 원문 없이 입력 가이드 또는 수집 방식을 요청하면 Router의 `agent-rules/collection-handoff.md`를 선택한다. 이 Profile은 `get-collection-handoff`의 `handoff_version`, 메소드 스펙 문서 경로와 수집 가이드 문서 경로를 수집 Agent에 전달한다. 수집 Agent는 필요할 때, 저장한 버전과 다르거나 처음인 경우에만 그 경로의 문서를 가져와 읽고 처리한다. Wiki Agent는 실제 원문 입력이 제공될 때까지 Capture·Inspection·Data Protection Review·Evidence 전환을 설명하거나 실행하지 않는다. 메소드 스펙은 수집 Agent가 제출할 원문 종류별 파라미터와 설명을 제공한다. 수집 Agent가 Runtime을 실행할 수 없으면 Wiki Agent가 같은 입력을 받아 대행 제출한다. Inbox Markdown의 Frontmatter·checksum·marker는 수집 Agent가 직접 만들지 않는다.
 
 사용자에게 알려야 할 Curation·taxonomy 이벤트는 RB-NOTIFY-001에 따라 `workspace/notifications/`의 공통 파일 DB에 기록한다. 기존 Review·taxonomy·Queue 상태를 그 폴더로 옮기지 않으며, 사용자의 확인은 acknowledgement 파일로만 기록한다.
 
