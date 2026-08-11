@@ -44,6 +44,10 @@
 구조화된 복구 응답으로 반환하며, 원문은 출력하지 않는다. Agent는 기존 Inbox Item을 검사하고 변경된 원문이 의도된
 새 revision일 때만 새 idempotency key를 사용한다. 충돌·CLI 실패가 입력·idempotency Gate의 정상 결과인지, 지침 부재·모호성 또는 Runtime 결함인지 개별 판단하고 후자로 판단한 경우에만 `system-observation` Profile로 Issue를 남긴다.
 
+외부 수집 Agent가 자체 형식의 원문 파일만 남긴 경우에는 원문을 삭제하거나 수집 실패로 처리하지 않는다. 허용된
+`knowledge/inbox/<provider>/`에 새 원본을 보존하고, Wiki Agent가 `capture-file --inbox-file <provider/원본파일명>`로 envelope화한 뒤 같은
+Inspection·Data Protection Gate로 넘긴다. 형식 밖 원문은 `pending` 정규화 대상으로만 기록한다.
+
 ## Prohibited
 
 - Evidence 생성

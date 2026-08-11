@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.circled-wiki.invalid/collection-handoff/v1",
+  "title": "Circled Wiki Collection Handoff Allowlist",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "collectors"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "collectors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["collector_id", "providers", "inbox_write"],
+        "properties": {
+          "collector_id": { "$ref": "#/$defs/safeIdentifier" },
+          "providers": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/safeIdentifier" } },
+          "inbox_write": { "type": "boolean" },
+          "guidance": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+        }
+      }
+    }
+  },
+  "$defs": { "safeIdentifier": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]*$" } }
+}

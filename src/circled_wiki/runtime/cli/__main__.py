@@ -10,6 +10,7 @@ from circled_wiki.config.paths import project_root
 from circled_wiki.config.settings import load_settings
 from circled_wiki.config.data_protection import load_data_protection_policy
 from circled_wiki.config.curation_taxonomy import load_curation_taxonomy
+from circled_wiki.config.collection_handoff import load_collection_handoff
 from circled_wiki.core.ingest import CaptureIdempotencyConflict
 from circled_wiki.core.repository import apply_bundle_revision, create_bundle, find_document_by_id
 from circled_wiki.core.evidence import evidence_original_path
@@ -91,6 +92,8 @@ def main() -> int:
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("validate")
     subparsers.add_parser("validate-configuration")
+    handoff = subparsers.add_parser("get-collection-handoff")
+    handoff.add_argument("--collector-id", required=True)
     evidence_links = subparsers.add_parser("backfill-evidence-links")
     evidence_links.add_argument("--apply", action="store_true", help="write only validated Evidence file-link repairs")
     migrate_ids = subparsers.add_parser("migrate-document-ids")
@@ -542,13 +545,18 @@ def main() -> int:
         settings = load_settings(project)
         policy = load_data_protection_policy(project)
         taxonomy = load_curation_taxonomy(project)
+        handoff = load_collection_handoff(project)
         print(json.dumps({
             "valid": True,
             "schema_version": 1,
             "organization_id": settings.organization_id,
             "data_protection_policy_ref": policy.policy_ref,
             "curation_taxonomy_configured": taxonomy.configured,
+            "collection_handoff_collectors": sorted(handoff.collectors),
         }, ensure_ascii=False, indent=2))
+        return 0
+    if args.command == "get-collection-handoff":
+        print(json.dumps(service.get_collection_handoff(args.collector_id), ensure_ascii=False, indent=2))
         return 0
     if args.command == "backfill-evidence-links":
         print(json.dumps(service.backfill_evidence_links(apply=args.apply), ensure_ascii=False, indent=2))

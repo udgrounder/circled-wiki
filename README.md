@@ -106,6 +106,39 @@ Circled Wiki는 별도의 상시 Agent 프로세스를 강제하지 않습니다
 
 운영 Agent는 요청을 받으면 `.circled-wiki/AGENT_ROUTER.md`와 `.circled-wiki/OPERATING_RULES.md`를 읽고, 요청에 맞는 작업 Profile을 선택합니다. 따라서 제품 source repository를 열어 두는 대신, 실제로 운영할 Wiki 프로젝트를 Agent의 작업 기준으로 지정해야 합니다.
 
+### 외부 수집 Agent 연결
+
+외부 대화·문서·서비스에서 원문을 가져오는 Agent는 Wiki의 정책·Schema를 직접 관리하지 않습니다. 사용자는
+수집 Agent에 설치 Wiki root를 작업 대상(예: `WIKI_ROOT`)으로만 제공하고, 다음 권한으로 제한합니다.
+
+- `.circled-wiki/AGENT_BOOTSTRAP.md`, `.circled-wiki/AGENT_ROUTER.md`와 `.circled-wiki/OPERATING_RULES.md` 읽기
+- Wiki Agent가 발급한 handoff 스펙에 지정된 새 `knowledge/inbox/<provider>/` 파일 생성
+- 수집 Agent 자신의 안전한 실행 로그 기록
+- handoff 스펙 밖의 `knowledge/`, 모든 `workspace/`, `.circled-wiki/config.yaml` 직접 쓰기 금지
+
+수집 Agent는 시작·Wiki release 변경·오류 시 [수집 Agent → Wiki Agent 공식 Handoff 계획서](workspace/task/32-collection-agent-wiki-handoff-plan.md)의
+`get-collection-handoff`로 현재 allowlist와 provider·수집 행동 지침을 확인합니다. 매 파일마다 허가를 받거나 Runtime Python을 실행할 필요는 없습니다.
+
+설치별 allowlist와 계약 조회의 설정 절차는 [외부 수집 Agent 연결 설정](docs/30-collection-agent-integration-setup.md)을 참고합니다.
+
+```text
+당신은 Circled Wiki의 외부 수집 Agent다.
+
+1. 시작·Wiki release 변경·오류 뒤 Wiki Agent에게 현재 공식 수집 handoff 방식, 허용 provider, 설치 release와 다음 행동을 문의한다.
+   이 문의에는 원문, credential, 활성 PII를 포함하지 않는다.
+2. allowlist가 허용한 `knowledge/inbox/<provider>/`에 새 파일만 만든다.
+   기존 Inbox 파일, Evidence, Bundle, workspace/, .circled-wiki/config.yaml은 수정·이동·삭제하지 않는다.
+3. Wiki가 준 수집 행동 지침에 따라 가능하면 provider, title, why_collected, intended_use, 안정적인 idempotency key를 함께 제공한다.
+   없는 정보는 추정하거나 원문을 버리지 말고 pending 정규화 대상으로 남긴다. Wiki의 내용 제한이나 사전 마스킹을 대신 판단하지 않는다.
+4. Wiki가 반환한 handoff ID·Inbox 상태·intake_id(발급된 경우)만 기록한다. 수집 성공을 Evidence 변환, Bundle 생성 또는 발행 성공으로 해석하지 않는다.
+5. 계약·release 불일치 또는 Runtime 오류가 나면, 사전에 배정된 provider Inbox가 있으면 원문을 새 raw 파일로 보존한다.
+   그렇지 않으면 Wiki Agent에게 최신 절차를 다시 문의하고, 안전한 오류 요약과 다음 행동만 남긴다.
+6. awaiting_user 또는 needs_review는 자동 승인하거나 원문을 반복 전송하지 않는다.
+```
+
+Wiki Agent와 통신할 수 없거나 `jsonschema` 오류로 안내를 읽지 못해도, 사전에 배정된 provider Inbox가 있으면 원문을
+새 raw 파일로 보존합니다. 이는 수집 성공이 아니라 `pending` 정규화 대기 상태이며, Runtime 복구 뒤 Wiki Agent가 처리합니다.
+
 ### 운영 사례
 
 | 운영 영역 | Inbox에 수집할 자료 | Wiki에 물어볼 수 있는 내용 |

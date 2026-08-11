@@ -31,4 +31,5 @@ fragment `$ref`를 다르게 결합할 수 있으므로 사용하지 않는다.
 - [Installation Configuration JSON Schema v1](./config.schema.v1.json)
 - [Data Protection Policy JSON Schema v1](./data-protection.schema.v1.json)
 - [User Notification JSON Schema v1](./user-notification.schema.v1.json)
+- [Collection Handoff Allowlist JSON Schema v1](./collection-handoff.schema.v1.json)
 - [Runtime YAML Schema Registry](./schema-registry.json)

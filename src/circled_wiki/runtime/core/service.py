@@ -1,6 +1,7 @@
 """Structured application service shared by CLI, MCP, and future workers."""
 
 from pathlib import Path
+import json
 from typing import Any, Dict, List, Optional
 
 from .repository import (
@@ -56,6 +57,47 @@ from .workflow import (
     update_task_inputs,
 )
 from .bundle_types import DIRECT_DRAFT_TYPES
+from circled_wiki.config.collection_handoff import load_collection_handoff
+
+
+def collection_handoff_contract(project_root: Path, collector_id: str) -> Dict[str, object]:
+    """Return the current, non-secret handoff contract for one allowlisted collector."""
+    try:
+        handoff_settings = load_collection_handoff(project_root)
+        allowed_providers = handoff_settings.allows(collector_id)
+        guidance = handoff_settings.guidance_for(collector_id)
+        guidance_status = "ready"
+    except (OSError, ValueError):
+        allowed_providers, guidance = (), ()
+        guidance_status = "unavailable"
+    manifest_path = project_root / ".circled-wiki" / "manifest.json"
+    try:
+        release_id = json.loads(manifest_path.read_text(encoding="utf-8")).get("os_release", "unreleased")
+    except (OSError, ValueError):
+        release_id = "unreleased"
+    return {
+        "contract_version": "v1",
+        "release_id": release_id,
+        "collector_id": collector_id,
+        "operation": "external_inbox_handoff",
+        "authorization": {"inbox_write": bool(allowed_providers), "allowed_providers": list(allowed_providers)},
+        "recommended_fields": ["content", "provider", "title", "why_collected", "intended_use", "idempotency_key"],
+        "collection_guidance": list(guidance),
+        "guidance_status": guidance_status,
+        "missing_information_policy": "preserve_raw_as_pending_normalization",
+        "inbox_path_template": "knowledge/inbox/<provider>/" if allowed_providers else None,
+        "write_policy": "new_files_only" if allowed_providers else "none",
+        "fallback": (
+            {"mode": "raw_inbox_file", "preserve_original": True,
+             "next_action": "wiki_agent_capture_file_then_inspect"}
+            if allowed_providers else None
+        ),
+        "next_action": (
+            "create_new_inbox_file" if allowed_providers else
+            "preserve_raw_in_preconfigured_inbox" if guidance_status == "unavailable" else
+            "external_inbox_handoff_not_enabled"
+        ),
+    }
 
 
 class KnowledgeService:
@@ -123,6 +165,9 @@ class KnowledgeService:
     def validate_result(self) -> Dict[str, object]:
         results = validate_repository(self.knowledge_root)
         return {"valid": all(result.is_valid for result in results), "results": [result.as_dict() for result in results]}
+
+    def get_collection_handoff(self, collector_id: str) -> Dict[str, object]:
+        return collection_handoff_contract(self.knowledge_root.parent, collector_id)
 
     def backfill_evidence_links(self, *, apply: bool = False) -> Dict[str, object]:
         """Derive Obsidian file links from existing durable Evidence URIs."""
