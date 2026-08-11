@@ -2,6 +2,7 @@
 
 from pathlib import Path
 import json
+import re
 from typing import Any, Dict, List, Optional
 
 from .repository import (
@@ -57,46 +58,41 @@ from .workflow import (
     update_task_inputs,
 )
 from .bundle_types import DIRECT_DRAFT_TYPES
-from circled_wiki.config.collection_handoff import load_collection_handoff
+
+COLLECTION_HANDOFF_GUIDE = ".circled-wiki/contracts/COLLECTION_HANDOFF.md"
 
 
-def collection_handoff_contract(project_root: Path, collector_id: str) -> Dict[str, object]:
-    """Return the current, non-secret handoff contract for one allowlisted collector."""
-    try:
-        handoff_settings = load_collection_handoff(project_root)
-        allowed_providers = handoff_settings.allows(collector_id)
-        guidance = handoff_settings.guidance_for(collector_id)
-        guidance_status = "ready"
-    except (OSError, ValueError):
-        allowed_providers, guidance = (), ()
-        guidance_status = "unavailable"
-    manifest_path = project_root / ".circled-wiki" / "manifest.json"
-    try:
-        release_id = json.loads(manifest_path.read_text(encoding="utf-8")).get("os_release", "unreleased")
-    except (OSError, ValueError):
-        release_id = "unreleased"
+def _collection_handoff_guidance(project_root: Path) -> tuple[str, str]:
+    content = ""
+    installed = project_root / COLLECTION_HANDOFF_GUIDE
+    if installed.is_file():
+        content = installed.read_text(encoding="utf-8")
+    else:
+        for parent in Path(__file__).resolve().parents:
+            candidate = parent / COLLECTION_HANDOFF_GUIDE
+            if candidate.is_file():
+                content = candidate.read_text(encoding="utf-8"); break
+    match = re.match(r"^---\s*\nguidance_version:\s*(v[0-9]+)\s*\n---\s*\n", content)
+    if not match:
+        raise ValueError("collection handoff guide must declare guidance_version")
+    return match.group(1), content
+def collection_handoff_contract(project_root: Path) -> Dict[str, object]:
+    """Return collection guidance derived from the existing Inbox Rule.
+
+    This deliberately reads no installation YAML: guidance must remain usable
+    when Schema validation or another Runtime dependency is unavailable.
+    """
+    guidance_version, guidance_markdown = _collection_handoff_guidance(project_root)
     return {
         "contract_version": "v1",
-        "release_id": release_id,
-        "collector_id": collector_id,
-        "operation": "external_inbox_handoff",
-        "authorization": {"inbox_write": bool(allowed_providers), "allowed_providers": list(allowed_providers)},
-        "recommended_fields": ["content", "provider", "title", "why_collected", "intended_use", "idempotency_key"],
-        "collection_guidance": list(guidance),
-        "guidance_status": guidance_status,
+        "guidance_version": guidance_version,
+        "operation": "collection_guidance",
+        "guidance_document": COLLECTION_HANDOFF_GUIDE,
+        "guidance_markdown": guidance_markdown,
         "missing_information_policy": "preserve_raw_as_pending_normalization",
-        "inbox_path_template": "knowledge/inbox/<provider>/" if allowed_providers else None,
-        "write_policy": "new_files_only" if allowed_providers else "none",
-        "fallback": (
-            {"mode": "raw_inbox_file", "preserve_original": True,
-             "next_action": "wiki_agent_capture_file_then_inspect"}
-            if allowed_providers else None
-        ),
-        "next_action": (
-            "create_new_inbox_file" if allowed_providers else
-            "preserve_raw_in_preconfigured_inbox" if guidance_status == "unavailable" else
-            "external_inbox_handoff_not_enabled"
-        ),
+        "fallback": {"mode": "raw_inbox_file", "preserve_original": True,
+                     "next_action": "wiki_agent_capture_file_then_inspect"},
+        "next_action": "collect_to_inbox",
     }
 
 
@@ -166,8 +162,8 @@ class KnowledgeService:
         results = validate_repository(self.knowledge_root)
         return {"valid": all(result.is_valid for result in results), "results": [result.as_dict() for result in results]}
 
-    def get_collection_handoff(self, collector_id: str) -> Dict[str, object]:
-        return collection_handoff_contract(self.knowledge_root.parent, collector_id)
+    def get_collection_handoff(self) -> Dict[str, object]:
+        return collection_handoff_contract(self.knowledge_root.parent)
 
     def backfill_evidence_links(self, *, apply: bool = False) -> Dict[str, object]:
         """Derive Obsidian file links from existing durable Evidence URIs."""

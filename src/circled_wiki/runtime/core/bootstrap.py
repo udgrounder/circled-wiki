@@ -25,7 +25,6 @@ from circled_wiki.config.data_protection import (
 from circled_wiki.config.curation_taxonomy import (
     TAXONOMY_PATH, load_curation_taxonomy, render_curation_taxonomy,
 )
-from circled_wiki.config.collection_handoff import HANDOFF_PATH, load_collection_handoff, render_collection_handoff
 
 
 CONTROL_PLANE = ".circled-wiki"
@@ -81,7 +80,7 @@ KNOWN_LEGACY_ASSET_CHECKSUMS = {
 }
 MANAGED_DIRECTORIES = (
     f"{CONTROL_PLANE}/agent-rules", f"{CONTROL_PLANE}/templates", f"{CONTROL_PLANE}/policies",
-    f"{CONTROL_PLANE}/schemas", f"{CONTROL_PLANE}/bin", f"{CONTROL_PLANE}/runtime",
+    f"{CONTROL_PLANE}/contracts", f"{CONTROL_PLANE}/schemas", f"{CONTROL_PLANE}/bin", f"{CONTROL_PLANE}/runtime",
     f"{CONTROL_PLANE}/proposals", f"{CONTROL_PLANE}/history",
 )
 GITIGNORE_BEGIN = "# BEGIN circled-wiki:generated-artifacts"
@@ -403,6 +402,7 @@ def _source_assets(source_root: Path) -> Dict[str, bytes]:
     for directory, destination in (
         (source_root / CONTROL_PLANE / "templates", f"{CONTROL_PLANE}/templates"),
         (source_root / CONTROL_PLANE / "policies", f"{CONTROL_PLANE}/policies"),
+        (source_root / CONTROL_PLANE / "contracts", f"{CONTROL_PLANE}/contracts"),
         (source_root / CONTROL_PLANE / "schemas", f"{CONTROL_PLANE}/schemas"),
         (source_root / CONTROL_PLANE / "bin", f"{CONTROL_PLANE}/bin"),
     ):
@@ -493,13 +493,8 @@ def bootstrap_circled_wiki(
     taxonomy_path = target / TAXONOMY_PATH
     taxonomy_action = "preserve_existing" if taxonomy_path.exists() else "create"
     taxonomy = render_curation_taxonomy(source_root).encode("utf-8")
-    handoff_path = target / HANDOFF_PATH
-    handoff_action = "preserve_existing" if handoff_path.exists() else "create"
-    handoff = render_collection_handoff(source_root).encode("utf-8")
     if taxonomy_action == "preserve_existing":
         load_curation_taxonomy(target)
-    if handoff_action == "preserve_existing":
-        load_collection_handoff(target)
     configured_data_protection = (
         load_data_protection_policy(target)
         if data_protection_action == "preserve_existing" else None
@@ -545,7 +540,6 @@ def bootstrap_circled_wiki(
         actions.append({"path": "knowledge/README.md", "action": "create"})
     actions.append({"path": POLICY_PATH, "action": data_protection_action})
     actions.append({"path": TAXONOMY_PATH, "action": taxonomy_action})
-    actions.append({"path": HANDOFF_PATH, "action": handoff_action})
     pending_proposals: List[Dict[str, str]] = []
     upgrade_issues: List[Dict[str, str]] = []
     next_assets: Dict[str, str] = dict(previous)
@@ -643,7 +637,7 @@ def bootstrap_circled_wiki(
         for relative in legacy_assets
         if (target / relative).is_file() and (target / relative) not in removals
     ]
-    known_non_assets = {MANIFEST_PATH, f"{CONTROL_PLANE}/config.yaml", POLICY_PATH, TAXONOMY_PATH, HANDOFF_PATH}
+    known_non_assets = {MANIFEST_PATH, f"{CONTROL_PLANE}/config.yaml", POLICY_PATH, TAXONOMY_PATH, f"{CONTROL_PLANE}/collection-handoff.yaml"}
     known_paths = set(previous) | set(assets) | known_non_assets
     for path in (sorted(control_root.rglob("*")) if control_root.is_dir() else []):
         relative_path = path.relative_to(target).as_posix()
@@ -690,7 +684,6 @@ def bootstrap_circled_wiki(
         or configuration_action == "create"
         or data_protection_action == "create"
         or taxonomy_action == "create"
-        or handoff_action == "create"
     )
     backup_required = os_exists and os_mutation_required
     backup_path = None
@@ -726,8 +719,6 @@ def bootstrap_circled_wiki(
             data_protection_path.write_bytes(data_protection)
         if taxonomy_action == "create":
             taxonomy_path.write_bytes(taxonomy)
-        if handoff_action == "create":
-            handoff_path.write_bytes(handoff)
         if manifest_needs_update or backup_path is not None:
             manifest_payload = dict(manifest)
             manifest_payload.update({

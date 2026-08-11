@@ -11,7 +11,7 @@
 
 ## 1. 결론
 
-수집 Agent는 allowlist가 허용한 provider의 새 Inbox 파일 생성 외의 `knowledge/inbox/` 변경이나 자체 Python 환경에서
+수집 Agent는 기존 Inbox Rule이 정한 provider의 새 Inbox 파일 생성 외의 `knowledge/inbox/` 변경이나 자체 Python 환경에서
 Schema·민감정보 정책을 해석하지 않는다.
 각 수집 작업은 아래 두 단계로 분리한다.
 
@@ -30,19 +30,16 @@ Schema·민감정보 정책을 해석하지 않는다.
 
 ### 결정 기록 (2026-08-11)
 
-1. **외부 Agent의 Inbox 파일 생성 허용** — 외부 Collection Agent는 설치별 allowlist가 허용한 provider에 따라
+1. **외부 Agent의 Inbox 파일 생성 허용** — 외부 Collection Agent는 기존 Inbox Rule이 정한 provider에 따라
    `knowledge/inbox/<provider>/`에 새 Inbox 파일을 직접 생성할 수 있다. 기존 Inbox·Evidence·Bundle의 수정·이동·삭제는
    허용하지 않는다.
 2. **원문 내용 제한 없음** — Wiki는 외부 Agent가 적재하는 원문의 내용·형식을 Capture 이전에 제한하거나 하드 마스킹을
    강제하지 않는다. 외부 Agent의 수집 규칙을 존중한다. 해당 파일은 `untrusted_external_handoff`로 취급하며 Evidence,
    Bundle, 검색, Context에는 후속 Data Protection·Inbox Inspection Gate가 끝날 때까지 포함하지 않는다.
-3. **설치별 allowlist** — Collector 식별·허용 provider·Inbox 쓰기 권한은 설치 로컬 allowlist로 확인한다. 초기 단계에는
-   API token·인증서가 아닌 `collector_id`와 handoff 스펙의 일치성을 사용하며, 원격 transport를 도입할 때 강한 인증을
-   추가한다.
 4. **형식 밖 수집 보존** — 표준 envelope를 만들 수 없는 원문도 허용된 Inbox에 새 파일로 보존한다. 이는 실패가 아니라
    `pending` 정규화 대상이며, Wiki Agent가 기존 `capture-file --inbox-file <provider/원본파일명>`로 envelope화한 뒤 동일한 Inspection·Data Protection Gate를 적용한다.
-5. **수집 행동 지침** — 설치별 Collector allowlist는 선택적 `guidance`를 제공할 수 있다. 출처·시점·결정 맥락 등 가치 있는
-   자료를 더 잘 수집하기 위한 지침이며, 필수 입력이나 수집 성공 Gate가 아니다. 없는 정보는 추정하지 않고 원문을 보존한다.
+5. **수집 행동 지침** — handoff는 기존 Inbox Rule의 위치 기준, 출처·시점·결정 맥락 등 가치 있는 자료를 더 잘 수집하기 위한
+   지침과 권장 Frontmatter를 전달한다. 필수 입력이나 수집 성공 Gate가 아니며, 없는 정보는 추정하지 않고 원문을 보존한다.
 6. **Runtime 장애와 수집 분리** — `jsonschema` 등 Wiki Runtime 오류로 handoff 안내를 읽지 못해도 수집 Agent는
    사전에 배정된 provider Inbox에 새 raw 원문을 보존한다. 오류는 정제 지연일 뿐 수집 차단 사유가 아니며, 복구 뒤
    Capture·Inspection으로 `pending` 정규화한다.
@@ -82,8 +79,8 @@ Schema·민감정보 정책을 해석하지 않는다.
 | 역할 | 책임 | 금지 |
 | --- | --- | --- |
 | Collection Agent | 원문 획득, 출처·수집 목적·idempotency key 작성, allowlist가 허용한 provider의 새 Inbox 파일 생성, 결과 기록·안전 재시도 | 기존 Inbox·Evidence·Bundle 수정·이동·삭제, 정책·Schema 자체 판정 |
-| Wiki Agent | 현재 계약 응답, 허용된 외부 Inbox handoff 확인, Data Protection·Inbox Gate·Receipt 관리 | 외부 수집 스케줄러 제어, 원문 없는 계약 조회만으로 수집 완료 주장 |
-| Runtime | 설치본 설정·Schema·의존성 검증, Capture 및 상태 전이 구현 | 수집 Agent의 캐시된 계약을 신뢰 |
+| Wiki Agent | 현재 위치 기준·수집 안내 응답, Data Protection·Inbox Gate·Receipt 관리 | 외부 수집 스케줄러 제어, 원문 없는 안내 조회만으로 수집 완료 주장 |
+| Runtime | Capture 및 상태 전이 구현 | 수집 Agent의 안내 조회에 설정·Schema 의존성을 강제 |
 | 운영 사용자 | 신규 수집 source 권한, `awaiting_user` 등 사용자만 할 수 있는 판단 제공 | Agent가 대신 승인하도록 위임 |
 
 ## 5. Handoff 계약
@@ -93,56 +90,42 @@ Schema·민감정보 정책을 해석하지 않는다.
 초기 구현은 Wiki Agent가 설치본 launcher를 통해 이 읽기 전용 요청을 처리한다. 이후 CLI·MCP에 동일한 read-only 명령을
 추가해 대화형 문의 없이도 기계적으로 호출할 수 있게 한다.
 
-요청에는 원문을 넣지 않는다.
-
-```json
-{
-  "request_type": "collection_handoff",
-  "collector_id": "safe-collector-identifier",
-  "requested_operation": "capture_conversation"
-}
-```
-
 정상 응답의 최소 계약은 다음과 같다.
 
 ```json
 {
   "contract_version": "v1",
   "release_id": "v1-...",
-  "collector_id": "approved-collector",
-  "operation": "capture_conversation",
-  "launcher": ".circled-wiki/bin/circled-wiki.py",
-  "required_fields": [
+  "operation": "collection_guidance",
+  "location_rules": {
+    "inbox_path_template": "knowledge/inbox/<provider>/",
+    "write_policy": "new_files_only"
+  },
+  "recommended_fields": [
     "content", "provider", "title", "why_collected",
     "intended_use", "idempotency_key"
   ],
-  "preflight": {
-    "configuration_valid": true,
-    "runtime_dependencies": "ready"
+  "recommended_frontmatter": {
+    "source_url": "가능하면 원문의 안정적 URL",
+    "source_locator": "원문 내 위치 또는 외부 참조"
   },
-  "authorization": {
-    "inbox_write": true,
-    "allowed_providers": ["approved-provider"]
-  },
-  "next_action": "submit_capture_handoff"
+  "next_action": "collect_to_inbox"
 }
 ```
 
-- `release_id`와 `contract_version`은 Capture 요청·응답 및 수집 Agent의 작업 로그에 함께 기록한다.
-- `configuration_valid: false` 또는 `runtime_dependencies != ready`이면 수집 Agent는 원문 handoff를 수행하지 않는다.
-- 수집 Agent는 계약을 장기 캐시하지 않는다. 한 작업 안에서만 사용하며 Capture가 version mismatch를 반환하면 새 계약을 조회한다.
-- Wiki Agent는 설치 로컬 allowlist에서 `collector_id`, `inbox_write`, 허용 provider를 확인한 뒤 handoff 스펙을 발급한다.
+- `release_id`와 `contract_version`은 작업 로그에 함께 기록한다.
+- 수집 Agent는 시작·release 변경·오류 시 안내를 다시 조회한다. Schema 오류가 나도 기존 Inbox Rule에 따라 raw 원문을 보존한다.
+- 위치·권장 Frontmatter·raw fallback은 기존 Inbox Rule을 요약한 안내이며 수집 성공 Gate가 아니다.
 
 ### 5.2 External Inbox handoff
 
-수집 Agent는 계약의 `operation`과 `required_fields`가 기대한 `v1` 형식이고 allowlist 권한이 있을 때만, 스펙에 지정된
-새 Inbox 상대 경로에 파일을 생성한다. 파일 본문은 원문을 제한 없이 보존할 수 있다.
+수집 Agent는 계약의 `location_rules`에 따라 `knowledge/inbox/<provider>/`에 새 파일을 생성한다. 권장 Frontmatter는
+가능하면 포함하고, 없으면 raw 원문을 보존한다.
 
 ```json
 {
   "contract_version": "v1",
   "release_id": "v1-...",
-  "collector_id": "approved-collector",
   "content": "수집한 원문",
   "provider": "approved-provider",
   "title": "안전한 제목",
@@ -155,14 +138,14 @@ Schema·민감정보 정책을 해석하지 않는다.
 `content`는 이 단계에서만 전달한다. Wiki는 원문의 하드 마스킹 여부나 허용 내용을 Capture 이전에 판단하지 않는다.
 대신 생성 파일을 `untrusted_external_handoff`·`sensitivity_review: required` 상태로 두고, 현재 Data Protection와
 Inbox Inspection이 안전한 Evidence 변환 여부를 결정한다. handoff 파일은 새로운 파일만 생성할 수 있으며,
-`collector_id`, provider, idempotency key와 표준 Inbox envelope가 일치할 때만 후속 Inspection 대상이 된다.
+provider와 표준 Inbox envelope가 일치하면 후속 Inspection 대상이 된다.
 Collection Agent는 Inbox 파일 생성 성공을 Evidence·Bundle·발행 성공으로 해석하지 않는다.
 
 ### 5.3 결과 계약
 
 | 결과 | Collection Agent 행동 |
 | --- | --- |
-| `pending` | Inbox 경로·collector/provider·contract/release ID를 기록하고 정상 종료 |
+| `pending` | Inbox 경로·provider·contract/release ID를 기록하고 정상 종료 |
 | 기존 동일 intake 재사용 | 반환된 기존 `intake_id`를 기록하고 중복 제출을 멈춤 |
 | `awaiting_user` / `needs_review` | 원문을 다시 전송하지 않고 안전한 다음 행동만 사용자·공통 notification에 전달 |
 | `contract_version_mismatch` / `release_mismatch` | 계약을 한 번 다시 조회한 뒤 같은 idempotency key로 재시도 |
@@ -173,10 +156,8 @@ Collection Agent는 Inbox 파일 생성 성공을 Evidence·Bundle·발행 성�
 
 ### 구현 현황 (2026-08-11)
 
-- 완료: 설치별 `collection-handoff.yaml` allowlist와 JSON Schema·Registry 등록, bootstrap의 생성·보존,
-  `validate-configuration` 공통 검증, `get-collection-handoff --collector-id` 읽기 계약, 사용자 설정 문서와 회귀 테스트.
-- 완료: 파일별 승인 없이 allowlist의 provider 폴더에 새 파일만 만드는 경계로 완화했다. 일회성 `handoff_id`, 파일 경로
-  발급·만료·재사용 정책은 사용하지 않으며, 기존 Inbox Inspection이 후속 격리·검토를 수행한다.
+- 완료: `get-collection-handoff` 읽기 계약은 기존 Inbox Rule의 위치 기준, 권장 Frontmatter, raw fallback을 반환한다.
+  설치별 allowlist·Schema·config는 사용하지 않으며, 기존 Inbox Inspection이 후속 격리·검토를 수행한다.
 
 ### Phase 0 — 사용자 설정 문서와 현재 경계 고정
 

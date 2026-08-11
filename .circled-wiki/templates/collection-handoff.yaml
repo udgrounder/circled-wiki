@@ -1,6 +1,0 @@
-schema_version: 1
-
-# Installation-local allowlist. Empty by default: external Inbox handoff is disabled
-# until an operator explicitly adds a collector and its permitted providers.
-# guidance is optional collection advice, never an acceptance gate.
-collectors: []

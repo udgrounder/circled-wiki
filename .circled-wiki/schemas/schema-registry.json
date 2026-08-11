@@ -21,13 +21,6 @@
       "versions": {
         "1": "curation-taxonomy.schema.v1.json"
       }
-    },
-    "collection-handoff": {
-      "instance_path": ".circled-wiki/collection-handoff.yaml",
-      "current_version": 1,
-      "versions": {
-        "1": "collection-handoff.schema.v1.json"
-      }
     }
   }
 }

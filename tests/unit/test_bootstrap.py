@@ -107,6 +107,7 @@ class BootstrapKnowledgeRootTests(unittest.TestCase):
             self.assertTrue((target / "workspace").is_dir())
             self.assertTrue((target / ".circled-wiki" / "templates" / "runbook.md").is_file())
             self.assertTrue((target / ".circled-wiki" / "templates" / ".gitignore").is_file())
+            self.assertTrue((target / ".circled-wiki" / "contracts" / "COLLECTION_HANDOFF.md").is_file())
             self.assertTrue((target / ".circled-wiki" / "bin" / "circled-wiki.py").is_file())
             self.assertTrue((target / ".circled-wiki" / "runtime" / "circled_wiki" / "cli" / "__main__.py").is_file())
             self.assertTrue((target / ".circled-wiki" / "runtime" / "pyproject.toml").is_file())
@@ -180,6 +181,7 @@ class BootstrapKnowledgeRootTests(unittest.TestCase):
             self.assertEqual(json.loads(history.read_text(encoding="utf-8"))["assets"], manifest_payload["assets"])
             self.assertIn("system-observation.md", manifest_payload["runtime_profiles"])
             self.assertNotIn("repository-engineering.md", manifest_payload["runtime_profiles"])
+            self.assertNotIn("COLLECTION_HANDOFF.md", manifest_payload["runtime_profiles"])
             self.assertEqual(
                 manifest_payload["router_checksum"],
                 manifest_payload["assets"][".circled-wiki/AGENT_ROUTER.md"],

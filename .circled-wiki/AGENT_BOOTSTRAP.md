@@ -39,7 +39,7 @@ taxonomy를 만들거나 바꾸거나 이를 근거로 기존 Bundle을 재분�
 
 운영 Agent는 YAML 설정을 읽기 전 공용 JSON Schema 검증을 통과시켜야 한다. Runtime이 읽는 새 설치별 YAML을 만들거나 형식을 바꿀 때는 RB-KNW-028에 따라 동명 JSON Schema 작성·Schema 목록 등록·공용 검증 연결을 같은 변경에서 완료한다. 계약 버전은 YAML `schema_version`, 지원 버전·현재 버전은 `.circled-wiki/schemas/schema-registry.json`, 승격·migration·지원 종료는 RB-KNW-029를 따른다. 설치 루트에서 `circled-wiki validate-configuration`을 실행하면 `config.yaml`, `data-protection.yaml`, `curation-taxonomy.yaml`을 같은 검증기로 점검한다.
 
-외부 수집 Agent는 시작·release 변경·오류 시 `get-collection-handoff --collector-id <id>`로 설치별 allowlist와 현재 release를 확인한다. 이 명령은 원문을 받지 않으며, 허용된 Agent는 응답의 provider 폴더에 새 Inbox 파일만 만든다. Runtime·Schema 오류로 조회할 수 없더라도 사전에 배정된 provider Inbox에는 새 raw 원문을 보존하고, 복구 뒤 Wiki Agent가 Capture·Inspection으로 정규화한다.
+외부 수집 Agent handoff 요청을 받으면 `.circled-wiki/contracts/COLLECTION_HANDOFF.md`를 읽고 그 내용과 `guidance_version`을 수집 Agent에게 전달한다. `get-collection-handoff`도 같은 문서를 `guidance_markdown`으로 반환한다. 이 정본은 Inbox 위치 기준, 변경 경계, 권장 Frontmatter와 raw fallback을 정의하며, 지침 누락은 수집을 차단하지 않는다.
 
 사용자에게 알려야 할 Curation·taxonomy 이벤트는 RB-NOTIFY-001에 따라 `workspace/notifications/`의 공통 파일 DB에 기록한다. 기존 Review·taxonomy·Queue 상태를 그 폴더로 옮기지 않으며, 사용자의 확인은 acknowledgement 파일로만 기록한다.
 

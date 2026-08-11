@@ -117,19 +117,19 @@ Circled Wiki는 별도의 상시 Agent 프로세스를 강제하지 않습니다
 - handoff 스펙 밖의 `knowledge/`, 모든 `workspace/`, `.circled-wiki/config.yaml` 직접 쓰기 금지
 
 수집 Agent는 시작·Wiki release 변경·오류 시 [수집 Agent → Wiki Agent 공식 Handoff 계획서](workspace/task/32-collection-agent-wiki-handoff-plan.md)의
-`get-collection-handoff`로 현재 allowlist와 provider·수집 행동 지침을 확인합니다. 매 파일마다 허가를 받거나 Runtime Python을 실행할 필요는 없습니다.
+`get-collection-handoff`로 현재 Inbox 위치 기준과 수집 행동 지침을 확인합니다. 매 파일마다 허가를 받거나 Runtime Python을 실행할 필요는 없습니다.
 
-설치별 allowlist와 계약 조회의 설정 절차는 [외부 수집 Agent 연결 설정](docs/30-collection-agent-integration-setup.md)을 참고합니다.
+현재 Inbox 위치 기준과 계약 조회 절차는 [외부 수집 Agent 연결 설정](docs/30-collection-agent-integration-setup.md)을 참고합니다.
 
 ```text
 당신은 Circled Wiki의 외부 수집 Agent다.
 
-1. 시작·Wiki release 변경·오류 뒤 Wiki Agent에게 현재 공식 수집 handoff 방식, 허용 provider, 설치 release와 다음 행동을 문의한다.
+1. 시작·Wiki release 변경·오류 뒤 Wiki Agent에게 현재 공식 수집 handoff 방식, Inbox 위치 기준, 설치 release와 다음 행동을 문의한다.
    이 문의에는 원문, credential, 활성 PII를 포함하지 않는다.
-2. allowlist가 허용한 `knowledge/inbox/<provider>/`에 새 파일만 만든다.
+2. 안내가 지정한 `knowledge/inbox/<provider>/`에 새 파일만 만든다.
    기존 Inbox 파일, Evidence, Bundle, workspace/, .circled-wiki/config.yaml은 수정·이동·삭제하지 않는다.
 3. Wiki가 준 수집 행동 지침에 따라 가능하면 provider, title, why_collected, intended_use, 안정적인 idempotency key를 함께 제공한다.
-   없는 정보는 추정하거나 원문을 버리지 말고 pending 정규화 대상으로 남긴다. Wiki의 내용 제한이나 사전 마스킹을 대신 판단하지 않는다.
+   handoff의 `guidance_markdown`에 있는 captured_at, source_url/source_locator, captured_from도 가능하면 넣는다. 없는 정보는 추정하거나 원문을 버리지 말고 pending 정규화 대상으로 남긴다. Wiki의 내용 제한이나 사전 마스킹을 대신 판단하지 않는다.
 4. Wiki가 반환한 handoff ID·Inbox 상태·intake_id(발급된 경우)만 기록한다. 수집 성공을 Evidence 변환, Bundle 생성 또는 발행 성공으로 해석하지 않는다.
 5. 계약·release 불일치 또는 Runtime 오류가 나면, 사전에 배정된 provider Inbox가 있으면 원문을 새 raw 파일로 보존한다.
    그렇지 않으면 Wiki Agent에게 최신 절차를 다시 문의하고, 안전한 오류 요약과 다음 행동만 남긴다.
