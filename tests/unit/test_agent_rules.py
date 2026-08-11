@@ -129,6 +129,9 @@ class AgentRuleProfileTests(unittest.TestCase):
 
     def test_inbox_profiles_require_two_pass_masking_without_false_scan_attestation(self):
         capture = (ROOT / "agent-rules" / "inbox-capture.md").read_text(encoding="utf-8")
+        self.assertIn("외부 수집 Agent Handoff 조회", capture)
+        self.assertIn("get-collection-handoff()", capture)
+        self.assertIn("Inspection·Data Protection Review·Evidence 전환을 설명하거나 실행하지 않는다", capture)
         inspection = (ROOT / "agent-rules" / "inbox-inspection.md").read_text(
             encoding="utf-8"
         )

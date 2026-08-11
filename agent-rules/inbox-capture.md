@@ -1,5 +1,15 @@
 # Inbox Capture Profile
 
+## 외부 수집 Agent Handoff 조회
+
+외부 수집 Agent가 아직 원문을 제공하지 않고 “Inbox 원문 입력 가이드”, “외부 원문 전달 가이드” 또는 수집 방식을 요청한 경우에는 Capture 작업이 아니다.
+
+1. `get-collection-handoff()`를 호출한다.
+2. 반환된 `handoff_version`, `method_spec_document`, `collection_guide_document`만 전달한다.
+3. 수집 Agent는 저장한 버전과 비교해 최초이거나 변경된 경우에만 두 문서를 읽는다.
+
+이 조회에서는 원문을 받지 않고, Capture·Inspection·Data Protection Review·Evidence 전환을 설명하거나 실행하지 않는다. 실제 원문과 메소드 스펙의 필수 입력이 제공된 경우에만 아래 Capture 절차를 적용한다.
+
 ## Trigger
 
 사용자·Agent·Batch가 제공한 대화, URL에서 수집한 텍스트·HTML, PDF·Word·기타 원본 파일을 처리 대기열에 적재한다.
@@ -44,9 +54,8 @@
 구조화된 복구 응답으로 반환하며, 원문은 출력하지 않는다. Agent는 기존 Inbox Item을 검사하고 변경된 원문이 의도된
 새 revision일 때만 새 idempotency key를 사용한다. 충돌·CLI 실패가 입력·idempotency Gate의 정상 결과인지, 지침 부재·모호성 또는 Runtime 결함인지 개별 판단하고 후자로 판단한 경우에만 `system-observation` Profile로 Issue를 남긴다.
 
-외부 수집 Agent가 자체 형식의 원문 파일만 남긴 경우에는 원문을 삭제하거나 수집 실패로 처리하지 않는다. 허용된
-`knowledge/inbox/<provider>/`에 새 원본을 보존하고, Wiki Agent가 `capture-file --inbox-file <provider/원본파일명>`로 envelope화한 뒤 같은
-Inspection·Data Protection Gate로 넘긴다. 형식 밖 원문은 `pending` 정규화 대상으로만 기록한다.
+외부 수집 Agent가 Runtime을 실행할 수 없으면 원문과 알고 있는 메타데이터를 Wiki Agent에 전달해 대행 제출을 요청한다. Wiki Agent는
+같은 Capture 메소드로 처리하며 원문을 재해석하거나 누락 값을 추정하지 않는다.
 
 ## Prohibited
 
