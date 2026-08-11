@@ -1,0 +1,36 @@
+{
+  "receipt_type": "release",
+  "release_id": "v1-59a434ccdad7",
+  "source_revision": "9d8cfaea28eaf2d63aacdb3786a37af562e99974",
+  "runtime_checksum": "sha256:60a4e46f97815868bcb3569d5e3784adc03eabfa83f067d16dc029a4bacfd870",
+  "router_checksum": "sha256:961fee5f24d6e5f63601767af22e1dd40fbd9d24d62592ff60324b7a41be88ad",
+  "runtime_profiles": [
+    "bundle-rebuilding.md",
+    "collection-handoff.md",
+    "curation-taxonomy.md",
+    "evidence-ingest.md",
+    "inbox-capture.md",
+    "inbox-disposition.md",
+    "inbox-inspection.md",
+    "inbox-sensitivity-review.md",
+    "knowledge-curation.md",
+    "knowledge-query.md",
+    "publication.md",
+    "runtime-upgrade-verification.md",
+    "system-observation.md",
+    "workflow-execution.md"
+  ],
+  "included_issue_ids": [],
+  "validation": {
+    "unit": "passed",
+    "integration": "passed",
+    "repository_validator": "passed"
+  },
+  "verified_by": "codex",
+  "verified_at": "2026-08-11T11:01:07.633237+00:00",
+  "source_commit_check": {
+    "revision": "9d8cfaea28eaf2d63aacdb3786a37af562e99974",
+    "subject": "wiki upgrade",
+    "worktree_clean": true
+  }
+}
