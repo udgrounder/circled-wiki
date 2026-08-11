@@ -666,7 +666,7 @@ class BootstrapKnowledgeRootTests(unittest.TestCase):
             updated = json.loads(manifest_path.read_text(encoding="utf-8"))
             self.assertNotIn(relative, updated["assets"])
 
-    def test_upgrade_retires_superseded_collection_handoff_assets_but_keeps_local_config(self):
+    def test_upgrade_retires_superseded_collection_handoff_assets_and_reports_legacy_local_config(self):
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory) / "team-project"
             bootstrap_circled_wiki(target, ROOT, apply=True)
@@ -690,6 +690,14 @@ class BootstrapKnowledgeRootTests(unittest.TestCase):
 
             self.assertTrue(local_config.is_file())
             self.assertEqual(local_config.read_text(encoding="utf-8"), "legacy_local_setting: keep\n")
+            self.assertIn(
+                {
+                    "path": ".circled-wiki/collection-handoff.yaml",
+                    "classification": "unrecorded_control_plane_asset",
+                    "resolution": "identify ownership from the backup before deployment",
+                },
+                report["upgrade_issues"],
+            )
             updated = json.loads(manifest_path.read_text(encoding="utf-8"))
             for relative in legacy_assets:
                 self.assertFalse((target / relative).exists())

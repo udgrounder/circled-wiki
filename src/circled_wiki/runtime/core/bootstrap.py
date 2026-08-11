@@ -640,7 +640,7 @@ def bootstrap_circled_wiki(
         for relative in legacy_assets
         if (target / relative).is_file() and (target / relative) not in removals
     ]
-    known_non_assets = {MANIFEST_PATH, f"{CONTROL_PLANE}/config.yaml", POLICY_PATH, TAXONOMY_PATH, f"{CONTROL_PLANE}/collection-handoff.yaml"}
+    known_non_assets = {MANIFEST_PATH, f"{CONTROL_PLANE}/config.yaml", POLICY_PATH, TAXONOMY_PATH}
     known_paths = set(previous) | set(assets) | known_non_assets
     for path in (sorted(control_root.rglob("*")) if control_root.is_dir() else []):
         relative_path = path.relative_to(target).as_posix()
