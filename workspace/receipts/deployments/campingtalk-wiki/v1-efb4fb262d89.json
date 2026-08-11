@@ -1,0 +1,30 @@
+{
+  "receipt_type": "deployment",
+  "release_id": "v1-efb4fb262d89",
+  "previous_release": "v1-18920c805e5b",
+  "target_ref": "campingtalk-wiki",
+  "planned_at": "2026-08-11T05:26:07.695029+00:00",
+  "applied_at": "2026-08-11T05:26:07.695112+00:00",
+  "backup_ref": "/Users/kjkim/Work/Projects/campingtalk-wiki/.circled-wiki-backups/v1-18920c805e5b-20260811T052519Z",
+  "actions": {
+    "applied": [
+      ".circled-wiki/contracts/COLLECTION_HANDOFF.md",
+      ".circled-wiki/AGENT_BOOTSTRAP.md",
+      ".circled-wiki/runtime/circled_wiki/core/bootstrap.py",
+      ".circled-wiki/runtime/circled_wiki/core/service.py",
+      ".circled-wiki/runtime/circled_wiki/cli/__main__.py",
+      ".circled-wiki/runtime/circled_wiki/config/collection_handoff.py",
+      ".circled-wiki/schemas/collection-handoff.schema.v1.json",
+      ".circled-wiki/templates/collection-handoff.yaml"
+    ],
+    "preserved": [
+      ".circled-wiki/config.yaml",
+      ".circled-wiki/data-protection.yaml",
+      ".circled-wiki/curation-taxonomy.yaml"
+    ],
+    "proposed": []
+  },
+  "status": "verification_pending",
+  "deployment_attempt": 1,
+  "release_receipt": "/Users/kjkim/Study/circled-wiki/workspace/receipts/releases/v1-efb4fb262d89.json"
+}
