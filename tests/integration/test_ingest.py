@@ -19,6 +19,7 @@ from circled_wiki.core.ingest import (
     complete_inbox_sensitivity_review,
     ingest_evidence,
     record_inbox_pii_scan_receipt,
+    read_conversation_intake,
     request_inbox_sensitivity_decision,
 )
 from circled_wiki.core.inbox_review_queue import get_inbox_review, list_inbox_review_queue
@@ -820,6 +821,45 @@ class IngestEvidenceTests(unittest.TestCase):
             self.assertEqual(evidence.frontmatter["source_ref"]["locator"], "page_id=page-123")
             self.assertEqual(evidence.frontmatter["source_ref"]["captured_from"], "sync")
             self.assertEqual(evidence.frontmatter["extensions"]["content_mode"], "embedded")
+
+    def test_capture_document_creates_a_complete_standard_inbox_envelope(self):
+        with tempfile.TemporaryDirectory() as temp_directory:
+            knowledge_root = Path(temp_directory) / "knowledge"
+            content = "표준 Inbox 원문\n"
+            captured = capture_document(
+                knowledge_root, content, "notion", title="표준 문서",
+                why_collected="형식 검증", intended_use=["test"],
+                idempotency_key="notion:standard-envelope:revision-1",
+                source_url="https://www.notion.so/page-123", source_locator="page_id=page-123",
+            )
+
+            data, stored_content = read_conversation_intake(captured.inbox_path)
+
+            self.assertEqual(data["type"], "inbox_item")
+            self.assertEqual(data["content_type"], "document")
+            self.assertEqual(data["status"], "pending")
+            self.assertEqual(data["sensitivity_review"], "required")
+            self.assertEqual(data["provider"], "notion")
+            self.assertEqual(data["intended_use"], ["test"])
+            self.assertEqual(data["checksum"], "sha256:" + hashlib.sha256(content.encode("utf-8")).hexdigest())
+            rendered = captured.inbox_path.read_text(encoding="utf-8")
+            self.assertIn("<!-- INBOX_CONTENT_START -->", rendered)
+            self.assertIn("<!-- INBOX_CONTENT_END -->", rendered)
+            self.assertEqual(stored_content, content)
+
+
+    def test_incomplete_manual_envelope_is_kept_but_cannot_enter_inbox_processing(self):
+        with tempfile.TemporaryDirectory() as temp_directory:
+            knowledge_root = Path(temp_directory) / "knowledge"
+            raw_path = knowledge_root / "inbox" / "notion" / "incomplete.md"
+            raw_path.parent.mkdir(parents=True)
+            raw_path.write_text("---\ntype: inbox_item\nprovider: notion\n---\n원문\n", encoding="utf-8")
+
+            inspection = inspect_inbox(knowledge_root)
+
+            self.assertTrue(raw_path.is_file())
+            self.assertEqual(inspection["invalid_count"], 1)
+            self.assertIn("content_type", inspection["invalid"][0]["error"])
 
     def test_capture_lands_in_inbox_before_batch_ingests_and_proposes(self):
         with tempfile.TemporaryDirectory() as temp_directory:

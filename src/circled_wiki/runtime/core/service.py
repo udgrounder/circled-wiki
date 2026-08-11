@@ -60,6 +60,7 @@ from .workflow import (
 from .bundle_types import DIRECT_DRAFT_TYPES
 
 COLLECTION_HANDOFF_GUIDE = ".circled-wiki/contracts/COLLECTION_HANDOFF.md"
+COLLECTION_METHOD_SPEC = ".circled-wiki/contracts/INBOX_INPUT_METHODS.md"
 
 
 def _collection_handoff_guidance(project_root: Path) -> tuple[str, str]:
@@ -72,9 +73,9 @@ def _collection_handoff_guidance(project_root: Path) -> tuple[str, str]:
             candidate = parent / COLLECTION_HANDOFF_GUIDE
             if candidate.is_file():
                 content = candidate.read_text(encoding="utf-8"); break
-    match = re.match(r"^---\s*\nguidance_version:\s*(v[0-9]+)\s*\n---\s*\n", content)
+    match = re.search(r"^handoff_version:\s*(v[0-9]+)\s*$", content, re.MULTILINE)
     if not match:
-        raise ValueError("collection handoff guide must declare guidance_version")
+        raise ValueError("collection handoff must declare handoff_version")
     return match.group(1), content
 def collection_handoff_contract(project_root: Path) -> Dict[str, object]:
     """Return collection guidance derived from the existing Inbox Rule.
@@ -82,17 +83,11 @@ def collection_handoff_contract(project_root: Path) -> Dict[str, object]:
     This deliberately reads no installation YAML: guidance must remain usable
     when Schema validation or another Runtime dependency is unavailable.
     """
-    guidance_version, guidance_markdown = _collection_handoff_guidance(project_root)
+    handoff_version, _ = _collection_handoff_guidance(project_root)
     return {
-        "contract_version": "v1",
-        "guidance_version": guidance_version,
-        "operation": "collection_guidance",
-        "guidance_document": COLLECTION_HANDOFF_GUIDE,
-        "guidance_markdown": guidance_markdown,
-        "missing_information_policy": "preserve_raw_as_pending_normalization",
-        "fallback": {"mode": "raw_inbox_file", "preserve_original": True,
-                     "next_action": "wiki_agent_capture_file_then_inspect"},
-        "next_action": "collect_to_inbox",
+        "handoff_version": handoff_version,
+        "method_spec_document": COLLECTION_METHOD_SPEC,
+        "collection_guide_document": COLLECTION_HANDOFF_GUIDE,
     }
 
 

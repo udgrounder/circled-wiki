@@ -112,12 +112,13 @@ Circled Wiki는 별도의 상시 Agent 프로세스를 강제하지 않습니다
 수집 Agent에 설치 Wiki root를 작업 대상(예: `WIKI_ROOT`)으로만 제공하고, 다음 권한으로 제한합니다.
 
 - `.circled-wiki/AGENT_BOOTSTRAP.md`, `.circled-wiki/AGENT_ROUTER.md`와 `.circled-wiki/OPERATING_RULES.md` 읽기
-- Wiki Agent가 발급한 handoff 스펙에 지정된 새 `knowledge/inbox/<provider>/` 파일 생성
+- Wiki Agent가 제공한 v1 계약을 사용한 Runtime `capture_*` 실행 또는 Wiki Agent 대행 요청
 - 수집 Agent 자신의 안전한 실행 로그 기록
 - handoff 스펙 밖의 `knowledge/`, 모든 `workspace/`, `.circled-wiki/config.yaml` 직접 쓰기 금지
 
 수집 Agent는 시작·Wiki release 변경·오류 시 [수집 Agent → Wiki Agent 공식 Handoff 계획서](workspace/task/32-collection-agent-wiki-handoff-plan.md)의
-`get-collection-handoff`로 현재 Inbox 위치 기준과 수집 행동 지침을 확인합니다. 매 파일마다 허가를 받거나 Runtime Python을 실행할 필요는 없습니다.
+`get-collection-handoff`로 현재 수집 Agent 실행 가이드의 경로와 버전을 확인합니다. 수집 Agent가 해당 경로에 접근할 수 없을 때만
+현재 메소드 스펙과 가이드 문서 경로를 확인합니다. 매 파일마다 허가를 받거나 별도 버전을 비교할 필요는 없습니다.
 
 현재 Inbox 위치 기준과 계약 조회 절차는 [외부 수집 Agent 연결 설정](docs/30-collection-agent-integration-setup.md)을 참고합니다.
 
@@ -126,18 +127,15 @@ Circled Wiki는 별도의 상시 Agent 프로세스를 강제하지 않습니다
 
 1. 시작·Wiki release 변경·오류 뒤 Wiki Agent에게 현재 공식 수집 handoff 방식, Inbox 위치 기준, 설치 release와 다음 행동을 문의한다.
    이 문의에는 원문, credential, 활성 PII를 포함하지 않는다.
-2. 안내가 지정한 `knowledge/inbox/<provider>/`에 새 파일만 만든다.
-   기존 Inbox 파일, Evidence, Bundle, workspace/, .circled-wiki/config.yaml은 수정·이동·삭제하지 않는다.
-3. Wiki가 준 수집 행동 지침에 따라 가능하면 provider, title, why_collected, intended_use, 안정적인 idempotency key를 함께 제공한다.
-   handoff의 `guidance_markdown`에 있는 captured_at, source_url/source_locator, captured_from도 가능하면 넣는다. 없는 정보는 추정하거나 원문을 버리지 말고 pending 정규화 대상으로 남긴다. Wiki의 내용 제한이나 사전 마스킹을 대신 판단하지 않는다.
-4. Wiki가 반환한 handoff ID·Inbox 상태·intake_id(발급된 경우)만 기록한다. 수집 성공을 Evidence 변환, Bundle 생성 또는 발행 성공으로 해석하지 않는다.
-5. 계약·release 불일치 또는 Runtime 오류가 나면, 사전에 배정된 provider Inbox가 있으면 원문을 새 raw 파일로 보존한다.
-   그렇지 않으면 Wiki Agent에게 최신 절차를 다시 문의하고, 안전한 오류 요약과 다음 행동만 남긴다.
-6. awaiting_user 또는 needs_review는 자동 승인하거나 원문을 반복 전송하지 않는다.
+2. Handoff가 제공한 메소드 스펙에 따라 원문, provider, title, why_collected, intended_use, 안정적인 idempotency key를 맞는 작업에 전달한다.
+   source_url/source_locator, captured_from, 대화 위치도 알 수 있으면 함께 제공한다.
+3. Runtime 실행이 불가능하면 같은 v1 입력을 Wiki Agent에 전달해 대행 capture를 요청한다. Wiki Agent는 값을 추정하거나 원문을 재해석하지 않고 같은 작업을 실행한다.
+4. 오류를 받으면 수집 시점의 정보를 보완해 다시 전달한다. 성공 응답의 intake_id는 Inbox 생성 성공만 뜻하며 Evidence 변환, Bundle 생성 또는 발행 성공을 뜻하지 않는다.
+5. awaiting_user 또는 needs_review는 자동 승인하거나 원문을 반복 전송하지 않는다.
 ```
 
-Wiki Agent와 통신할 수 없거나 `jsonschema` 오류로 안내를 읽지 못해도, 사전에 배정된 provider Inbox가 있으면 원문을
-새 raw 파일로 보존합니다. 이는 수집 성공이 아니라 `pending` 정규화 대기 상태이며, Runtime 복구 뒤 Wiki Agent가 처리합니다.
+Wiki Agent와 통신할 수 없거나 계약 조회가 실패하면, 수집 Agent는 원문과 이미 확보한 메타데이터를 보존한 채 Wiki Agent에
+대행 capture를 다시 요청합니다. 수작업 Inbox 파일을 만들어 정식 처리 경로를 우회하지 않습니다.
 
 ### 운영 사례
 

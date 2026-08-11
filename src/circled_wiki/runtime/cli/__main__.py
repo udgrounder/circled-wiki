@@ -91,7 +91,7 @@ def main() -> int:
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("validate")
     subparsers.add_parser("validate-configuration")
-    subparsers.add_parser("get-collection-handoff")
+    collection_handoff = subparsers.add_parser("get-collection-handoff")
     evidence_links = subparsers.add_parser("backfill-evidence-links")
     evidence_links.add_argument("--apply", action="store_true", help="write only validated Evidence file-link repairs")
     migrate_ids = subparsers.add_parser("migrate-document-ids")
@@ -552,7 +552,10 @@ def main() -> int:
         }, ensure_ascii=False, indent=2))
         return 0
     if args.command == "get-collection-handoff":
-        print(json.dumps(service.get_collection_handoff(), ensure_ascii=False, indent=2))
+        print(json.dumps(
+            service.get_collection_handoff(),
+            ensure_ascii=False, indent=2,
+        ))
         return 0
     if args.command == "backfill-evidence-links":
         print(json.dumps(service.backfill_evidence_links(apply=args.apply), ensure_ascii=False, indent=2))
