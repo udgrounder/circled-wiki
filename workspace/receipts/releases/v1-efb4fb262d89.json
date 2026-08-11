@@ -1,0 +1,35 @@
+{
+  "receipt_type": "release",
+  "release_id": "v1-efb4fb262d89",
+  "source_revision": "e0019409375dbaaa4c0b391c2e0a184b24abe61b",
+  "runtime_checksum": "sha256:38ca901560b5cb811b0ed7bddfab7c299d5f1d9027fa0e8f8add2f15bbfb18f8",
+  "router_checksum": "sha256:b5523394337ee7705dc9f647fc5100e11ab14e7d8a7ff30887b09f2d485fd12d",
+  "runtime_profiles": [
+    "bundle-rebuilding.md",
+    "curation-taxonomy.md",
+    "evidence-ingest.md",
+    "inbox-capture.md",
+    "inbox-disposition.md",
+    "inbox-inspection.md",
+    "inbox-sensitivity-review.md",
+    "knowledge-curation.md",
+    "knowledge-query.md",
+    "publication.md",
+    "runtime-upgrade-verification.md",
+    "system-observation.md",
+    "workflow-execution.md"
+  ],
+  "included_issue_ids": [],
+  "validation": {
+    "unit": "passed",
+    "integration": "passed",
+    "repository_validator": "passed"
+  },
+  "verified_by": "product-agent",
+  "verified_at": "2026-08-11T05:24:51.419279+00:00",
+  "source_commit_check": {
+    "revision": "e0019409375dbaaa4c0b391c2e0a184b24abe61b",
+    "subject": "폐기된 handoff 자산 정리",
+    "worktree_clean": true
+  }
+}
