@@ -1,0 +1,27 @@
+{
+  "receipt_type": "deployment",
+  "release_id": "v1-59a434ccdad7",
+  "previous_release": "v1-8cf00029146e",
+  "target_ref": "campingtalk-wiki",
+  "planned_at": "2026-08-11T11:02:32.337001+00:00",
+  "applied_at": "2026-08-11T11:02:32.337069+00:00",
+  "backup_ref": "campingtalk-wiki/.circled-wiki-backups/v1-8cf00029146e-20260811T110201Z",
+  "actions": {
+    "applied": [
+      ".circled-wiki/agent-rules/collection-handoff.md",
+      ".circled-wiki/agent-rules/inbox-capture.md",
+      ".circled-wiki/contracts/COLLECTION_HANDOFF.md",
+      ".circled-wiki/AGENT_BOOTSTRAP.md",
+      ".circled-wiki/AGENT_ROUTER.md"
+    ],
+    "preserved": [
+      ".circled-wiki/config.yaml",
+      ".circled-wiki/data-protection.yaml",
+      ".circled-wiki/curation-taxonomy.yaml"
+    ],
+    "proposed": []
+  },
+  "status": "verified",
+  "deployment_attempt": 1,
+  "release_receipt": "/Users/kjkim/Study/circled-wiki/workspace/receipts/releases/v1-59a434ccdad7.json"
+}
