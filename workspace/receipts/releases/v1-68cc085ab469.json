@@ -1,0 +1,35 @@
+{
+  "receipt_type": "release",
+  "release_id": "v1-68cc085ab469",
+  "source_revision": "157dd8b6f506618efe1ded6317634f48ce7b3a75",
+  "runtime_checksum": "sha256:ce8eed71ca26c7ee743a0a45149f696ecd1cd4b56263a5fa99e7977e15e2160d",
+  "router_checksum": "sha256:b5523394337ee7705dc9f647fc5100e11ab14e7d8a7ff30887b09f2d485fd12d",
+  "runtime_profiles": [
+    "bundle-rebuilding.md",
+    "curation-taxonomy.md",
+    "evidence-ingest.md",
+    "inbox-capture.md",
+    "inbox-disposition.md",
+    "inbox-inspection.md",
+    "inbox-sensitivity-review.md",
+    "knowledge-curation.md",
+    "knowledge-query.md",
+    "publication.md",
+    "runtime-upgrade-verification.md",
+    "system-observation.md",
+    "workflow-execution.md"
+  ],
+  "included_issue_ids": [],
+  "validation": {
+    "unit": "passed",
+    "integration": "passed",
+    "repository_validator": "passed"
+  },
+  "verified_by": "codex",
+  "verified_at": "2026-08-11T10:22:22.234730+00:00",
+  "source_commit_check": {
+    "revision": "157dd8b6f506618efe1ded6317634f48ce7b3a75",
+    "subject": "Update INBOX_INPUT_METHODS.md",
+    "worktree_clean": true
+  }
+}
