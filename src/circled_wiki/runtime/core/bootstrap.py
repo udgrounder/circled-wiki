@@ -69,6 +69,9 @@ LEGACY_ASSET_PATHS = (
     f"{CONTROL_PLANE}/bin/knowledge-os.py",
     f"{CONTROL_PLANE}/issues/README.md",
     f"{RUNTIME_ASSET_PREFIX}core/preflight.py",
+    f"{RUNTIME_ASSET_PREFIX}config/collection_handoff.py",
+    f"{CONTROL_PLANE}/schemas/collection-handoff.schema.v1.json",
+    f"{CONTROL_PLANE}/templates/collection-handoff.yaml",
     *(f"{CONTROL_PLANE}/agent-rules/{name}" for name in LEGACY_PRODUCT_PROFILE_NAMES),
 )
 KNOWN_LEGACY_ASSET_CHECKSUMS = {

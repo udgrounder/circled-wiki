@@ -666,6 +666,39 @@ class BootstrapKnowledgeRootTests(unittest.TestCase):
             updated = json.loads(manifest_path.read_text(encoding="utf-8"))
             self.assertNotIn(relative, updated["assets"])
 
+    def test_upgrade_retires_superseded_collection_handoff_assets_but_keeps_local_config(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "team-project"
+            bootstrap_circled_wiki(target, ROOT, apply=True)
+            manifest_path = target / MANIFEST_PATH
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            legacy_assets = {
+                ".circled-wiki/runtime/circled_wiki/config/collection_handoff.py": b"legacy runtime\n",
+                ".circled-wiki/schemas/collection-handoff.schema.v1.json": b"{}\n",
+                ".circled-wiki/templates/collection-handoff.yaml": b"version: v1\n",
+            }
+            for relative, content in legacy_assets.items():
+                path = target / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(content)
+                manifest["assets"][relative] = _checksum(content)
+            local_config = target / ".circled-wiki/collection-handoff.yaml"
+            local_config.write_text("legacy_local_setting: keep\n", encoding="utf-8")
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+            report = bootstrap_circled_wiki(target, ROOT, apply=True)
+
+            self.assertTrue(local_config.is_file())
+            self.assertEqual(local_config.read_text(encoding="utf-8"), "legacy_local_setting: keep\n")
+            updated = json.loads(manifest_path.read_text(encoding="utf-8"))
+            for relative in legacy_assets:
+                self.assertFalse((target / relative).exists())
+                self.assertNotIn(relative, updated["assets"])
+                self.assertEqual(
+                    next(item["action"] for item in report["actions"] if item["path"] == relative),
+                    "retire_legacy_asset",
+                )
+
     def test_upgrade_preserves_and_warns_about_modified_legacy_product_profile(self):
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory) / "team-project"
