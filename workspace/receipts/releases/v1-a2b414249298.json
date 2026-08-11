@@ -1,0 +1,35 @@
+{
+  "receipt_type": "release",
+  "release_id": "v1-a2b414249298",
+  "source_revision": "957cd23ba57c1fa26f5b17f4c51fd76312ee11b0",
+  "runtime_checksum": "sha256:def7491bd4b69404ecf920975595210829cfd70fc13ebc0898315bedc2c61373",
+  "router_checksum": "sha256:b5523394337ee7705dc9f647fc5100e11ab14e7d8a7ff30887b09f2d485fd12d",
+  "runtime_profiles": [
+    "bundle-rebuilding.md",
+    "curation-taxonomy.md",
+    "evidence-ingest.md",
+    "inbox-capture.md",
+    "inbox-disposition.md",
+    "inbox-inspection.md",
+    "inbox-sensitivity-review.md",
+    "knowledge-curation.md",
+    "knowledge-query.md",
+    "publication.md",
+    "runtime-upgrade-verification.md",
+    "system-observation.md",
+    "workflow-execution.md"
+  ],
+  "included_issue_ids": [],
+  "validation": {
+    "unit": "passed",
+    "integration": "passed",
+    "repository_validator": "passed"
+  },
+  "verified_by": "product-agent",
+  "verified_at": "2026-08-11T05:21:23.762888+00:00",
+  "source_commit_check": {
+    "revision": "957cd23ba57c1fa26f5b17f4c51fd76312ee11b0",
+    "subject": "릴리즈 계약 자산 허용",
+    "worktree_clean": true
+  }
+}
