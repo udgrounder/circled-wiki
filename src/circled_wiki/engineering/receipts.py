@@ -32,6 +32,7 @@ _RELEASE_ROOT_ASSETS = frozenset({
 _RELEASE_ASSET_PREFIXES = (
     f"{CONTROL_PLANE}/templates/",
     f"{CONTROL_PLANE}/policies/",
+    f"{CONTROL_PLANE}/contracts/",
     f"{CONTROL_PLANE}/schemas/",
     f"{CONTROL_PLANE}/bin/",
     RUNTIME_ASSET_PREFIX,

@@ -27,6 +27,7 @@ class ReceiptTests(unittest.TestCase):
                 ],
                 "assets": {
                     ".circled-wiki/AGENT_ROUTER.md": router,
+                    ".circled-wiki/contracts/COLLECTION_HANDOFF.md": "sha256:contract",
                     ".circled-wiki/runtime/circled_wiki/core/service.py": "sha256:runtime",
                 },
             }),
