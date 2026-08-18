@@ -1,0 +1,40 @@
+{
+  "receipt_type": "release",
+  "release_id": "v1-76bc5306928a",
+  "source_revision": "92e017adefc06f291adba66545bfc6261d1c9b3b",
+  "runtime_checksum": "sha256:0adf7bb3cdd8c76fb372d5d25714ae79a89af111f553e5a4548efc276718ca67",
+  "router_checksum": "sha256:961fee5f24d6e5f63601767af22e1dd40fbd9d24d62592ff60324b7a41be88ad",
+  "runtime_profiles": [
+    "bundle-rebuilding.md",
+    "collection-handoff.md",
+    "curation-taxonomy.md",
+    "evidence-ingest.md",
+    "inbox-capture.md",
+    "inbox-disposition.md",
+    "inbox-inspection.md",
+    "inbox-sensitivity-review.md",
+    "knowledge-curation.md",
+    "knowledge-query.md",
+    "publication.md",
+    "runtime-upgrade-verification.md",
+    "system-observation.md",
+    "workflow-execution.md"
+  ],
+  "included_issue_ids": [
+    "issue-20260811T190436Z-6d146300",
+    "issue-20260812T055835Z-4e3f1a81",
+    "issue-20260813T191417Z-5205c9f2"
+  ],
+  "validation": {
+    "unit": "passed",
+    "integration": "passed",
+    "repository_validator": "passed"
+  },
+  "verified_by": "codex",
+  "verified_at": "2026-08-18T08:55:37.240474+00:00",
+  "source_commit_check": {
+    "revision": "92e017adefc06f291adba66545bfc6261d1c9b3b",
+    "subject": "이슈 처리 완료",
+    "worktree_clean": true
+  }
+}
