@@ -1211,6 +1211,7 @@ def ingest_evidence(
     title: Optional[str] = None,
     source_url: Optional[str] = None,
     source_locator: Optional[str] = None,
+    source_external_id: Optional[str] = None,
     captured_from: str = "manual",
     captured_at: Optional[datetime] = None,
     reuse_value: str = "medium",
@@ -1263,6 +1264,10 @@ def ingest_evidence(
         or len(idempotency_key) > 200
     ):
         raise ValueError("idempotency_key must be a non-empty string up to 200 characters")
+    if source_external_id is not None and (
+        not isinstance(source_external_id, str) or not source_external_id.strip()
+    ):
+        raise ValueError("source_external_id must be a non-empty string when supplied")
     if content_mode not in {"external_file", "embedded"}:
         raise ValueError("content_mode must be external_file or embedded")
     if content_mode == "embedded":
@@ -1279,7 +1284,6 @@ def ingest_evidence(
         raise ValueError("pii_scanned cannot be set directly; supply pii_scan_receipt")
     if capture_details is not None and not isinstance(capture_details, dict):
         raise ValueError("capture_details must be an object")
-
     organization_id = require_stable_organization_id(knowledge_root)
     source_checksum = _sha256(source_path)
     if data_protection_receipt is not None:
@@ -1370,6 +1374,8 @@ def ingest_evidence(
     }
     if source_locator:
         source_ref["locator"] = source_locator
+    if source_external_id:
+        source_ref["external_id"] = source_external_id.strip()
     frontmatter = {
         "type": "evidence",
         "id": evidence_id,
@@ -1634,6 +1640,9 @@ def capture_document(
         raise ValueError("captured_from is invalid")
     if capture_details is not None and not isinstance(capture_details, dict):
         raise ValueError("capture_details must be an object")
+    source_external_id = capture_details.get("external_id") if isinstance(capture_details, dict) else None
+    if source_external_id is not None and (not isinstance(source_external_id, str) or not source_external_id.strip() or len(source_external_id) > 200):
+        raise ValueError("capture_details.external_id must be a non-empty string up to 200 characters")
     if not isinstance(idempotency_key, str) or not idempotency_key.strip() or len(idempotency_key) > 200:
         raise ValueError("idempotency_key must be a non-empty string up to 200 characters")
     data_protection = load_data_protection_policy(knowledge_root.resolve().parent)
@@ -1674,6 +1683,14 @@ def capture_document(
 
     organization_id = require_stable_organization_id(knowledge_root)
     checksum = _content_checksum(content)
+    if source_external_id:
+        for evidence_path in sorted((knowledge_root / "evidence").rglob("*.md")):
+            if evidence_path.name in {"index.md", "log.md"}:
+                continue
+            evidence = parse_markdown(evidence_path)
+            source_ref = evidence.frontmatter.get("source_ref")
+            if evidence.frontmatter.get("provider") == provider and isinstance(source_ref, dict) and source_ref.get("external_id") == source_external_id.strip() and evidence.frontmatter.get("checksum") == checksum:
+                return CaptureResult(None, None, checksum, True, evidence_id=str(evidence.frontmatter.get("id")), evidence_path=evidence_path)
     ingested = _reuse_ingested_capture(
         knowledge_root, provider, idempotency_key.strip(), checksum
     )

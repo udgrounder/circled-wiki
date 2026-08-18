@@ -9,7 +9,8 @@ from typing import Dict, List, Optional, Tuple
 
 from ..config.curation_taxonomy import load_curation_taxonomy
 from .evidence import evidence_content_mode, evidence_original_bytes, evidence_original_path
-from .repository import find_document_by_id
+from .frontmatter import parse_markdown
+from .repository import bundle_references_by_evidence, find_document_by_id, iter_documents
 from .search import search_knowledge
 
 
@@ -68,6 +69,8 @@ def propose_update(
         "original_available": original_bytes is not None,
         "excerpt": excerpt,
         "evidence_freshness": _evidence_freshness(evidence),
+        "source_lineage": _source_lineage(knowledge_root, evidence),
+        "reference_transition_plan": _reference_transition_plan(knowledge_root, evidence),
         "candidate_bundles": [
             _candidate_metadata(knowledge_root, hit)
             for hit in candidates
@@ -193,7 +196,49 @@ def _evidence_freshness(evidence) -> Dict[str, object]:
         "captured_at": captured_at if isinstance(captured_at, str) else None,
         "source_snapshot_at": snapshot_at if isinstance(snapshot_at, str) else None,
         "provider": data.get("provider"),
+        "source_external_id": source_ref.get("external_id") if isinstance(source_ref, dict) else None,
     }
+
+
+def _source_lineage(knowledge_root: Path, evidence) -> Dict[str, object]:
+    """Return immutable Evidence snapshots that share an external source identity."""
+    data = evidence.frontmatter
+    source_ref = data.get("source_ref")
+    external_id = source_ref.get("external_id") if isinstance(source_ref, dict) else None
+    provider = data.get("provider")
+    if not isinstance(provider, str) or not isinstance(external_id, str) or not external_id.strip():
+        return {"available": False, "reason": "source_external_id_missing", "evidence": []}
+    snapshots = []
+    for path in iter_documents(knowledge_root):
+        if "evidence" not in path.parts or path.name in {"index.md", "log.md"}:
+            continue
+        document = parse_markdown(path)
+        candidate_ref = document.frontmatter.get("source_ref")
+        if document.frontmatter.get("provider") != provider or not isinstance(candidate_ref, dict) or candidate_ref.get("external_id") != external_id:
+            continue
+        snapshots.append({
+            "evidence_id": document.frontmatter.get("id"),
+            "checksum": document.frontmatter.get("checksum"),
+            "effective_at": _evidence_freshness(document).get("effective_at"),
+        })
+    snapshots.sort(key=lambda item: _timestamp_sort_key(item["effective_at"]) if isinstance(item.get("effective_at"), str) else datetime.min.replace(tzinfo=timezone.utc))
+    current_id = data.get("id")
+    previous = [item["evidence_id"] for item in snapshots if item.get("evidence_id") != current_id]
+    return {"available": True, "provider": provider, "external_id": external_id, "evidence": snapshots, "previous_evidence_ids": previous}
+
+
+def _reference_transition_plan(knowledge_root: Path, evidence) -> List[Dict[str, object]]:
+    lineage = _source_lineage(knowledge_root, evidence)
+    if not lineage.get("available"):
+        return []
+    references = bundle_references_by_evidence(knowledge_root)
+    current_id = str(evidence.frontmatter.get("id"))
+    return [
+        {"bundle_id": bundle_id, "replace_evidence_id": previous_id, "with_evidence_id": current_id}
+        for previous_id in lineage["previous_evidence_ids"]
+        for bundle_id in sorted(references.get(str(previous_id), set()))
+        if previous_id != current_id
+    ]
 
 
 def _latest_evidence_at(knowledge_root: Path, evidence_ids: object) -> Optional[str]:

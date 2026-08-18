@@ -21,6 +21,22 @@ class SensitiveDataPrecheckTests(unittest.TestCase):
             {"resident_registration_number", "account_number", "card_number", "credential"},
         )
 
+    def test_masks_accounts_with_limited_bank_or_holder_context(self):
+        result = redact_sensitive_data(
+            "환불계좌 : 신한은행 예금주 110-451-983540 / 농협 204017-56-024375"
+        )
+
+        self.assertNotIn("110-451-983540", result.content)
+        self.assertNotIn("204017-56-024375", result.content)
+        self.assertEqual(result.categories, ("account_number",))
+
+    def test_does_not_mask_unlabelled_number_without_a_known_bank(self):
+        content = "참조번호 204017-56-024375"
+        result = redact_sensitive_data(content)
+
+        self.assertEqual(result.content, content)
+        self.assertEqual(result.categories, ())
+
     def test_detects_mobile_contact_information_for_policy_review(self):
         content = "홍길동 / gildong@example.com / 010-1234-5678 / https://intranet.example.test"
         result = redact_sensitive_data(content)

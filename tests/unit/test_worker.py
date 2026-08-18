@@ -23,6 +23,7 @@ from circled_wiki.worker.jobs import (
 )
 from circled_wiki.core.publisher import PublishError, publish_changes
 from circled_wiki.core.inbox_contracts import curation_blocker_policy
+from circled_wiki.core.frontmatter import parse_markdown
 
 
 def capture_conversation(*args, **kwargs):
@@ -40,6 +41,31 @@ def capture_conversation(*args, **kwargs):
 
 
 class WorkerJobTests(unittest.TestCase):
+    def test_reconcile_inbox_archives_orphaned_review_task_without_recreating_source(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "knowledge"
+            contract_root = root.parent / "agent-rules" / "contracts"
+            contract_root.mkdir(parents=True)
+            for name in ("index.yaml", "inbox.yaml", "curation.yaml"):
+                shutil.copyfile(
+                    Path(__file__).resolve().parents[2] / "agent-rules" / "contracts" / name,
+                    contract_root / name,
+                )
+            captured = capture_conversation(
+                root, "orphan source", "test", title="Orphan", why_collected="test",
+                intended_use=["test"], idempotency_key="orphan-review",
+            )
+            captured.inbox_path.unlink()
+
+            result = reconcile_inbox(root, "contract-worker")
+
+            self.assertEqual(len(result["orphaned"]), 1)
+            self.assertEqual(result["orphaned"][0]["intake_id"], captured.intake_id)
+            archived = root.parent / result["orphaned"][0]["path"]
+            self.assertTrue(archived.is_file())
+            self.assertEqual(parse_markdown(archived).frontmatter["current"]["stage"], "orphaned")
+            self.assertFalse(captured.inbox_path.exists())
+
     def test_reconcile_inbox_advances_only_contract_safe_stages(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "knowledge"

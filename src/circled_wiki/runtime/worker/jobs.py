@@ -510,6 +510,11 @@ def ingest_accepted_inbox(
                 temporary_path.write_text(str(content), encoding="utf-8")
             captured_at = datetime.fromisoformat(str(data["captured_at"]).replace("Z", "+00:00"))
             capture_details = data.get("capture_details")
+            source_external_id = (
+                str(capture_details.get("external_id")).strip()
+                if isinstance(capture_details, dict) and capture_details.get("external_id")
+                else None
+            )
             inbox_review = review_context(knowledge_root, str(data["id"]))
             if inbox_review is None:
                 raise ValueError("resolved Data Protection Receipt and Inbox contract record are required")
@@ -523,6 +528,7 @@ def ingest_accepted_inbox(
                 title=str(data["title"]),
                 source_url=str(data.get("source_url") or "") or None,
                 source_locator=str(data.get("source_locator") or "") or None,
+                source_external_id=source_external_id,
                 captured_from=str(data.get("captured_from", "api")),
                 captured_at=captured_at,
                 reuse_value="high" if data.get("content_type") == "conversation" else "medium",
@@ -671,6 +677,9 @@ def reconcile_inbox(knowledge_root: Path, actor: str, limit: int = 100) -> Dict[
         raise ValueError("actor must be non-empty")
     if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 1000:
         raise ValueError("limit must be an integer between 1 and 1000")
+    from circled_wiki.core.inbox_review_queue import reconcile_orphaned_inbox_reviews
+
+    orphaned = reconcile_orphaned_inbox_reviews(knowledge_root, actor=actor)
     contract = load_inbox_contract(knowledge_root)
     before = _reconciliation_snapshot(knowledge_root, limit)
     intake_ids = {item["intake_id"] for item in before}
@@ -722,6 +731,10 @@ def reconcile_inbox(knowledge_root: Path, actor: str, limit: int = 100) -> Dict[
         "accepted": accepted,
         "ingested": ingested,
         "blocked": blocked,
+        "orphaned": [
+            {"intake_id": item["intake_id"], "path": item["path"].relative_to(knowledge_root.resolve().parent).as_posix()}
+            for item in orphaned
+        ],
         "after": {"items": sorted(after, key=lambda item: item["intake_id"])},
     }
 

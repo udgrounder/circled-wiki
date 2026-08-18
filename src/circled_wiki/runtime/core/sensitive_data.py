@@ -28,9 +28,15 @@ class SensitiveDataPrecheckResult:
 _RESIDENT_REGISTRATION_NUMBER = re.compile(
     r"(?<!\d)\d{6}-?[1-4]\d{6}(?!\d)"
 )
-_ACCOUNT_NUMBER = re.compile(
+_LABELED_ACCOUNT_NUMBER = re.compile(
     r"(?i)(?P<label>계좌(?:\s*번호)?|account(?:\s*number)?)"
-    r"(?P<separator>\s*[:=]?\s*)"
+    r"(?P<separator>\s*[:=]?\s*(?:[가-힣A-Za-z]{1,12}\s+){0,2})"
+    r"(?P<value>\d(?:[\d -]{8,22}\d))"
+)
+_BANK_ACCOUNT_NUMBER = re.compile(
+    r"(?i)(?P<label>신한(?:은행)?|국민(?:은행)?|농협(?:은행)?|우리(?:은행)?|"
+    r"하나(?:은행)?|기업(?:은행)?|카카오뱅크|토스뱅크|새마을금고|수협|우체국)"
+    r"(?P<separator>\s*[:/]?\s*)"
     r"(?P<value>\d(?:[\d -]{8,22}\d))"
 )
 _CREDENTIAL_ASSIGNMENT = re.compile(
@@ -204,7 +210,8 @@ def redact_sensitive_data(
         redacted,
     )
     redacted = _RESIDENT_REGISTRATION_NUMBER.sub(redact_resident_registration, redacted)
-    redacted = _ACCOUNT_NUMBER.sub(redact_account, redacted)
+    redacted = _LABELED_ACCOUNT_NUMBER.sub(redact_account, redacted)
+    redacted = _BANK_ACCOUNT_NUMBER.sub(redact_account, redacted)
     redacted = _CARD_CANDIDATE.sub(redact_card, redacted)
     # Preserve residual candidates for safe queue/receipt text, but only after
     # high-risk credential/identifier masking has removed embedded secrets.
@@ -238,10 +245,7 @@ def _detect_unmasked_categories(content: str) -> tuple[str, ...]:
     detected: set[str] = set()
     if _RESIDENT_REGISTRATION_NUMBER.search(content):
         detected.add("resident_registration_number")
-    if any(
-        match.group("value") != REDACTED_VALUE
-        for match in _ACCOUNT_NUMBER.finditer(content)
-    ):
+    if any(match.group("value") != REDACTED_VALUE for pattern in (_LABELED_ACCOUNT_NUMBER, _BANK_ACCOUNT_NUMBER) for match in pattern.finditer(content)):
         detected.add("account_number")
     if (
         _PRIVATE_KEY_BLOCK.search(content)

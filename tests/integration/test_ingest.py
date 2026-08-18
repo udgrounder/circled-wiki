@@ -808,6 +808,7 @@ class IngestEvidenceTests(unittest.TestCase):
                 idempotency_key="notion:page-123:2026-07-15T01:00:00Z",
                 source_url="https://www.notion.so/page-123",
                 source_locator="page_id=page-123",
+                capture_details={"external_id": "page-123"},
                 sensitivity_review="completed",
             )
 
@@ -819,6 +820,7 @@ class IngestEvidenceTests(unittest.TestCase):
 
             self.assertEqual(evidence.frontmatter["source_ref"]["provider_url"], "https://www.notion.so/page-123")
             self.assertEqual(evidence.frontmatter["source_ref"]["locator"], "page_id=page-123")
+            self.assertEqual(evidence.frontmatter["source_ref"]["external_id"], "page-123")
             self.assertEqual(evidence.frontmatter["source_ref"]["captured_from"], "sync")
             self.assertEqual(evidence.frontmatter["extensions"]["content_mode"], "embedded")
 

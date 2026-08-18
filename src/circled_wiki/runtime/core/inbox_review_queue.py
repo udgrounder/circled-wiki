@@ -210,6 +210,45 @@ def get_inbox_review(knowledge_root: Path, intake_id: str) -> Optional[Dict[str,
     return data
 
 
+def reconcile_orphaned_inbox_reviews(knowledge_root: Path, *, actor: str) -> List[Dict[str, object]]:
+    """Archive review tasks whose referenced Inbox source no longer exists.
+
+    An orphan cannot be safely re-created: its original content and checksum are
+    unavailable.  Preserve the task as an audit receipt, but remove it from the
+    active queue so it cannot block unrelated Inbox reconciliation.
+    """
+    if not isinstance(actor, str) or not actor.strip():
+        raise ValueError("actor must be non-empty")
+    knowledge_root = knowledge_root.resolve()
+    archived: List[Dict[str, object]] = []
+    for path in sorted(_queue_root(knowledge_root).glob("*.md")):
+        data = parse_markdown(path).frontmatter
+        relative = data.get("inbox_path")
+        if not isinstance(relative, str) or not relative.strip():
+            continue
+        inbox_path = (knowledge_root / relative).resolve()
+        if knowledge_root not in inbox_path.parents or inbox_path.is_file():
+            continue
+        previous = data.get("current") if isinstance(data.get("current"), dict) else None
+        current = {"stage": "orphaned", "status": "completed", "actor": actor.strip(), "next_action": "none"}
+        data["current"] = current
+        data["updated_at"] = _now()
+        data["orphan_receipt"] = {
+            "intake_id": data.get("intake_id"), "inbox_path": relative,
+            "reason": "referenced_inbox_missing", "detected_by": actor.strip(), "detected_at": _now(),
+        }
+        _append_transition(data, from_current=previous, to_current=current, outcome="orphaned_inbox_missing")
+        _append_step(data, stage="orphaned", status="completed", outcome="orphaned_inbox_missing")
+        target = _archive_root(knowledge_root) / path.name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if target.exists():
+            raise ValueError("orphan Inbox task archive already exists")
+        path.replace(target)
+        target.write_text(render_markdown(data), encoding="utf-8")
+        archived.append({"intake_id": str(data.get("intake_id", "")), "path": target})
+    return archived
+
+
 def has_blocking_inbox_review(knowledge_root: Path, intake_id: str) -> bool:
     review = get_inbox_review(knowledge_root, intake_id)
     if review is None:
