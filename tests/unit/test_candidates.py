@@ -28,6 +28,22 @@ class CurationCandidateTests(unittest.TestCase):
         )
         return knowledge_root, bundle
 
+    def _runbook_candidate(self, directory: str, slug: str = "runbook-candidate"):
+        knowledge_root = Path(directory) / "knowledge"
+        source = knowledge_root / "inbox" / "manual" / f"{slug}.txt"
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_text("source", encoding="utf-8")
+        evidence = ingest_evidence(
+            knowledge_root, source, "manual",
+            why_collected="candidate test", intended_use=["candidate-test"],
+        )
+        bundle = create_bundle(
+            knowledge_root, domain="operations", slug=slug, title=f"{slug} candidate",
+            bundle_type="runbook", summary="candidate summary", evidence_id=evidence.evidence_id,
+            curated_by="test-curator", approved_review_id="review-test-approved",
+        )
+        return knowledge_root, bundle
+
     def test_lists_draft_candidates_without_exposing_active_bundles(self):
         with tempfile.TemporaryDirectory() as directory:
             knowledge_root, bundle = self._candidate(directory)
@@ -35,6 +51,7 @@ class CurationCandidateTests(unittest.TestCase):
             candidates = list_curation_candidates(knowledge_root)
 
             self.assertEqual([item["id"] for item in candidates], [bundle.frontmatter["id"]])
+            self.assertEqual(candidates[0]["status"], "draft")
             self.assertEqual(candidates[0]["review_state"], "pending")
             hits = KnowledgeService(knowledge_root).search_knowledge("candidate")
             self.assertNotIn(bundle.frontmatter["id"], [item["id"] for item in hits])
@@ -50,6 +67,40 @@ class CurationCandidateTests(unittest.TestCase):
             self.assertEqual(result["status"], "draft")
             self.assertEqual(result["review_state"], "approved")
             self.assertTrue(all(item.is_valid for item in validate_repository(knowledge_root)))
+
+    def test_runbook_approval_reports_all_missing_promotion_requirements(self):
+        with tempfile.TemporaryDirectory() as directory:
+            knowledge_root, bundle = self._runbook_candidate(directory)
+            document = parse_markdown(bundle.path)
+            data = dict(document.frontmatter)
+            data["extensions"] = dict(data["extensions"], workflow={})
+            bundle.path.write_text(render_markdown(data, document.body), encoding="utf-8")
+
+            with self.assertRaisesRegex(
+                ValueError,
+                "extensions.workflow.learning.*Workflow Summary",
+            ):
+                review_curation_candidate(
+                    knowledge_root, bundle.frontmatter["id"], action="approve", actor="reviewer"
+                )
+
+            document = find_document_by_id(knowledge_root, bundle.frontmatter["id"])
+            self.assertEqual(document.frontmatter["extensions"]["review_state"], "pending")
+
+    def test_lists_approved_drafts_as_pending_promotions(self):
+        from circled_wiki.core.candidates import list_pending_promotions
+
+        with tempfile.TemporaryDirectory() as directory:
+            knowledge_root, bundle = self._candidate(directory)
+            review_curation_candidate(
+                knowledge_root, bundle.frontmatter["id"], action="approve", actor="reviewer"
+            )
+
+            pending = list_pending_promotions(knowledge_root)
+
+            self.assertEqual([item["id"] for item in pending], [bundle.frontmatter["id"]])
+            self.assertEqual(pending[0]["status"], "draft")
+            self.assertEqual(pending[0]["review_state"], "approved")
 
     def test_review_history_approval_allows_candidate_promotion(self):
         with tempfile.TemporaryDirectory() as directory:

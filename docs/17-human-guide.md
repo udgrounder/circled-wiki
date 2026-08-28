@@ -261,6 +261,13 @@ PYTHONPATH=src python3 -m circled_wiki.cli decide-curation-review \
 [Runbook Template](../.circled-wiki/templates/runbook.md)을 기준으로 `extensions.workflow`와 본문을 작성한다.
 파일은 `knowledge/bundles/marketing/runbooks/`에 생성된다.
 
+승인됐지만 아직 `draft`인 Bundle은 아래 명령으로 확인한다. 이 목록은 승인 결정을 게시로 간주하지 않으며,
+Runbook·Manual은 Owner와 Security Receipt를 포함한 별도 promotion Gate를 계속 거쳐야 한다.
+
+```sh
+PYTHONPATH=src python3 -m circled_wiki.cli list-pending-promotions
+```
+
 ### 10.3 검토와 활성화
 
 다음을 확인한 뒤 생성자와 다른 Owner가 Curation Review를 승인하고, Security Receipt를 포함한 전용

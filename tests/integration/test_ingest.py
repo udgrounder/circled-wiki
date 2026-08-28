@@ -187,14 +187,8 @@ class IngestEvidenceTests(unittest.TestCase):
             evidence = (knowledge_root.parent / result["items"][0]["evidence_path"])
             self.assertIn("010-1234-5678", evidence.read_text(encoding="utf-8"))
             self.assertEqual(list_inbox_review_queue(knowledge_root), [])
-            archived = list((
-                knowledge_root.parent / "workspace" / "task" / ".archive" / "inbox_reconciliation"
-            ).glob("*.md"))
-            self.assertEqual(len(archived), 1)
-            task = parse_markdown(archived[0]).frontmatter
-            self.assertEqual(task["current"]["stage"], "evidence")
-            self.assertEqual(task["current"]["status"], "completed")
-            self.assertTrue(task["transitions"])
+            manifest = parse_markdown(evidence).frontmatter
+            self.assertEqual(manifest["extensions"]["inbox_review"]["data_protection_receipt"]["status"], "passed")
 
     def test_data_protection_review_masks_agent_identified_compensation_and_preserves_contact(self):
         with tempfile.TemporaryDirectory() as temp_directory:
@@ -443,18 +437,8 @@ class IngestEvidenceTests(unittest.TestCase):
 
             self.assertEqual(result["ingested_count"], 1)
             self.assertEqual(list_inbox_review_queue(knowledge_root), [])
-            archived = list((knowledge_root.parent / "workspace" / "task" / ".archive" / "inbox_reconciliation").glob("*.md"))
-            self.assertEqual(len(archived), 1)
-            archived_task = parse_markdown(archived[0])
-            self.assertEqual(archived_task.frontmatter["type"], "contract_task")
-            self.assertEqual(
-                archived_task.frontmatter["current"],
-                {
-                    "stage": "evidence", "status": "completed",
-                    "actor": "evidence-ingest-agent",
-                },
-            )
             evidence = parse_markdown(knowledge_root.parent / result["items"][0]["evidence_path"])
+            self.assertIn("inbox_review", evidence.frontmatter["extensions"])
             self.assertEqual(evidence.frontmatter["extensions"]["pii_scan"]["result"], "masked")
             self.assertEqual(
                 evidence.frontmatter["extensions"]["inbox_review"]["reason_codes"],

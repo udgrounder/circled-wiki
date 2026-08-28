@@ -374,6 +374,7 @@ def main() -> int:
     bundle.add_argument("--body-file", help="UTF-8 Markdown body for a curator-authored draft")
     bundle.add_argument("--curated-by", default="manual")
     subparsers.add_parser("list-curation-candidates")
+    subparsers.add_parser("list-pending-promotions")
     list_reviews = subparsers.add_parser("list-curation-reviews")
     list_reviews.add_argument("--include-resolved", action="store_true")
     list_queue = subparsers.add_parser("list-curation-queue")
@@ -843,6 +844,8 @@ def main() -> int:
         print(json.dumps(service.apply_bundle_reclassification(args.bundle, expected_revision=args.expected_revision, domain=args.domain, bundle_type=args.type, actor=args.actor, rationale=args.rationale, approval_notification_id=args.approval_notification), ensure_ascii=False, indent=2)); return 0
     if args.command == "list-curation-candidates":
         print(json.dumps(service.list_curation_candidates(), ensure_ascii=False, indent=2)); return 0
+    if args.command == "list-pending-promotions":
+        print(json.dumps(service.list_pending_promotions(), ensure_ascii=False, indent=2)); return 0
     if args.command == "list-curation-reviews":
         print(json.dumps(service.list_curation_reviews(include_resolved=args.include_resolved), ensure_ascii=False, indent=2)); return 0
     if args.command == "list-curation-queue":

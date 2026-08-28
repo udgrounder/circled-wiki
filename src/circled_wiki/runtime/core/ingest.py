@@ -13,9 +13,8 @@ import shutil
 from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional
 from uuid import uuid4
 
-from .frontmatter import parse_markdown, render_markdown
+from .frontmatter import FrontmatterError, parse_markdown, render_markdown
 from .inbox_review_queue import (
-    complete_inbox_review,
     enqueue_inbox_review,
     escalate_inbox_sensitivity_review,
     advance_inbox_task,

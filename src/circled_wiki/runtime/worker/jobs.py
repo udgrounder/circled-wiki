@@ -38,7 +38,6 @@ from circled_wiki.core.data_protection_receipt import (
 from circled_wiki.core.repository import iter_documents
 from circled_wiki.core.curation_queue import (
     list_curation_queue,
-    record_curation_contract_outcome,
     refresh_curation_queue,
 )
 from circled_wiki.core.service import KnowledgeService
@@ -153,17 +152,6 @@ def reconcile_curation(knowledge_root: Path, limit: int = 100) -> Dict[str, obje
         outcome_name = _curation_outcome_name(result)
         outcome = queued_stage["outcomes"][outcome_name]
         evidence_id = item.get("evidence_id")
-        if outcome["queue_disposition"] == "complete" and isinstance(evidence_id, str):
-            recorded = record_curation_contract_outcome(
-                knowledge_root, evidence_id, outcome=outcome_name,
-                next_stage=str(outcome["next_stage"]),
-                artifact=_curation_result_artifact(result),
-            )
-            if not recorded:
-                raise ValueError(
-                    "Curation result exists but its contract archive receipt is missing: "
-                    + evidence_id
-                )
         outcomes.append({
             "evidence_id": evidence_id,
             "outcome": outcome_name,
@@ -223,20 +211,6 @@ def _curation_outcome_name(result: object) -> str:
         if promotion.get("status") == "draft":
             return "draft_created"
     return "retryable_block"
-
-
-def _curation_result_artifact(result: object) -> Optional[Dict[str, object]]:
-    """Return only the stable reference to an already-created Curation result."""
-    if not isinstance(result, dict):
-        return None
-    for key in ("path", "review_id", "bundle_id"):
-        value = result.get(key)
-        if isinstance(value, str) and value:
-            return {"kind": key, "reference": value}
-    promotion = result.get("promotion")
-    if isinstance(promotion, dict) and isinstance(promotion.get("bundle_id"), str):
-        return {"kind": "bundle_id", "reference": promotion["bundle_id"]}
-    return None
 
 
 def inspect_inbox(knowledge_root: Path, limit: int = 100) -> Dict[str, object]:
@@ -366,14 +340,6 @@ def _verify_inbox_evidence_transition(
     """Verify only the transition artifacts; Evidence content was validated at creation."""
     if source_absent and intake_path.exists():
         raise ValueError("Inbox source remained after Evidence transition")
-    task_name = intake_id.rsplit("/", 1)[-1] + ".md"
-    archive = knowledge_root.parent / "workspace" / "task" / ".archive" / "inbox_reconciliation" / task_name
-    if not archive.is_file():
-        raise ValueError("Inbox contract archive is missing after Evidence transition")
-    task = parse_markdown(archive).frontmatter
-    current = task.get("current")
-    if task.get("evidence_id") != evidence_id or not isinstance(current, dict) or current.get("status") != "completed":
-        raise ValueError("Inbox contract archive does not reference completed Evidence")
     if queue_expected and not any(
         str(item.get("evidence_id")) == evidence_id for item in list_curation_queue(knowledge_root)
     ):
@@ -552,10 +518,6 @@ def ingest_accepted_inbox(
                     )
                 ),
             )
-            complete_inbox_review(
-                knowledge_root, intake_id=str(data["id"]),
-                evidence_id=result.evidence_id,
-            )
             outcome_linked = _link_workflow_outcome(knowledge_root, data, result.evidence_id)
             if (
                 isinstance(capture_details, dict)
@@ -567,6 +529,10 @@ def ingest_accepted_inbox(
             _verify_inbox_evidence_transition(
                 knowledge_root, path, str(data["id"]), result.evidence_id,
                 queue_expected=not result.reused,
+            )
+            complete_inbox_review(
+                knowledge_root, intake_id=str(data["id"]),
+                evidence_id=result.evidence_id,
             )
             cleanup_pending: List[str] = []
             for staged_path in staged_source:

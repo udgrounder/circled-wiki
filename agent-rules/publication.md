@@ -30,9 +30,8 @@
 - Publication Security Review
 - 공식 지식 발행은 승인 상태와 발행 권한, Queue·Review·Draft 상태 공유는 configured publication policy
 - 기존 staged 변경 없음
-- Curation Queue 완료가 포함되면 `workspace/task/curation_reconciliation/<uuid>.md` 삭제와
-  새 `workspace/task/.archive/curation_reconciliation/<uuid>.md` 추가가 같은 staged 전환 쌍인지
-  `verify-curation-commit`으로 확인한다. Queue 경로만 지정한 scoped `git add`는 허용하지 않는다
+- Curation Queue 완료가 포함되면 `workspace/task/curation_reconciliation/<uuid>.md` 삭제를
+  `verify-curation-commit`으로 확인한다. 새 reconciliation task Archive 추가는 허용하지 않는다
 - 현재 Evidence checksum과 승격 provenance 기록. `runbook`·`manual`은 생성 전 Review ID와 별도 검증 시도 기록이 필수이며, 최초 생성·보완 Review는 `extensions.curation.review_receipts`에 누적 보존한다. 직접 생성 가능한 유형은 RB-CUR-006 자동 Gate의 provenance를 남긴다
 - active 전환이면 전용 Promotion Gate의 Security Receipt와 Evidence에 보존된 통합 `data_protection_receipt`
 - 처리 주체 전이 또는 종료면 이전 결과, 대상 checksum, 다음 처리 주체와 `next_action`을 기록. Push Receipt는 Commit·Push 성공 뒤 이 전이를 완료 처리하는 결과물
@@ -40,14 +39,14 @@
 ## Output
 
 발행 revision 또는 처리 주체 전이·종료 Commit 및 Push Receipt. Curation Queue 완료가 포함되면
-원본 삭제와 Archive 추가가 함께 검증된 전환 결과를 포함한다. Push가 실패하면
+원본 Queue task 삭제가 검증된 전환 결과를 포함한다. Push가 실패하면
 `publication_pending` 상태와 재시도 조건
 
 ## Failure State
 
 같은 처리 주체의 아직 미공유 로컬 작업은 다음 작업과 함께 한 번에 Commit·Push할 수 있다. 처리 주체 전이·종료 Commit 뒤 Push가 실패하면 `publication_pending`으로 유지한다. 다음 Push는 `resume-pending-push`로 현재 HEAD와 원격에 없는 모든 선행 Commit을 함께 전송한다. Push 성공 전에는 다음 처리 주체가 전이된 상태를 공유받은 것으로 보지 않는다.
-원본 Queue 삭제만 staged 되었거나 Archive 경로가 누락된 경우에는 Commit·manifest·Receipt를 진행하지
-않고, 두 경로를 함께 staging한 뒤 `verify-curation-commit`을 재시도한다.
+새 reconciliation task Archive가 staged 되었으면 Commit·manifest·Receipt를 진행하지 않고, 해당 Archive
+추가를 제거한 뒤 `verify-curation-commit`을 재시도한다.
 
 ## Prohibited
 

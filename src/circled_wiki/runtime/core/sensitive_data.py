@@ -45,8 +45,8 @@ _CREDENTIAL_ASSIGNMENT = re.compile(
     r"\s*[:=]\s*)(?P<value>[^\s'\"`&#]+)"
 )
 _KOREAN_CREDENTIAL_ASSIGNMENT = re.compile(
-    r"(?im)(?P<label>(?<![가-힣])(?:계정|비밀번호|패스워드|암호)"
-    r"(?:\s*[:=]\s*|[ \t]+|\s*\n[ \t]*))"
+    r"(?im)(?P<label>(?<![가-힣])(?:\*{2}\s*)?(?:계정|비밀번호|비번|패스워드|암호)"
+    r"(?:\s*\*{2}\s*)?(?:\s*[:=]\s*|[ \t]+|\s*\n[ \t]*))"
     r"(?P<value>[^\s'\"`&#]+)"
 )
 _URL_CANDIDATE = re.compile(r"(?i)(?P<url>https?://[^\s<>\"'`]+)")

@@ -113,6 +113,24 @@ class SensitiveDataPrecheckTests(unittest.TestCase):
         self.assertNotIn("synthetic-passcode", result.content)
         self.assertEqual(result.categories, ("credential",))
 
+    def test_masks_markdown_and_parallel_korean_credential_labels(self):
+        content = "아이디: synthetic-user / **비번**: synthetic-password"
+
+        result = redact_sensitive_data(content)
+
+        self.assertIn("synthetic-user", result.content)
+        self.assertNotIn("synthetic-password", result.content)
+        self.assertEqual(result.content, "아이디: synthetic-user / **비번**: ********")
+        self.assertEqual(result.categories, ("credential",))
+
+    def test_does_not_mask_markdown_korean_credential_label_when_disabled(self):
+        content = "**비밀번호**: synthetic-password"
+
+        result = redact_sensitive_data(content, hard_mask_categories=set())
+
+        self.assertEqual(result.content, content)
+        self.assertEqual(result.categories, ())
+
     def test_masks_oauth_credentials_but_preserves_flow_metadata(self):
         content = (
             "https://login.example.test/oauth/authorize?client_id=public-client"
@@ -198,6 +216,32 @@ class SensitiveDataPrecheckTests(unittest.TestCase):
                 reused = run_automatic_pii_scan(knowledge_root, captured.intake_id)
 
         self.assertTrue(reused["reused"])
+
+    def test_pii_scan_skips_malformed_inbox_file_and_processes_requested_item(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+
+        from circled_wiki.core.ingest import capture_conversation, run_automatic_pii_scan
+
+        with TemporaryDirectory() as directory:
+            knowledge_root = Path(directory) / "knowledge"
+            (knowledge_root / "organization.yaml").parent.mkdir(parents=True)
+            (knowledge_root / "organization.yaml").write_text(
+                "organization_id: test-org\n", encoding="utf-8"
+            )
+            captured = capture_conversation(
+                knowledge_root, "safe candidate", "test", title="malformed sibling",
+                why_collected="unit test", intended_use=["test"],
+                idempotency_key="malformed-sibling",
+            )
+            (knowledge_root / "inbox" / "test" / ".ingest-incomplete.md").write_text(
+                "incomplete frontmatter", encoding="utf-8"
+            )
+
+            result = run_automatic_pii_scan(knowledge_root, captured.intake_id)
+
+        self.assertEqual(result["intake_id"], captured.intake_id)
+        self.assertEqual(result["pii_scan_receipt"]["result"], "passed")
 
     def test_masks_credential_before_text_capture_is_written(self):
         from pathlib import Path

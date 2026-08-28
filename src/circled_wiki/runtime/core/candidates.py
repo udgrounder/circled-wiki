@@ -2,6 +2,7 @@
 
 from datetime import datetime, timezone
 from pathlib import Path
+import re
 from typing import Any, Dict, List, Optional
 
 from circled_wiki.config.settings import load_settings
@@ -34,6 +35,7 @@ def list_curation_candidates(knowledge_root: Path) -> List[Dict[str, object]]:
             "id": data.get("id"),
             "title": data.get("title"),
             "type": data.get("type"),
+            "status": data.get("status"),
             "summary": data.get("summary"),
             "review_state": review_state,
             "evidence": data.get("evidence", []),
@@ -46,6 +48,38 @@ def list_curation_candidates(knowledge_root: Path) -> List[Dict[str, object]]:
             "path": path.relative_to(knowledge_root.parent).as_posix(),
         })
     return candidates
+
+
+def list_pending_promotions(knowledge_root: Path) -> List[Dict[str, object]]:
+    """List approved Draft candidates that still require a promotion Gate.
+
+    This is intentionally a projection of ``list_curation_candidates`` so the
+    review-state definition has one source of truth.  It does not promote a
+    candidate or weaken the Owner and Security receipt requirements.
+    """
+    return [
+        candidate for candidate in list_curation_candidates(knowledge_root)
+        if candidate["status"] == "draft" and candidate["review_state"] == "approved"
+    ]
+
+
+def _runbook_promotion_readiness_errors(data: Dict[str, object], body: str) -> List[str]:
+    """Return active-Runbook requirements before recording an approval."""
+    if data.get("type") != "runbook":
+        return []
+    errors: List[str] = []
+    extensions = data.get("extensions")
+    workflow = extensions.get("workflow") if isinstance(extensions, dict) else None
+    if not isinstance(workflow, dict):
+        errors.append("active Runbook must define extensions.workflow")
+    elif not isinstance(workflow.get("learning"), dict):
+        errors.append("active Runbook must define extensions.workflow.learning")
+    summary = re.search(
+        r"(?ims)^##\s+Workflow Summary\s*$([\s\S]*?)(?=^##\s+|\Z)", body
+    )
+    if summary is None or not summary.group(1).strip():
+        errors.append("active Runbook body must include a non-empty '## Workflow Summary' section")
+    return errors
 
 
 def curation_candidate_digest(knowledge_root: Path, *, waiting_days: int = 7) -> Dict[str, object]:
@@ -315,6 +349,9 @@ def review_curation_candidate(
         extensions["review_state"] = "needs_changes"
     elif action == "approve":
         # Active promotion is deliberately a separate security and Owner-gated operation.
+        readiness_errors = _runbook_promotion_readiness_errors(data, document.body)
+        if readiness_errors:
+            raise ValueError("candidate is not ready for Runbook promotion: " + "; ".join(readiness_errors))
         evidence_ids = data.get("evidence")
         if not isinstance(evidence_ids, list) or not evidence_ids:
             raise ValueError("candidate approval requires Evidence")

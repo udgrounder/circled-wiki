@@ -38,6 +38,7 @@ TOOLS = [
     {"name": "ingest_accepted", "description": "Convert accepted Inbox items to Evidence without performing curation.", "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer", "minimum": 1, "maximum": 1000, "default": 100}}}},
     {"name": "create_draft_bundle", "description": "Create a tagged policy, guide, decision, spec, reference, or report Draft from one Evidence item. Manual and runbook Drafts require pre-creation curation review. This tool cannot activate a Bundle.", "inputSchema": {"type": "object", "required": ["domain", "slug", "title", "bundle_type", "summary", "evidence_id", "body", "actor", "tags"], "properties": {"domain": {"type": "string"}, "slug": {"type": "string"}, "title": {"type": "string"}, "bundle_type": {"type": "string", "enum": ["policy", "guide", "decision", "spec", "reference", "report"]}, "summary": {"type": "string"}, "evidence_id": {"type": "string"}, "body": {"type": "string"}, "actor": {"type": "string"}, "tags": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}}}},
     {"name": "list_curation_candidates", "description": "List Draft Bundle candidates that need or have recorded review. Active knowledge is excluded.", "inputSchema": {"type": "object", "properties": {}}},
+    {"name": "list_pending_promotions", "description": "List approved Draft Bundles that still require a separate Owner and Security-gated promotion. It is read-only.", "inputSchema": {"type": "object", "properties": {}}},
     {"name": "list_curation_reviews", "description": "List Git-tracked Curation review cards. Evidence originals are not returned.", "inputSchema": {"type": "object", "properties": {"include_resolved": {"type": "boolean", "default": False}}}},
     {"name": "list_curation_queue", "description": "List pending per-Evidence work items. A blocked item also exposes its safe reason and next_action; Evidence content is never copied into the queue.", "inputSchema": {"type": "object", "properties": {"include_resolved": {"type": "boolean", "default": False}}}},
     {"name": "refresh_curation_queue", "description": "Repair pending workspace/task/curation_reconciliation contract tasks by scanning Evidence, Review cards, and Bundle references.", "inputSchema": {"type": "object", "properties": {}}},
@@ -76,7 +77,7 @@ TOOLS = [
 ]
 
 READ_ONLY_TOOLS = {
-    "search_knowledge", "read_bundle", "prepare_context", "propose_update", "propose_bundle_reclassification", "propose_pending", "inspect_inbox", "list_inbox_review_queue", "list_inbox_disposals", "list_curation_candidates", "list_curation_reviews", "list_curation_queue",
+    "search_knowledge", "read_bundle", "prepare_context", "propose_update", "propose_bundle_reclassification", "propose_pending", "inspect_inbox", "list_inbox_review_queue", "list_inbox_disposals", "list_curation_candidates", "list_pending_promotions", "list_curation_reviews", "list_curation_queue",
     "validate_result", "find_workflow", "audit_knowledge", "list_knowledge_inventory", "audit_hardcoded_install_values", "curation_backlog_metrics",
     "validate_claim_support", "measure_runbook_effectiveness", "get_task",
 }
@@ -182,6 +183,7 @@ def handle_request(
                 arguments["bundle_id"], domain=arguments["domain"], bundle_type=arguments["bundle_type"],
             )
             elif name == "list_curation_candidates": content = service.list_curation_candidates()
+            elif name == "list_pending_promotions": content = service.list_pending_promotions()
             elif name == "list_curation_reviews": content = service.list_curation_reviews(include_resolved=arguments.get("include_resolved", False))
             elif name == "list_curation_queue": content = service.list_curation_queue(include_resolved=arguments.get("include_resolved", False))
             elif name == "refresh_curation_queue": content = service.refresh_curation_queue()

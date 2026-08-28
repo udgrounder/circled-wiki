@@ -570,10 +570,7 @@ routing_rules:
             self.assertEqual(result["outcomes"][0]["queue_disposition"], "complete")
             self.assertEqual(result["after"]["items"], [])
             self.assertEqual(list_curation_queue(root), [])
-            archived = next((root.parent / "workspace" / "task" / ".archive" / "curation_reconciliation").glob("*.md"))
-            task = parse_markdown(archived).frontmatter
-            self.assertEqual(task["current"]["outcome"], "no_bundle")
-            self.assertEqual(task["result_artifact"]["kind"], "review_id")
+            self.assertEqual(list_curation_reviews(root, include_resolved=True)[0]["status"], "no_bundle")
 
     def test_reconcile_curation_hands_manual_result_to_review_queue(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -607,10 +604,6 @@ routing_rules:
             self.assertEqual(result["outcomes"][0]["outcome"], "review_handoff")
             self.assertEqual(len(list_curation_reviews(root)), 1)
             self.assertEqual(list_curation_candidates(root), [])
-            archived = next((root.parent / "workspace" / "task" / ".archive" / "curation_reconciliation").glob("*.md"))
-            task = parse_markdown(archived).frontmatter
-            self.assertEqual(task["current"]["outcome"], "review_handoff")
-            self.assertEqual(task["result_artifact"]["kind"], "path")
 
     def test_reconcile_curation_keeps_disabled_adapter_work_in_queue(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -864,8 +857,7 @@ routing_rules:
                 },
             )
             self.assertEqual(list_curation_queue(root), [])
-            archives = list((root.parent / "workspace" / "task" / ".archive" / "curation_reconciliation").glob("*.md"))
-            self.assertEqual(len(archives), 2)
+            self.assertEqual(list((root.parent / "workspace" / "task" / "curation_reconciliation").glob("*.md")), [])
 
     def test_cli_append_update_requires_pending_queue_item(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -1345,8 +1337,7 @@ routing_rules:
             )
             self.assertEqual(result["action"], "created")
             self.assertEqual(list_curation_queue(root), [])
-            archived = root.parent / "workspace" / "task" / ".archive" / "curation_reconciliation"
-            self.assertEqual(len(list(archived.glob("*.md"))), 1)
+            self.assertEqual(list((root.parent / "workspace" / "task" / "curation_reconciliation").glob("*.md")), [])
 
     def test_queue_repair_keeps_restricted_evidence_pending(self):
         with tempfile.TemporaryDirectory() as directory:

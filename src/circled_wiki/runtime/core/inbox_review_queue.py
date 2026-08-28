@@ -458,58 +458,29 @@ def review_context(knowledge_root: Path, intake_id: str) -> Optional[Dict[str, o
 def complete_inbox_review(
     knowledge_root: Path, *, intake_id: str, evidence_id: str,
 ) -> bool:
-    """Archive the Inbox contract task only after Evidence creation succeeds."""
+    """Delete the completed Inbox task after its provenance reached Evidence."""
     review = get_inbox_review(knowledge_root, intake_id)
     if review is None:
         return False
     if not inbox_review_is_resolved(knowledge_root, intake_id):
         raise ValueError("inbox task has unresolved requirements")
-    inbox_path = knowledge_root.resolve() / str(review.get("inbox_path", ""))
-    if not inbox_path.is_file():
-        raise ValueError("Inbox source is missing before contract completion")
-    receipt = parse_markdown(inbox_path).frontmatter.get("data_protection_receipt")
-    inbox_data = parse_markdown(inbox_path).frontmatter
-    receipt_errors = data_protection_receipt_errors(
-        receipt,
-        checksum=str(inbox_data.get("checksum", "")),
-        candidate_checksum=data_protection_candidate_checksum(
-            inbox_data, _candidate_for_receipt(inbox_path, inbox_data)
-        ),
-        require_resolved=True,
-    )
-    if receipt_errors:
-        raise ValueError("data protection receipt is not complete: " + "; ".join(receipt_errors))
-    source = review.pop("queue_path")
-    review.pop("queue_id", None)
-    review.update({"evidence_id": evidence_id, "resolved_at": _now()})
-    previous = review.get("current") if isinstance(review.get("current"), dict) else None
-    review["current"] = {
-        "stage": "evidence", "status": "completed", "actor": "evidence-ingest-agent",
-    }
-    _append_transition(
-        review, from_current=previous, to_current=review["current"], outcome="evidence_created",
-    )
-    _append_step(review, stage="evidence", status="completed", outcome="evidence_created")
-    archive = _archive_root(knowledge_root) / source.name
-    archive.parent.mkdir(parents=True, exist_ok=True)
-    temporary = archive.with_suffix(".tmp")
-    temporary.write_text(render_markdown(review), encoding="utf-8")
-    temporary.replace(archive)
-    source.unlink(missing_ok=True)
+    # ``review_context`` is copied into the immutable Evidence manifest before
+    # this function is reached.  Keeping a completed task would duplicate the
+    # same decisions and data-protection receipt.
+    del evidence_id
+    review["queue_path"].unlink(missing_ok=True)
     return True
 
 
 def reopen_inbox_review_after_ingest_failure(
     knowledge_root: Path, *, intake_id: str, reason: str,
 ) -> bool:
-    """Return a completed Inbox contract task to retryable accepted state."""
+    """Return an active Inbox contract task to retryable accepted state."""
     knowledge_root = knowledge_root.resolve()
     active = _item_path(knowledge_root, intake_id)
-    archive = _archive_root(knowledge_root) / active.name
-    source = active if active.is_file() else archive
-    if not source.is_file():
+    if not active.is_file():
         return False
-    payload = parse_markdown(source).frontmatter
+    payload = parse_markdown(active).frontmatter
     previous = payload.get("current") if isinstance(payload.get("current"), dict) else None
     payload.pop("evidence_id", None)
     payload.pop("resolved_at", None)
@@ -527,11 +498,6 @@ def reopen_inbox_review_after_ingest_failure(
     )
     active.parent.mkdir(parents=True, exist_ok=True)
     active.write_text(render_markdown(payload), encoding="utf-8")
-    # A failure can leave both the just-created archive and the active source
-    # (for example, if unlinking the source failed after the archive replace).
-    # Remove the archive copy after the active retry record is durable so the
-    # next run has exactly one contract task to resume.
-    archive.unlink(missing_ok=True)
     return True
 
 

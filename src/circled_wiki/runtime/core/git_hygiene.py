@@ -24,14 +24,13 @@ def tracked_generated_artifacts(project_root: Path) -> List[Dict[str, str]]:
     return findings
 
 
-def verify_curation_archive_transitions(project_root: Path) -> Dict[str, object]:
-    """Verify that staged Curation Queue completions include their Archive pair.
+def verify_curation_completion_staging(project_root: Path) -> Dict[str, object]:
+    """Allow completed Queue deletions and reject new duplicate task archives.
 
-    Curation completion intentionally stores the record in the documented
-    sibling ``workspace/task/.archive`` tree.  Git's path-scoped staging can
-    therefore contain the Queue deletion without the Archive addition.  This
-    read-only Gate inspects only the index and never stages, unstages, or
-    rewrites a user's files.
+    The Bundle or Curation Review card is the durable result.  A completed
+    reconciliation task is therefore deleted rather than moved into the
+    sibling archive.  This read-only Gate inspects only the index and never
+    stages, unstages, or rewrites a user's files.
     """
     result = subprocess.run(
         [
@@ -44,8 +43,7 @@ def verify_curation_archive_transitions(project_root: Path) -> Dict[str, object]
         check=True,
     )
     active_deletions: Dict[str, str] = {}
-    archive_changes: Dict[str, str] = {}
-    archive_additions: Dict[str, str] = {}
+    archive_additions: List[str] = []
     for line in result.stdout.splitlines():
         if not line.strip():
             continue
@@ -54,45 +52,17 @@ def verify_curation_archive_transitions(project_root: Path) -> Dict[str, object]
         path = fields[-1].strip()
         if path.startswith(_CURATION_QUEUE_PREFIX) and status == "D":
             active_deletions[path] = status
-        elif path.startswith(_CURATION_ARCHIVE_PREFIX):
-            archive_changes[path] = status
-            if status == "A":
-                archive_additions[path] = status
-
-    expected_pairs = {
-        active_path: _CURATION_ARCHIVE_PREFIX + active_path.rsplit("/", 1)[-1]
-        for active_path in active_deletions
-    }
-    missing_archive = [
-        archive_path
-        for archive_path in expected_pairs.values()
-        if archive_path not in archive_changes
-    ]
-    orphaned_archive_additions = [
-        archive_path
-        for archive_path in archive_additions
-        if archive_path not in expected_pairs.values()
-    ]
-    transitions = [
-        {
-            "active_path": active_path,
-            "archive_path": archive_path,
-            "active_status": active_deletions[active_path],
-            "archive_status": archive_changes[archive_path],
-        }
-        for active_path, archive_path in expected_pairs.items()
-        if archive_path in archive_changes
-    ]
-    passed = not missing_archive and not orphaned_archive_additions
+        elif path.startswith(_CURATION_ARCHIVE_PREFIX) and status == "A":
+            archive_additions.append(path)
+    passed = not archive_additions
     return {
         "passed": passed,
         "status": "passed" if passed else "blocked",
-        "checked_count": len(expected_pairs),
-        "transitions": transitions,
-        "missing_archive": missing_archive,
-        "orphaned_archive_additions": orphaned_archive_additions,
+        "checked_count": len(active_deletions),
+        "completed_task_deletions": sorted(active_deletions),
+        "unexpected_archive_additions": sorted(archive_additions),
         "recovery": (
-            "Stage the exact active deletion and matching Archive path, then retry."
-            if not passed else "Curation Queue Archive transitions are complete."
+            "Remove the completed Curation task archive addition from the staged change, then retry."
+            if not passed else "Completed Curation task deletions are valid."
         ),
     }

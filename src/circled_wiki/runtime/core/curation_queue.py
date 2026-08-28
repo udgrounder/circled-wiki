@@ -63,12 +63,7 @@ def _enqueue_curation_work_unlocked(
     if target.is_file():
         payload = parse_markdown(target).frontmatter
     else:
-        archived = _archive_path(knowledge_root, evidence_id)
-        if archived.is_file():
-            payload = parse_markdown(archived).frontmatter
-            archived.unlink()
-        else:
-            payload = {}
+        payload = {}
     if payload and payload.get("evidence_id") not in {None, evidence_id}:
         # The task filename is derived from the canonical UUID.  A mismatched
         # payload is corrupted state, so refresh replaces it with the current
@@ -116,56 +111,17 @@ def rollback_curation_work(knowledge_root: Path, evidence_id: str) -> bool:
 def _complete_curation_work_unlocked(
     knowledge_root: Path, evidence_id: str
 ) -> bool:
-    """Remove one queue item while the caller holds the queue transaction lock."""
+    """Delete one completed queue item while the caller holds the transaction lock.
+
+    The durable Curation result is the Bundle or Curation Review card.  The
+    contract task is only an active-work record, so completion must not create
+    a second archived receipt.
+    """
     target = _item_path(knowledge_root, evidence_id)
     if not target.is_file():
         return False
-    payload = parse_markdown(target).frontmatter
-    previous = payload.get("current") if isinstance(payload.get("current"), dict) else None
-    payload["current"] = {
-        "stage": "result_created", "status": "completed", "actor": "curation-agent",
-    }
-    payload.pop("last_blocker", None)
-    _append_step(payload, stage="result_created", status="completed")
-    _append_transition(
-        payload, from_current=previous, to_current=payload["current"], outcome="result_created",
-    )
-    archive = _archive_path(knowledge_root, evidence_id)
-    _write_task(archive, payload)
     target.unlink(missing_ok=True)
     return True
-
-
-def record_curation_contract_outcome(
-    knowledge_root: Path, evidence_id: str, *, outcome: str, next_stage: str,
-    artifact: Optional[Dict[str, object]] = None,
-) -> bool:
-    """Record a contract outcome only after its referenced result exists.
-
-    This updates the contract task record; it never creates a Bundle, Review
-    card, or no-bundle decision. Those artifacts are produced by Curation first.
-    """
-    knowledge_root = knowledge_root.resolve()
-    with curation_queue_transaction(knowledge_root):
-        target = _archive_path(knowledge_root, evidence_id)
-        if not target.is_file():
-            return False
-        payload = parse_markdown(target).frontmatter
-        previous = payload.get("current") if isinstance(payload.get("current"), dict) else None
-        payload["current"] = {
-            "stage": next_stage,
-            "status": "completed",
-            "actor": "curation-agent",
-            "outcome": outcome,
-        }
-        if artifact:
-            payload["result_artifact"] = artifact
-        _append_step(payload, stage=next_stage, status="completed", outcome=outcome)
-        _append_transition(
-            payload, from_current=previous, to_current=payload["current"], outcome=outcome,
-        )
-        _write_task(target, payload)
-        return True
 
 
 def record_curation_blocker(
@@ -356,14 +312,6 @@ def _completed_evidence_ids(knowledge_root: Path) -> set[str]:
 
 def _queue_root(knowledge_root: Path) -> Path:
     return knowledge_root.parent / "workspace" / "task" / CONTRACT_NAME
-
-
-def _archive_root(knowledge_root: Path) -> Path:
-    return knowledge_root.parent / "workspace" / "task" / ".archive" / CONTRACT_NAME
-
-
-def _archive_path(knowledge_root: Path, evidence_id: str) -> Path:
-    return _archive_root(knowledge_root) / _item_path(knowledge_root, evidence_id).name
 
 
 def _append_step(

@@ -23,7 +23,7 @@ from .ingest import (
     request_inbox_sensitivity_decision,
 )
 from .publisher import publish_changes, push_committed_changes, resume_pending_push
-from .candidates import curation_backlog_metrics, list_curation_candidates, promote_curation_candidate, review_curation_candidate
+from .candidates import curation_backlog_metrics, list_curation_candidates, list_pending_promotions, promote_curation_candidate, review_curation_candidate
 from .curation import (
     apply_automatic_curation_append, materialize_curation_candidate, run_configured_curation,
     run_configured_curation_batch,
@@ -33,7 +33,7 @@ from .curation_reviews import (
     generate_curation_review, list_curation_reviews,
 )
 from .curation_queue import list_curation_queue, refresh_curation_queue
-from .git_hygiene import verify_curation_archive_transitions
+from .git_hygiene import verify_curation_completion_staging
 from .inbox_review_queue import list_inbox_review_queue
 from .inbox_disposals import decide_inbox_disposal, list_inbox_disposals, quarantine_inbox_item
 from .curation_contract import validate_curation_output
@@ -174,6 +174,10 @@ class KnowledgeService:
         """Return Draft Bundles that need curation review; active knowledge is excluded."""
         return list_curation_candidates(self.knowledge_root)
 
+    def list_pending_promotions(self) -> List[Dict[str, object]]:
+        """Return approved Draft Bundles that require a separate promotion Gate."""
+        return list_pending_promotions(self.knowledge_root)
+
     def list_curation_reviews(self, *, include_resolved: bool = False) -> List[Dict[str, object]]:
         return list_curation_reviews(self.knowledge_root, include_resolved=include_resolved)
 
@@ -254,7 +258,7 @@ class KnowledgeService:
         )
 
     def verify_curation_commit(self) -> Dict[str, object]:
-        return verify_curation_archive_transitions(self.knowledge_root.parent)
+        return verify_curation_completion_staging(self.knowledge_root.parent)
 
     def record_inbox_pii_scan(
         self, intake_id: str, *, scanner: str, scanner_version: str,

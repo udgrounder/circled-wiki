@@ -51,8 +51,8 @@ Evidence를 기존 Bundle과 비교하거나 신규 Draft를 작성한다.
 - `runbook`과 `manual`은 `knowledge/curation-reviews/`의 checksum 결합 Review 카드 존재. `policy`, `guide`, `decision`, `spec`, `reference`, `report`는 확정된 Evidence를 입력으로 Draft 직접 생성 가능
 - Curation Review·자동 갱신의 유형별 경로와 Gate는 RB-CUR-001~006을 따른다. Curator는 현재 대화에서 승인 선택지를 묻지 않고 Review handoff 또는 재시도 차단 결과를 반환한다
 - active Runbook은 사람이 읽는 비어 있지 않은 `## Workflow Summary` 본문 section과 `extensions.workflow` 실행 정의를 함께 가질 것
-- Curation Queue 완료 후 상태를 공유할 때는 원본 Queue 파일 삭제와 새 sibling Archive 파일 추가를
-  한 전환으로 확인한다. `workspace/task/curation_reconciliation/`만 scoped staging하지 않고
+- Curation Queue 완료 후 상태를 공유할 때는 원본 Queue 파일 삭제만 포함한다. Bundle 또는 Curation
+  Review 카드가 결과와 결정을 보존하며, 새 reconciliation task Archive 파일을 만들지 않는다.
   `verify-curation-commit` Gate를 통과시킨다.
 
 ## Output
