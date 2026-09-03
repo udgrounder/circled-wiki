@@ -104,7 +104,12 @@ def require_acknowledged_user_notification(
     return notification
 
 
-def archive_user_notification(workspace_root: Path, *, notification_id: str, reason: str) -> Dict[str, object]:
+def dismiss_user_notification(workspace_root: Path, *, notification_id: str, reason: str) -> Dict[str, object]:
+    """Remove a resolved presentation record and its acknowledgement.
+
+    Notification files are projections.  The source workflow owns the durable
+    decision receipt, so resolution must not create another archive record.
+    """
     if not notification_id.strip() or Path(notification_id).name != notification_id:
         raise ValueError("notification_id must be a safe non-empty identifier")
     if not reason.strip():
@@ -112,32 +117,45 @@ def archive_user_notification(workspace_root: Path, *, notification_id: str, rea
     notifications_root = workspace_root / "notifications"
     source = notifications_root / "inbox" / f"{notification_id}.json"
     payload = _read_json(source)
-    payload["archived_at"] = _now()
-    payload["archive_reason"] = reason.strip()
-    destination = notifications_root / "archive" / source.name
-    _write_json(destination, payload)
     source.unlink()
-    return payload
+    (notifications_root / "acknowledgements" / f"{notification_id}.json").unlink(missing_ok=True)
+    return {**payload, "deleted": True, "reason": reason.strip()}
 
 
-def archive_notifications_for_resource(
+def dismiss_notifications_for_resource(
     workspace_root: Path, *, resource_ref: str, reason: str,
 ) -> List[Dict[str, object]]:
-    """Archive open presentation records when their source workflow resolves."""
+    """Remove open presentation records when their source workflow resolves."""
     if not resource_ref.strip() or not reason.strip():
         raise ValueError("resource_ref and reason must be non-empty")
-    archived: List[Dict[str, object]] = []
+    dismissed: List[Dict[str, object]] = []
     inbox = workspace_root / "notifications" / "inbox"
     for path in _notification_files(inbox):
         payload = _read_json(path)
         if payload.get("resource_ref") != resource_ref:
             continue
-        archived.append(archive_user_notification(
+        dismissed.append(dismiss_user_notification(
             workspace_root,
             notification_id=str(payload["notification_id"]),
             reason=reason,
         ))
-    return archived
+    return dismissed
+
+
+def archive_user_notification(workspace_root: Path, *, notification_id: str, reason: str) -> Dict[str, object]:
+    """Deprecated compatibility alias for :func:`dismiss_user_notification`."""
+    return dismiss_user_notification(
+        workspace_root, notification_id=notification_id, reason=reason,
+    )
+
+
+def archive_notifications_for_resource(
+    workspace_root: Path, *, resource_ref: str, reason: str,
+) -> List[Dict[str, object]]:
+    """Deprecated compatibility alias for :func:`dismiss_notifications_for_resource`."""
+    return dismiss_notifications_for_resource(
+        workspace_root, resource_ref=resource_ref, reason=reason,
+    )
 
 
 def _validate_fields(

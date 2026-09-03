@@ -4,8 +4,8 @@ from pathlib import Path
 
 from circled_wiki.core.notification_store import (
     acknowledge_user_notification,
-    archive_notifications_for_resource,
-    archive_user_notification,
+    dismiss_notifications_for_resource,
+    dismiss_user_notification,
     list_user_notifications,
     record_user_notification,
 )
@@ -39,7 +39,7 @@ class NotificationStoreTests(unittest.TestCase):
             records = list_user_notifications(workspace, include_acknowledged=True)
         self.assertEqual(records[0]["acknowledgement"]["actor"], "owner")
 
-    def test_archives_open_notifications_by_id_or_source_resource(self):
+    def test_dismisses_open_notifications_and_their_acknowledgements(self):
         with tempfile.TemporaryDirectory() as directory:
             workspace = Path(directory) / "workspace"
             first = record_user_notification(
@@ -54,14 +54,21 @@ class NotificationStoreTests(unittest.TestCase):
                 next_action="제안을 검토하세요.", resource_ref="workspace/taxonomy-proposals/proposal-a.json",
                 approval_required=True, dedupe_key="taxonomy_change_proposed:a",
             )
-            archived = archive_notifications_for_resource(
+            acknowledge_user_notification(
+                workspace, notification_id=str(first["notification_id"]), actor="owner",
+            )
+            dismissed = dismiss_notifications_for_resource(
                 workspace, resource_ref="knowledge/curation-reviews/review-a.md", reason="Review resolved",
             )
-            manual = archive_user_notification(
+            manual = dismiss_user_notification(
                 workspace, notification_id=str(second["notification_id"]), reason="Withdrawn",
             )
-        self.assertEqual(archived[0]["notification_id"], first["notification_id"])
-        self.assertEqual(manual["archive_reason"], "Withdrawn")
+            self.assertFalse((workspace / "notifications" / "inbox" / f"{first['notification_id']}.json").exists())
+            self.assertFalse((workspace / "notifications" / "acknowledgements" / f"{first['notification_id']}.json").exists())
+            self.assertFalse((workspace / "notifications" / "archive").exists())
+        self.assertEqual(dismissed[0]["notification_id"], first["notification_id"])
+        self.assertTrue(dismissed[0]["deleted"])
+        self.assertEqual(manual["reason"], "Withdrawn")
 
 
 if __name__ == "__main__":

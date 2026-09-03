@@ -36,7 +36,7 @@ from circled_wiki.core.open_questions import (
 )
 from circled_wiki.core.notification_store import (
     acknowledge_user_notification,
-    archive_user_notification,
+    dismiss_user_notification,
     list_user_notifications,
 )
 
@@ -150,6 +150,9 @@ def main() -> int:
     acknowledge_notification = subparsers.add_parser("acknowledge-user-notification")
     acknowledge_notification.add_argument("--notification", required=True)
     acknowledge_notification.add_argument("--actor", required=True)
+    dismiss_notification = subparsers.add_parser("dismiss-user-notification")
+    dismiss_notification.add_argument("--notification", required=True)
+    dismiss_notification.add_argument("--reason", required=True)
     archive_notification = subparsers.add_parser("archive-user-notification")
     archive_notification.add_argument("--notification", required=True)
     archive_notification.add_argument("--reason", required=True)
@@ -528,10 +531,12 @@ def main() -> int:
             root.parent / "workspace", notification_id=args.notification, actor=args.actor,
         )
         print(json.dumps(result, ensure_ascii=False, indent=2)); return 0
-    if args.command == "archive-user-notification":
-        result = archive_user_notification(
+    if args.command in {"dismiss-user-notification", "archive-user-notification"}:
+        result = dismiss_user_notification(
             root.parent / "workspace", notification_id=args.notification, reason=args.reason,
         )
+        if args.command == "archive-user-notification":
+            result["deprecated_command"] = "Use dismiss-user-notification instead."
         print(json.dumps(result, ensure_ascii=False, indent=2)); return 0
     if args.command == "validate":
         results = validate_repository(root); invalid = [r for r in results if not r.is_valid]

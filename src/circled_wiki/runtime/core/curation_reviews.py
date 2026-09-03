@@ -19,7 +19,7 @@ from .frontmatter import parse_markdown, render_markdown
 from .repository import _apply_bundle_revision, find_document_by_id
 from .validator import validate_document
 from .bundle_types import DIRECT_DRAFT_TYPES, PRE_CREATION_REVIEW_TYPES
-from .notification_store import archive_notifications_for_resource, record_user_notification
+from .notification_store import dismiss_notifications_for_resource, record_user_notification
 
 
 REVIEW_STATUSES = {"pending", "approved", "no_bundle", "needs_changes", "needs_review", "stale", "applied", "archived"}
@@ -268,7 +268,7 @@ def decide_curation_review(knowledge_root: Path, review_id: str, *, action: str,
         except Exception:
             bundle.path.write_text(original_bundle, encoding="utf-8")
             raise
-        _archive_review_notification(knowledge_root, path)
+        _dismiss_review_notification(knowledge_root, path)
         return {
             "review_id": review_id,
             "status": data["status"],
@@ -277,7 +277,7 @@ def decide_curation_review(knowledge_root: Path, review_id: str, *, action: str,
         }
     if delete_review_after_decision:
         _archive_review(path, data, document.body)
-        _archive_review_notification(knowledge_root, path)
+        _dismiss_review_notification(knowledge_root, path)
         return {
             "review_id": review_id,
             "status": data["status"],
@@ -370,17 +370,17 @@ def apply_approved_curation_update(
         if path.exists():
             path.write_text(render_markdown(document.frontmatter, document.body), encoding="utf-8")
         raise
-    _archive_review_notification(knowledge_root, path)
+    _dismiss_review_notification(knowledge_root, path)
     return {
         "review_id": review_id, "status": "applied", "bundle_id": target_id,
         "knowledge_revision": updated.frontmatter["extensions"]["knowledge_revision"],
     }
 
 
-def _archive_review_notification(knowledge_root: Path, path: Path) -> None:
+def _dismiss_review_notification(knowledge_root: Path, path: Path) -> None:
     """Do not leave a user-facing review request open after its source resolves."""
     try:
-        archive_notifications_for_resource(
+        dismiss_notifications_for_resource(
             knowledge_root.parent / "workspace",
             resource_ref=path.relative_to(knowledge_root.parent).as_posix(),
             reason="Curation Review resolved",
@@ -614,4 +614,4 @@ def _stale_review(
             data["status"] = previous_status
             path.write_text(render_markdown(data, body), encoding="utf-8")
             raise
-    _archive_review_notification(knowledge_root, path)
+    _dismiss_review_notification(knowledge_root, path)

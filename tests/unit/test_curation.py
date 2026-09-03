@@ -1645,7 +1645,7 @@ routing_rules:
             self.assertEqual(len(archived), 1)
             self.assertEqual(parse_markdown(archived[0]).frontmatter["status"], "stale")
             self.assertEqual(list((root.parent / "workspace" / "notifications" / "inbox").glob("notification-*.json")), [])
-            self.assertEqual(len(list((root.parent / "workspace" / "notifications" / "archive").glob("notification-*.json"))), 1)
+            self.assertFalse((root.parent / "workspace" / "notifications" / "archive").exists())
             self.assertEqual(list_curation_queue(root)[0]["evidence_id"], evidence_id)
             refreshed = refresh_curation_queue(root)
             self.assertEqual(refreshed["pending_count"], 1)
