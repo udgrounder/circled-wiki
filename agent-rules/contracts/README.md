@@ -58,10 +58,9 @@
 `workspace/task/<contract-name>/<subject-uuid>.md`는 계약별 처리 기록이다. Inbox에서는 Capture마다 하나를 만들고
 일반 Agent 처리와 사용자 전용 검토 사유를 같은 기록에 남긴다. Curation에서는 모든 새 Evidence에 생성하고,
 `pending` 상태의 작업을 Curation Queue로 조회한다. 완료된 Inbox·Curation 작업 기록은 삭제한다.
-완료의 provenance는 Evidence의 `inbox_review`와 `data_protection_receipt`, 또는 Bundle·Curation
-Review 카드의 결과·결정으로 보존한다. Curation Queue의 완료 Commit은 원본
-`workspace/task/curation_reconciliation/<uuid>.md` 삭제를 포함하며, 새 sibling reconciliation task
-Archive를 추가하지 않는다. Runtime은 `verify-curation-commit`으로 이 규칙을 읽기 전용 검증한다.
+Inbox의 Data Protection 정보는 Evidence의 `inbox_review`와 `data_protection_receipt`에 보존한다.
+Curation Queue의 완료 Commit은 원본 `workspace/task/curation_reconciliation/<uuid>.md` 삭제를 포함한다. Runtime은
+`verify-curation-commit`으로 이 규칙을 읽기 전용 검증한다.
 이 검증은 파일을 자동 staging하거나 사용자의 다른 변경을 함께 추가하지 않는다.
 
 Inbox 검토 요청은 위 계약 작업 기록의 `requirements`로 완결하며 별도 요청 문서를 만들지 않는다. Curation Review

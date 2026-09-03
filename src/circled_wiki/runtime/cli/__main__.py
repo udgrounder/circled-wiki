@@ -412,7 +412,7 @@ def main() -> int:
     automatic_update.add_argument("--security-receipt", required=True)
     subparsers.add_parser(
         "verify-curation-commit",
-        help="Verify staged Curation Queue deletions include matching Archive additions",
+        help="Verify staged completed Curation Queue task deletions",
     )
     curation_batch = subparsers.add_parser("run-configured-curation-batch")
     curation_batch.add_argument("--limit", type=int, default=100)

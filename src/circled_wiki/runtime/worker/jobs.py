@@ -698,7 +698,7 @@ def reconcile_inbox(knowledge_root: Path, actor: str, limit: int = 100) -> Dict[
         "ingested": ingested,
         "blocked": blocked,
         "orphaned": [
-            {"intake_id": item["intake_id"], "path": item["path"].relative_to(knowledge_root.resolve().parent).as_posix()}
+            dict(item)
             for item in orphaned
         ],
         "after": {"items": sorted(after, key=lambda item: item["intake_id"])},

@@ -47,12 +47,6 @@ class InboxDisposalTests(unittest.TestCase):
 
             self.assertEqual(quarantined["status"], "pending_disposal_review")
             self.assertEqual(len(list_inbox_review_queue(root)), 0)
-            archived = list((root.parent / "workspace" / "task" / ".archive" / "inbox_reconciliation").glob("*.md"))
-            self.assertEqual(len(archived), 1)
-            archived_task = parse_markdown(archived[0]).frontmatter
-            self.assertEqual(archived_task["current"]["actor"], "slack-business-filter")
-            self.assertEqual(archived_task["current"]["next_action"], "decide_inbox_disposal")
-            self.assertEqual(archived_task["transitions"][-1]["outcome"], "quarantined")
             pending = list_inbox_disposals(root)
             self.assertEqual(pending[0]["classification"], "non_business_confirmed")
             self.assertFalse(captured.inbox_path.exists())
@@ -63,7 +57,7 @@ class InboxDisposalTests(unittest.TestCase):
             self.assertEqual(len(list_inbox_review_queue(root)), 0)
             self.assertEqual(list_inbox_disposals(root), [])
 
-    def test_dispose_removes_original_but_keeps_minimal_archive_receipt(self):
+    def test_dispose_removes_original_and_completed_disposal_task(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "knowledge"
             captured = self._capture(root, "dispose-1")
@@ -75,10 +69,9 @@ class InboxDisposalTests(unittest.TestCase):
             disposed = decide_inbox_disposal(root, captured.intake_id, decision="dispose", actor="reviewer")
 
             self.assertEqual(disposed["status"], "disposed")
+            self.assertTrue(disposed["record_deleted"])
             self.assertFalse(captured.inbox_path.exists())
-            receipt = root.parent / disposed["record_path"]
-            self.assertTrue(receipt.is_file())
-            self.assertNotIn("non-business conversation", receipt.read_text(encoding="utf-8"))
+            self.assertEqual(list_inbox_disposals(root), [])
 
     def test_quarantine_is_excluded_even_with_a_date_hierarchy(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -570,7 +570,7 @@ routing_rules:
             self.assertEqual(result["outcomes"][0]["queue_disposition"], "complete")
             self.assertEqual(result["after"]["items"], [])
             self.assertEqual(list_curation_queue(root), [])
-            self.assertEqual(list_curation_reviews(root, include_resolved=True)[0]["status"], "no_bundle")
+            self.assertEqual(list_curation_reviews(root, include_resolved=True), [])
 
     def test_reconcile_curation_hands_manual_result_to_review_queue(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -709,7 +709,7 @@ routing_rules:
             self.assertEqual(result["after"]["items"], [])
             self.assertEqual(len(list_curation_candidates(root)), 1)
 
-    def test_approved_update_review_applies_revision_and_archives_card(self):
+    def test_approved_update_review_applies_revision_and_deletes_card(self):
         with tempfile.TemporaryDirectory() as directory:
             root, evidence_id = self._evidence(directory)
             target = create_bundle(
@@ -1598,7 +1598,7 @@ routing_rules:
             self.assertEqual(list_curation_reviews(root), [])
             self.assertEqual(list_curation_queue(root)[0]["evidence_id"], evidence_id)
 
-    def test_stale_update_review_is_archived_and_evidence_is_requeued(self):
+    def test_stale_update_review_is_deleted_and_evidence_is_requeued(self):
         with tempfile.TemporaryDirectory() as directory:
             root, evidence_id = self._evidence(directory)
             target = create_bundle(
@@ -1641,9 +1641,6 @@ routing_rules:
                 )
 
             self.assertEqual(list_curation_reviews(root), [])
-            archived = list((root / "curation-reviews" / ".archive").rglob("*.md"))
-            self.assertEqual(len(archived), 1)
-            self.assertEqual(parse_markdown(archived[0]).frontmatter["status"], "stale")
             self.assertEqual(list((root.parent / "workspace" / "notifications" / "inbox").glob("notification-*.json")), [])
             self.assertFalse((root.parent / "workspace" / "notifications" / "archive").exists())
             self.assertEqual(list_curation_queue(root)[0]["evidence_id"], evidence_id)
@@ -1665,7 +1662,7 @@ routing_rules:
             self.assertEqual(list_curation_queue(root), [])
             self.assertEqual(refresh_curation_queue(root)["pending_count"], 0)
 
-    def test_stale_review_rolls_back_archive_when_requeue_fails(self):
+    def test_stale_review_restores_card_when_requeue_fails(self):
         with tempfile.TemporaryDirectory() as directory:
             root, evidence_id = self._evidence(directory)
             target = create_bundle(
@@ -1726,8 +1723,5 @@ routing_rules:
             self.assertTrue(review_path.is_file())
             self.assertEqual(
                 parse_markdown(review_path).frontmatter["status"], "pending"
-            )
-            self.assertEqual(
-                list((root / "curation-reviews" / ".archive").rglob("*.md")), []
             )
             self.assertEqual(list_curation_queue(root), [])

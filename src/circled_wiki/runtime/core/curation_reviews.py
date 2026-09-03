@@ -22,7 +22,7 @@ from .bundle_types import DIRECT_DRAFT_TYPES, PRE_CREATION_REVIEW_TYPES
 from .notification_store import dismiss_notifications_for_resource, record_user_notification
 
 
-REVIEW_STATUSES = {"pending", "approved", "no_bundle", "needs_changes", "needs_review", "stale", "applied", "archived"}
+REVIEW_STATUSES = {"pending", "approved", "no_bundle", "needs_changes", "needs_review", "stale", "applied"}
 # The automated Curation path may mutate every non-operational Bundle type.
 # Runbooks and manuals always remain on the owner- and review-gated path.
 AUTOMATIC_UPDATE_TYPES = DIRECT_DRAFT_TYPES
@@ -264,7 +264,7 @@ def decide_curation_review(knowledge_root: Path, review_id: str, *, action: str,
                     "approved Draft validation failed: "
                     + "; ".join(validation.profile_errors)
                 )
-            _archive_review(path, data, document.body)
+            _delete_review(path)
         except Exception:
             bundle.path.write_text(original_bundle, encoding="utf-8")
             raise
@@ -276,7 +276,7 @@ def decide_curation_review(knowledge_root: Path, review_id: str, *, action: str,
             "result": result,
         }
     if delete_review_after_decision:
-        _archive_review(path, data, document.body)
+        _delete_review(path)
         _dismiss_review_notification(knowledge_root, path)
         return {
             "review_id": review_id,
@@ -295,7 +295,7 @@ def apply_approved_curation_update(
 
     This is intentionally the only update path that consumes an
     ``update_existing`` review.  It preserves the Bundle status and immutable
-    identifiers, then archives the Review card as the durable decision receipt.
+    identifiers, then deletes the consumed Review card.
     """
     if not actor.strip():
         raise ValueError("actor must be non-empty")
@@ -364,7 +364,7 @@ def apply_approved_curation_update(
     data["applied_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
     data["applied_by"] = actor.strip()
     try:
-        _archive_review(path, data, document.body)
+        _delete_review(path)
     except Exception:
         target.path.write_text(original_bundle, encoding="utf-8")
         if path.exists():
@@ -585,32 +585,28 @@ def _find_review(knowledge_root: Path, review_id: str):
     raise ValueError("curation review was not found")
 
 
-def _archive_review(path: Path, data: Dict[str, object], body: str) -> Path:
-    """Hide a consumed card while keeping its decision as a Git-tracked receipt."""
-    archive_path = path.parent.parent / ".archive" / path.parent.name / path.name
-    archive_path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(render_markdown(data, body), encoding="utf-8")
-    path.replace(archive_path)
-    return archive_path
+def _delete_review(path: Path) -> None:
+    """Remove a consumed card once its required work is complete."""
+    path.unlink(missing_ok=True)
 
 
 def _stale_review(
     path: Path, data: Dict[str, object], body: str, knowledge_root: Path, evidence
 ) -> None:
-    """Archive an obsolete decision and make its Evidence eligible for a fresh proposal."""
+    """Discard an obsolete decision and make its Evidence eligible for a fresh proposal."""
     previous_status = data.get("status")
     with curation_queue_transaction(knowledge_root):
         data["status"] = "stale"
-        archive_path = _archive_review(path, data, body)
+        _delete_review(path)
         try:
             if evidence is not None:
                 _enqueue_curation_work_unlocked(
                     knowledge_root,
                     str(evidence.frontmatter["id"]),
                     evidence.path,
+                    recheck_required=True,
                 )
         except Exception:
-            archive_path.replace(path)
             data["status"] = previous_status
             path.write_text(render_markdown(data, body), encoding="utf-8")
             raise

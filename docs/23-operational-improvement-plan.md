@@ -507,9 +507,8 @@ Slack·Notion·Hermes cron처럼 저장소 밖에서 실행되는 자동화도 �
 - [x] **2026-07-22 Commit/Push 경계 구현** — Push를 Commit에서 분리하고, 설치 config의 disabled-by-default
   remote/branch allowlist·current HEAD 검증을 거친 CLI/MCP API로 제한; 전체 128 tests와 기본 저장소 Validator
   `validated=32 invalid=0` 통과
-- [x] **2026-07-22 Curation no_bundle·config 보존 보강** — no_bundle 판단을 Evidence 상태 변경 없이 checksum/profile에
-  결합해 영속화하고, effective config semantic checksum을 추가; 전체 131 tests와 기본 저장소 Validator
-  `validated=32 invalid=0` 통과
+- [x] **2026-07-22 Curation config 검증 보강** — effective config semantic checksum을 추가; 전체 131 tests와
+  기본 저장소 Validator `validated=32 invalid=0` 통과
 - [ ] **운영본 배포·독립 검증** — 아직 수행하지 않았으며 위 원본 구현 완료와 별도로 추적
 - [x] **2026-07-22 구형 manifest 자산 채택 보강** — checksum이 같은 미등록 관리 자산을 backup 후 `adopt`하고,
   변경된 미등록 자산은 proposal로 보존하도록 구현; Bootstrap 단위 테스트 22건 통과.

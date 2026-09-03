@@ -51,8 +51,8 @@ archive·Queue·Inbox 삭제 중 하나라도 실패하면 새 Evidence와 Queue
 시의 Commit·Push는 Publication Profile이 수행한다.
 
 `ingest_evidence` 생성 시 Manifest Validator와 checksum을 통과한 뒤에는, Evidence 단계의 Check를 Receipt·
-checksum·스키마·전환 산출물로 한정한다. Inbox source 삭제·계약 archive의 `evidence_id`/완료 상태·Curation
-Queue 등록 같은 **전환 산출물**을 확인하고, Data Protection 판단은 앞 단계의 확정 Receipt를 입력으로 사용한다.
+checksum·스키마·전환 산출물로 한정한다. Inbox source 삭제·Curation Queue 등록 같은 **전환 산출물**을 확인하고,
+Data Protection 판단은 앞 단계의 확정 Receipt를 입력으로 사용한다.
 
 ## Prohibited
 

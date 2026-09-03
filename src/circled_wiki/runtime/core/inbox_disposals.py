@@ -13,11 +13,6 @@ def _pending_root(knowledge_root: Path) -> Path:
     return knowledge_root.parent / "workspace" / "inbox-disposals" / "pending"
 
 
-def _archive_root(knowledge_root: Path) -> Path:
-    now = datetime.now(timezone.utc)
-    return knowledge_root.parent / "workspace" / "inbox-disposals" / "archive" / f"{now:%Y}" / f"{now:%m}"
-
-
 def _find_inbox_item(knowledge_root: Path, intake_id: str) -> tuple[Path, Dict[str, object], object]:
     for path in iter_active_inbox_items(knowledge_root):
         data, content = read_conversation_intake(path)
@@ -130,9 +125,5 @@ def decide_inbox_disposal(knowledge_root: Path, intake_id: str, *, decision: str
             (quarantined.parent / payload_name).unlink(missing_ok=True)
         quarantined.unlink()
         outcome = "disposed"
-    record.update({"status": outcome, "decided_by": actor.strip(), "decided_at": datetime.now(timezone.utc).isoformat(timespec="seconds")})
-    archive = _archive_root(knowledge_root) / record_path.name
-    archive.parent.mkdir(parents=True, exist_ok=True)
-    archive.write_text(render_markdown(record), encoding="utf-8")
     record_path.unlink()
-    return {"intake_id": intake_id, "status": outcome, "record_path": archive.relative_to(knowledge_root.parent).as_posix()}
+    return {"intake_id": intake_id, "status": outcome, "record_deleted": True}

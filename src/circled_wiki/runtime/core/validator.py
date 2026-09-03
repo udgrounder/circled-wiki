@@ -215,7 +215,7 @@ def _validate_curation_review(document: MarkdownDocument, result: ValidationResu
     data = document.frontmatter
     if data.get("type") != "curation_review":
         result.profile_errors.append("curation review files must have type curation_review")
-    if data.get("status") not in {"pending", "approved", "no_bundle", "needs_changes", "needs_review", "stale", "applied", "archived"}:
+    if data.get("status") not in {"pending", "approved", "no_bundle", "needs_changes", "needs_review", "stale", "applied"}:
         result.profile_errors.append("curation review status is invalid")
     for field in ("review_id", "title", "recommendation"):
         if not _is_nonempty_string(data.get(field)):

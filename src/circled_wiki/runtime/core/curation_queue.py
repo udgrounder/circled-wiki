@@ -53,7 +53,7 @@ def enqueue_curation_work(knowledge_root: Path, evidence_id: str, evidence_path:
 
 def _enqueue_curation_work_unlocked(
     knowledge_root: Path, evidence_id: str, evidence_path: Path,
-    relative: Optional[Path] = None,
+    relative: Optional[Path] = None, *, recheck_required: bool = False,
 ) -> Path:
     """Write one queue item while the caller holds the queue transaction lock."""
     if relative is None:
@@ -83,6 +83,8 @@ def _enqueue_curation_work_unlocked(
         "evidence_path": relative.as_posix(),
         "current": current,
     })
+    if recheck_required:
+        payload["recheck_required"] = True
     if previous.get("status") != "pending":
         _append_transition(payload, from_current=previous or None, to_current=current, outcome="queued")
         _append_step(payload, stage="queued", status="pending", outcome="queued")
@@ -198,7 +200,7 @@ def _refresh_curation_queue_unlocked(
     knowledge_root: Path,
 ) -> Dict[str, object]:
     """Reconcile the full queue while holding its namespace transaction lock."""
-    completed = _completed_evidence_ids(knowledge_root)
+    completed = _completed_evidence_ids(knowledge_root) - _recheck_evidence_ids(knowledge_root)
     expected: Dict[str, Path] = {}
     for path in sorted((knowledge_root / "evidence").rglob("*.md")):
         if path.name in {"index.md", "log.md"}:
@@ -282,7 +284,6 @@ def _completed_evidence_ids(knowledge_root: Path) -> set[str]:
 
     bundle_completed: set[str] = set()
     review_completed: set[str] = set()
-    stale: set[str] = set()
     for path in sorted((knowledge_root / "bundles").rglob("*.md")):
         if path.name in {"index.md", "log.md"}:
             continue
@@ -303,11 +304,23 @@ def _completed_evidence_ids(knowledge_root: Path) -> set[str]:
             if isinstance(refs, list):
                 for ref in refs:
                     if isinstance(ref, dict) and isinstance(ref.get("evidence_id"), str):
-                        if review.get("status") == "stale":
-                            stale.add(ref["evidence_id"])
-                        else:
-                            review_completed.add(ref["evidence_id"])
-    return (bundle_completed - stale) | review_completed
+                        review_completed.add(ref["evidence_id"])
+    return bundle_completed | review_completed
+
+
+def _recheck_evidence_ids(knowledge_root: Path) -> set[str]:
+    root = _queue_root(knowledge_root)
+    if not root.is_dir():
+        return set()
+    recheck: set[str] = set()
+    for path in root.glob("*.md"):
+        try:
+            task = parse_markdown(path).frontmatter
+        except (OSError, ValueError):
+            continue
+        if task.get("recheck_required") is True and isinstance(task.get("evidence_id"), str):
+            recheck.add(task["evidence_id"])
+    return recheck
 
 
 def _queue_root(knowledge_root: Path) -> Path:

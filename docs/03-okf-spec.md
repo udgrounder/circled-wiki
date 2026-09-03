@@ -403,8 +403,8 @@ Evidence Record는 `why_collected`와 non-empty `intended_use` 배열을 필수�
 - 모든 Evidence는 `inbox/`에서 `.raw/`로 이동할 때 발급된 `source_uuid`를 가져야 한다.
 - Evidence 파일 경로는 `knowledge/evidence/{source}/{yyyy}/{mm}/{dd}/{name}_{source_uuid}.{ext}` 패턴을 권장한다.
 - Evidence는 `extensions.capture_context`에 수집 이유와 적용 업무를 기록한다.
-- Bundle 생성·revision·발행은 Evidence를 읽고 URI로 참조만 한다. 생성된 Evidence는 변경하지 않으며, curation 완료 여부는 Bundle의 canonical `evidence` 참조와 Curation Review 카드의 결정 receipt에서 파생한다.
-- Evidence 확정과 `workspace/task/curation_reconciliation/<source_uuid>.md` 계약 작업 기록 생성은 함께 성공하거나 함께 실패한다. 작업 기록은 계약·Evidence 식별자·현재 단계와 원문 없는 단계 Receipt를 가지며, `queued/pending` 상태가 Curation Queue를 뜻한다. Bundle 또는 Review 카드가 실제로 검증된 뒤에만 활성 작업 기록을 삭제하며, 결과·결정은 해당 Bundle 또는 Review 카드가 보존한다. 실패하면 같은 작업 기록을 유지한다.
+- Bundle 생성·revision·발행은 Evidence를 읽고 URI로 참조만 한다. 생성된 Evidence는 변경하지 않으며, 지속 중인 Curation은 Review 카드로 표현한다.
+- Evidence 확정과 `workspace/task/curation_reconciliation/<source_uuid>.md` 계약 작업 기록 생성은 함께 성공하거나 함께 실패한다. 작업 기록은 계약·Evidence 식별자·현재 단계와 원문 없는 단계 Receipt를 가지며, `queued/pending` 상태가 Curation Queue를 뜻한다. Bundle 생성 또는 Review handoff가 성공하면 작업 기록을 삭제하고, 실패하면 같은 작업 기록을 유지한다.
 - Evidence 생성 시 확정된 단일 `data_protection_receipt`는 최종 후보 원문의 checksum에 결합해 최초 생성 시 함께 기록한다. 생성된 Evidence에 Data Protection·PII 상태나 Receipt를 사후 추가·수정하는 API를 제공하지 않는다. 기존 `pii_scan` projection은 하위 호환 검증용이며 정본이 아니다.
 
 주의:

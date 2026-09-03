@@ -41,7 +41,7 @@ def capture_conversation(*args, **kwargs):
 
 
 class WorkerJobTests(unittest.TestCase):
-    def test_reconcile_inbox_archives_orphaned_review_task_without_recreating_source(self):
+    def test_reconcile_inbox_discards_orphaned_review_task_without_recreating_source(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "knowledge"
             contract_root = root.parent / "agent-rules" / "contracts"
@@ -61,9 +61,7 @@ class WorkerJobTests(unittest.TestCase):
 
             self.assertEqual(len(result["orphaned"]), 1)
             self.assertEqual(result["orphaned"][0]["intake_id"], captured.intake_id)
-            archived = root.parent / result["orphaned"][0]["path"]
-            self.assertTrue(archived.is_file())
-            self.assertEqual(parse_markdown(archived).frontmatter["current"]["stage"], "orphaned")
+            self.assertTrue(result["orphaned"][0]["deleted"])
             self.assertFalse(captured.inbox_path.exists())
 
     def test_reconcile_inbox_advances_only_contract_safe_stages(self):

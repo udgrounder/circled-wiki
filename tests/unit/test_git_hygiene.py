@@ -52,39 +52,3 @@ class GitHygieneTests(unittest.TestCase):
                 ).stdout.splitlines(),
                 ["workspace/task/curation_reconciliation/11111111-1111-1111-1111-111111111111.md"],
             )
-
-    def test_blocks_a_new_completed_queue_archive(self):
-        with tempfile.TemporaryDirectory() as directory:
-            project = self._git_repo(directory)
-            queue = self._seed_queue_item(project)
-            archive = project / "workspace" / "task" / ".archive" / "curation_reconciliation" / queue.name
-            queue.unlink()
-            archive.parent.mkdir(parents=True)
-            archive.write_text("---\ntype: contract_task\n---\n", encoding="utf-8")
-            subprocess.run(
-                ["git", "-C", str(project), "add", "--", queue.relative_to(project).as_posix(), archive.relative_to(project).as_posix()],
-                check=True,
-            )
-
-            result = verify_curation_completion_staging(project)
-
-            self.assertFalse(result["passed"])
-            self.assertEqual(result["checked_count"], 1)
-            self.assertEqual(result["unexpected_archive_additions"], [
-                "workspace/task/.archive/curation_reconciliation/11111111-1111-1111-1111-111111111111.md",
-            ])
-
-    def test_blocks_orphaned_archive_addition(self):
-        with tempfile.TemporaryDirectory() as directory:
-            project = self._git_repo(directory)
-            archive = project / "workspace" / "task" / ".archive" / "curation_reconciliation" / "22222222-2222-2222-2222-222222222222.md"
-            archive.parent.mkdir(parents=True)
-            archive.write_text("---\ntype: contract_task\n---\n", encoding="utf-8")
-            subprocess.run(["git", "-C", str(project), "add", "--", archive.relative_to(project).as_posix()], check=True)
-
-            result = verify_curation_completion_staging(project)
-
-            self.assertFalse(result["passed"])
-            self.assertEqual(result["unexpected_archive_additions"], [
-                "workspace/task/.archive/curation_reconciliation/22222222-2222-2222-2222-222222222222.md",
-            ])

@@ -400,7 +400,7 @@ class IngestEvidenceTests(unittest.TestCase):
             self.assertEqual(result["ingested_count"], 1)
             self.assertEqual(list_inbox_review_queue(knowledge_root), [])
 
-    def test_pii_needs_review_blocks_then_resumes_and_archives_queue(self):
+    def test_pii_needs_review_blocks_then_resumes_and_completes_queue(self):
         with tempfile.TemporaryDirectory() as temp_directory:
             knowledge_root = Path(temp_directory) / "knowledge"
             captured = capture_document(

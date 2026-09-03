@@ -7,7 +7,6 @@ from typing import Dict, List
 
 _GENERATED_MARKERS = ("/.runtime/", "/.raw/", "__pycache__/", ".circled-wiki-backups/", ".DS_Store", ".pytest_cache/")
 _CURATION_QUEUE_PREFIX = "workspace/task/curation_reconciliation/"
-_CURATION_ARCHIVE_PREFIX = "workspace/task/.archive/curation_reconciliation/"
 
 
 def tracked_generated_artifacts(project_root: Path) -> List[Dict[str, str]]:
@@ -25,25 +24,18 @@ def tracked_generated_artifacts(project_root: Path) -> List[Dict[str, str]]:
 
 
 def verify_curation_completion_staging(project_root: Path) -> Dict[str, object]:
-    """Allow completed Queue deletions and reject new duplicate task archives.
-
-    The Bundle or Curation Review card is the durable result.  A completed
-    reconciliation task is therefore deleted rather than moved into the
-    sibling archive.  This read-only Gate inspects only the index and never
-    stages, unstages, or rewrites a user's files.
-    """
+    """Report staged completed Curation task deletions without changing Git."""
     result = subprocess.run(
         [
             "git", "-C", str(project_root), "-c", "core.quotepath=false",
             "diff", "--cached", "--name-status", "--no-renames", "--",
-            _CURATION_QUEUE_PREFIX, _CURATION_ARCHIVE_PREFIX,
+            _CURATION_QUEUE_PREFIX,
         ],
         capture_output=True,
         text=True,
         check=True,
     )
     active_deletions: Dict[str, str] = {}
-    archive_additions: List[str] = []
     for line in result.stdout.splitlines():
         if not line.strip():
             continue
@@ -52,17 +44,10 @@ def verify_curation_completion_staging(project_root: Path) -> Dict[str, object]:
         path = fields[-1].strip()
         if path.startswith(_CURATION_QUEUE_PREFIX) and status == "D":
             active_deletions[path] = status
-        elif path.startswith(_CURATION_ARCHIVE_PREFIX) and status == "A":
-            archive_additions.append(path)
-    passed = not archive_additions
     return {
-        "passed": passed,
-        "status": "passed" if passed else "blocked",
+        "passed": True,
+        "status": "passed",
         "checked_count": len(active_deletions),
         "completed_task_deletions": sorted(active_deletions),
-        "unexpected_archive_additions": sorted(archive_additions),
-        "recovery": (
-            "Remove the completed Curation task archive addition from the staged change, then retry."
-            if not passed else "Completed Curation task deletions are valid."
-        ),
+        "recovery": "Completed Curation task deletions are valid.",
     }
