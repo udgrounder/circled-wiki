@@ -1,0 +1,36 @@
+{
+  "receipt_type": "release",
+  "release_id": "v1-27dae8168862",
+  "source_revision": "9bf346dbdc01e884cf64c2dd0e3c7b8fba9a4517",
+  "runtime_checksum": "sha256:d801930469ec56de6d6bb9edc14dd20150da51982f89c80b254ae6568c80c7bc",
+  "router_checksum": "sha256:961fee5f24d6e5f63601767af22e1dd40fbd9d24d62592ff60324b7a41be88ad",
+  "runtime_profiles": [
+    "bundle-rebuilding.md",
+    "collection-handoff.md",
+    "curation-taxonomy.md",
+    "evidence-ingest.md",
+    "inbox-capture.md",
+    "inbox-disposition.md",
+    "inbox-inspection.md",
+    "inbox-sensitivity-review.md",
+    "knowledge-curation.md",
+    "knowledge-query.md",
+    "publication.md",
+    "runtime-upgrade-verification.md",
+    "system-observation.md",
+    "workflow-execution.md"
+  ],
+  "included_issue_ids": [],
+  "validation": {
+    "unit": "passed",
+    "integration": "passed",
+    "repository_validator": "passed"
+  },
+  "verified_by": "codex",
+  "verified_at": "2026-09-03T03:18:22.499363+00:00",
+  "source_commit_check": {
+    "revision": "9bf346dbdc01e884cf64c2dd0e3c7b8fba9a4517",
+    "subject": "불필요한 영수증 파일들 지우도록 처리",
+    "worktree_clean": true
+  }
+}
