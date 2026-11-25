@@ -5,6 +5,7 @@
 현재 `sensitivity_review: required`인 Inbox Item을 검사할 때 이 규칙을 `inbox-inspection.md`와 함께 적용한다.
 Capture 직후에는 모든 Inbox Item이 이 상태로 시작한다. 이 단계는 PII Scan과 민감도 판단을 분리하지 않는
 Inbox→Evidence 전환의 단일 Data Protection 단계이며, 이미 해소된 동일 checksum에는 다시 적용하지 않는다.
+단, 오판을 명시적으로 정정하는 `--reopen-reason` 요청은 기존 판단을 무효화한 후 이 단계를 다시 시작한다.
 
 ## Input
 
@@ -19,6 +20,10 @@ Inbox→Evidence 전환의 단일 Data Protection 단계이며, 이미 해소된
 - `inbox-sensitivity/v1` 기준에 따른 검사
 - 근거가 충분한 경우 통합 `data_protection_receipt`와 `completed` 또는 `not_applicable` 기록
 - 사용자만 결정할 수 있는 경우 계약 requirement와 안전한 다음 행동 기록
+- 이미 완료한 Inbox 판단을 정정해야 하면 `request-inbox-sensitivity-decision --reopen-reason`으로
+  명시적인 정정 사유와 사용자 질문을 기록한다. 기존 Receipt는 감사 이력에 보존하고 현재 Receipt를
+  무효화해 `pending`·`required`로 되돌린다. 새 사용자 판단과 통합 검토 전에는 수락·Evidence 전환을
+  하지 않는다. 감사 이력은 최종 Evidence의 `extensions.inbox_review`에도 보존한다.
 
 ## Integrated Procedure
 

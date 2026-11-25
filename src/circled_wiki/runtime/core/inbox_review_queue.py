@@ -428,6 +428,8 @@ def review_context(knowledge_root: Path, intake_id: str) -> Optional[Dict[str, o
             for item in requirements
         ],
         "data_protection_receipt": dict(receipt),
+        **({"data_protection_review_history": list(inbox["data_protection_review_history"])}
+           if inbox.get("data_protection_review_history") else {}),
     }
 
 

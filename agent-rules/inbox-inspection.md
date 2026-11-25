@@ -46,6 +46,13 @@
 
 ## Output
 
+중단된 `.ingest-<uuid>.*` 임시 파일은 Inbox 원문과 구분한다. 새 ingest는 임시 원문을
+`knowledge/inbox/.quarantine/ingest-staging/`에서 처리하므로 활성 Inbox 검사에 섞이지 않는다.
+과거 잔여물은 `recover-inbox-temporaries`로 먼저 미리 보고, 실행 중인 수집 작업이 없음을 확인한 뒤
+`--apply`로 `.quarantine/ingest-recovered/`에 보존 격리한다. 기본 기준은 24시간 경과이며
+`--older-than-seconds`는 최소 1시간이다. 유효한 Inbox Item과 심볼릭 링크는 이동하지 않는다.
+격리는 원본 삭제나 Evidence 수집 완료를 뜻하지 않는다. 제품 ingest와 복구는 같은 잠금을 사용한다.
+
 읽기 전용 검사 보고서, Inbox Sensitive Data Review 기록 또는 `accepted` Inbox Item 상태
 
 ## Failure State

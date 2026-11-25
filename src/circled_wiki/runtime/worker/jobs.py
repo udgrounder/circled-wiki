@@ -10,7 +10,8 @@ from uuid import uuid4
 
 from circled_wiki.core.curator import propose_update
 from circled_wiki.config.settings import load_settings
-from circled_wiki.core.frontmatter import FrontmatterError, parse_markdown, render_markdown
+from circled_wiki.core.frontmatter import FrontmatterError, parse_markdown, render_markdown, markdown_read_session
+from circled_wiki.core.inbox_temporaries import inbox_ingest_session, ingest_temporary_path
 from circled_wiki.core.ingest import (
     accept_ready_inbox, ingest_evidence, iter_active_inbox_items,
     read_conversation_intake, rollback_evidence_ingest,
@@ -81,6 +82,7 @@ def run_maintenance(knowledge_root: Path) -> MaintenanceReport:
     )
 
 
+@markdown_read_session
 def run_curation_batch(knowledge_root: Path, limit: int = 100) -> Dict[str, object]:
     """Build repeatable proposals for pending, non-restricted Evidence."""
     if isinstance(limit, bool) or not isinstance(limit, int) or limit < 1 or limit > 1000:
@@ -115,6 +117,7 @@ def run_curation_batch(knowledge_root: Path, limit: int = 100) -> Dict[str, obje
     }
 
 
+@markdown_read_session
 def reconcile_curation(knowledge_root: Path, limit: int = 100) -> Dict[str, object]:
     """Run only contract-authorized Curation analysis and durable Review results.
 
@@ -399,6 +402,8 @@ def _rewind_accepted_inbox_to_data_protection(path: Path, data: Dict[str, object
     return updated
 
 
+@markdown_read_session
+@inbox_ingest_session
 def ingest_accepted_inbox(
     knowledge_root: Path, limit: int = 100, *, intake_ids: Optional[Set[str]] = None,
 ) -> Dict[str, object]:
@@ -467,12 +472,12 @@ def ingest_accepted_inbox(
         try:
             if is_file:
                 payload_path = Path(content)
-                temporary_path = path.parent / f".ingest-{uuid4()}{payload_path.suffix.lower()}"
+                temporary_path = ingest_temporary_path(knowledge_root, payload_path.suffix.lower())
                 # Keep the Inbox payload intact until Evidence validation succeeds so a
                 # failed batch remains retryable.
                 shutil.copy2(payload_path, temporary_path)
             else:
-                temporary_path = path.parent / f".ingest-{uuid4()}.md"
+                temporary_path = ingest_temporary_path(knowledge_root, ".md")
                 temporary_path.write_text(str(content), encoding="utf-8")
             captured_at = datetime.fromisoformat(str(data["captured_at"]).replace("Z", "+00:00"))
             capture_details = data.get("capture_details")
@@ -705,6 +710,7 @@ def reconcile_inbox(knowledge_root: Path, actor: str, limit: int = 100) -> Dict[
     }
 
 
+@markdown_read_session
 def reconcile_inbox_then_curation(
     knowledge_root: Path, actor: str, limit: int = 100,
 ) -> Dict[str, object]:

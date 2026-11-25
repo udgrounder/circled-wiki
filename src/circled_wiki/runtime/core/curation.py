@@ -16,7 +16,7 @@ from .curator import propose_update
 from .curation_contract import CurationOutput
 from .curation_contract import validate_curation_output
 from .evidence import evidence_original_bytes
-from .frontmatter import parse_markdown, render_markdown
+from .frontmatter import parse_markdown, render_markdown, markdown_read_session
 from .repository import create_bundle, find_document_by_id, iter_documents
 from .validator import validate_document
 from .curation_safety import curation_body_safety_errors
@@ -143,6 +143,20 @@ def run_configured_curation(
     knowledge_root: Path, evidence_id: str, *, search_cache: Optional[Dict] = None,
 ) -> Dict[str, object]:
     """Invoke an installation-configured JSON adapter, or safely return needs_review."""
+    try:
+        return _run_configured_curation(knowledge_root, evidence_id, search_cache=search_cache)
+    finally:
+        # This operation can create, promote or revise a Bundle, including a
+        # persisted write before a later failure. Never let a subsequent
+        # Evidence reuse search hits (or misses) from before that operation.
+        # Read-only proposal batches retain their existing shared cache.
+        if search_cache is not None:
+            search_cache.clear()
+
+
+def _run_configured_curation(
+    knowledge_root: Path, evidence_id: str, *, search_cache: Optional[Dict] = None,
+) -> Dict[str, object]:
     settings = load_settings(knowledge_root.resolve().parent)
     config = settings.curation
     evidence = find_document_by_id(knowledge_root, evidence_id)
@@ -440,6 +454,7 @@ def _record_curation_blocker(evidence, knowledge_root: Path, reason: str) -> Dic
     }
 
 
+@markdown_read_session
 def run_configured_curation_batch(
     knowledge_root: Path, *, limit: int = 100,
     evidence_ids: Optional[Set[str]] = None,

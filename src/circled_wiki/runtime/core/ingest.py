@@ -1053,7 +1053,7 @@ def _policy_candidates_for_inbox(
 def request_inbox_sensitivity_decision(
     knowledge_root: Path, intake_id: str, actor: str, *, question: str,
     missing_procedure: str, safe_next_action: str, facts: List[str],
-    hypotheses: List[str],
+    hypotheses: List[str], reopen_reason: Optional[str] = None,
 ) -> Dict[str, object]:
     """Keep the Inbox pending and record why only the user can decide next."""
     from .pii import build_pii_scan_receipt
@@ -1064,6 +1064,12 @@ def request_inbox_sensitivity_decision(
     }
     if any(not isinstance(value, str) or not value.strip() for value in values.values()):
         raise ValueError("sensitivity escalation fields must be non-empty strings")
+    if not isinstance(actor, str) or not actor.strip():
+        raise ValueError("actor must be non-empty")
+    if reopen_reason is not None and (
+        not isinstance(reopen_reason, str) or not reopen_reason.strip()
+    ):
+        raise ValueError("reopen_reason must be non-empty when supplied")
     if any(
         not isinstance(items, list) or any(
             not isinstance(value, str) or not value.strip() for value in items
@@ -1104,7 +1110,36 @@ def request_inbox_sensitivity_decision(
         if data.get("id") != intake_id:
             continue
         if data.get("status") != "pending" or data.get("sensitivity_review") != "required":
-            raise ValueError("only required pending sensitivity reviews can await user")
+            if reopen_reason is None or data.get("status") not in {"pending", "accepted"}:
+                raise ValueError("only required pending sensitivity reviews can await user; supply reopen_reason to correct a completed Inbox review")
+            document = parse_markdown(path)
+            history = list(data.get("data_protection_review_history") or [])
+            history.append({
+                "reopened_by": actor.strip(),
+                "reopened_at": datetime.now(timezone.utc).isoformat(),
+                "reason": mask(reopen_reason).content,
+                "previous_receipt": data.get("data_protection_receipt"),
+            })
+            data["data_protection_review_history"] = history
+            data["status"] = "pending"
+            data["sensitivity_review"] = "required"
+            for field in ("inspection", "data_protection_receipt", "sensitivity_inspection", "pii_scan_receipt"):
+                data.pop(field, None)
+            # Fail closed if queue updates fail: the old receipt can no longer
+            # authorize acceptance or ingestion, while its audit history survives.
+            path.write_text(render_markdown(data, document.body), encoding="utf-8")
+        if data.get("data_protection_review_history") and data.get("sensitivity_review") == "required":
+            # Retry queue repair even when the Inbox write succeeded but the
+            # previous queue update failed.
+            reopened = reopen_inbox_data_protection_review(
+                knowledge_root, intake_id=intake_id, actor=actor.strip(),
+            )
+            if reopened.get("status") == "no_review":
+                ensure_inbox_task(knowledge_root, intake_id=intake_id, inbox_path=path)
+                enqueue_inbox_review(
+                    knowledge_root, intake_id=intake_id, inbox_path=path,
+                    current_stage="sensitivity_review", reason_code="sensitivity_review_required",
+                )
         return escalate_inbox_sensitivity_review(
             knowledge_root, intake_id=intake_id, actor=actor, question=question_scan.content,
             missing_procedure=procedure_scan.content, safe_next_action=action_scan.content,

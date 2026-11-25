@@ -270,8 +270,12 @@ def main() -> int:
     request_sensitivity.add_argument("--safe-next-action", required=True)
     request_sensitivity.add_argument("--facts", required=True, help="JSON array of observed facts")
     request_sensitivity.add_argument("--hypotheses", required=True, help="JSON array of hypotheses")
+    request_sensitivity.add_argument("--reopen-reason", help="Reason to invalidate a completed Inbox review and request a new user decision")
     ingest_accepted = subparsers.add_parser("ingest-accepted")
     ingest_accepted.add_argument("--limit", type=int, default=100)
+    recover_temporaries = subparsers.add_parser("recover-inbox-temporaries")
+    recover_temporaries.add_argument("--apply", action="store_true", help="Quarantine old ingest scratch files; default is preview")
+    recover_temporaries.add_argument("--older-than-seconds", type=int, default=86400)
     publish = subparsers.add_parser("publish-changes")
     publish.add_argument("--message", required=True)
     push = subparsers.add_parser("push-changes")
@@ -422,6 +426,23 @@ def main() -> int:
     review_candidate.add_argument("--actor", required=True)
     review_candidate.add_argument("--note", default="")
     review_candidate.add_argument("--merged-into")
+    for recovery_command in ("plan-duplicate-bundle-recovery", "recover-duplicate-bundle"):
+        recovery = subparsers.add_parser(recovery_command)
+        recovery.add_argument("--source", required=True, help="Duplicate Bundle ID to archive")
+        recovery.add_argument("--target", required=True, help="Canonical Bundle ID to retain")
+        recovery.add_argument("--merged-body-file", required=True, help="Reviewed, complete canonical Markdown body")
+        recovery.add_argument("--archive-only", action="store_true", help="Require prior integration and leave the canonical Bundle unchanged")
+        if recovery_command == "recover-duplicate-bundle":
+            recovery.add_argument("--expected-source-revision", required=True, type=int)
+            recovery.add_argument("--expected-target-revision", required=True, type=int)
+            recovery.add_argument("--approved-plan-checksum", required=True)
+            recovery.add_argument("--actor", required=True)
+            recovery.add_argument("--reviewed-by", required=True)
+            recovery.add_argument("--request-ref", required=True)
+            recovery.add_argument("--security-receipt", required=True)
+    rollback_recovery = subparsers.add_parser("rollback-duplicate-bundle-recovery")
+    rollback_recovery.add_argument("--transaction", required=True)
+    rollback_recovery.add_argument("--actor", required=True)
     promote_candidate = subparsers.add_parser("promote-curation-candidate")
     promote_candidate.add_argument("--bundle", required=True)
     promote_candidate.add_argument("--actor", required=True)
@@ -710,8 +731,14 @@ def main() -> int:
                 missing_procedure=args.missing_procedure,
                 safe_next_action=args.safe_next_action,
                 facts=json.loads(args.facts), hypotheses=json.loads(args.hypotheses),
+                reopen_reason=args.reopen_reason,
             ), ensure_ascii=False, indent=2,
         ))
+        return 0
+    if args.command == "recover-inbox-temporaries":
+        print(json.dumps(service.recover_inbox_temporaries(
+            apply=args.apply, older_than_seconds=args.older_than_seconds,
+        ), ensure_ascii=False, indent=2))
         return 0
     if args.command == "ingest-accepted":
         print(json.dumps(service.ingest_accepted(args.limit), ensure_ascii=False, indent=2))
@@ -881,6 +908,21 @@ def main() -> int:
         return 0 if result.get("passed") is True else 1
     if args.command == "run-configured-curation-batch":
         print(json.dumps(service.run_configured_curation_batch(args.limit), ensure_ascii=False, indent=2)); return 0
+    if args.command in {"plan-duplicate-bundle-recovery", "recover-duplicate-bundle"}:
+        parameters = dict(source_id=args.source, target_id=args.target, merged_body=Path(args.merged_body_file).read_text(encoding="utf-8"), archive_only=args.archive_only)
+        if args.command == "plan-duplicate-bundle-recovery":
+            result = service.plan_duplicate_bundle_recovery(**parameters)
+        else:
+            result = service.recover_duplicate_bundle(**parameters,
+                expected_source_revision=args.expected_source_revision, expected_target_revision=args.expected_target_revision,
+                approved_plan_checksum=args.approved_plan_checksum, actor=args.actor, reviewed_by=args.reviewed_by,
+                request_ref=args.request_ref, security_receipt=args.security_receipt)
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0 if args.command == "plan-duplicate-bundle-recovery" or result["status"] == "applied" else 1
+    if args.command == "rollback-duplicate-bundle-recovery":
+        result = service.rollback_duplicate_bundle_recovery(args.transaction, actor=args.actor)
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0 if result["status"] == "rolled_back" else 1
     if args.command == "review-curation-candidate":
         print(json.dumps(service.review_curation_candidate(
             args.bundle, action=args.action, actor=args.actor, note=args.note,

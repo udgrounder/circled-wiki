@@ -328,13 +328,17 @@ class KnowledgeService:
 
     def request_inbox_sensitivity_decision(
         self, intake_id: str, actor: str, *, question: str, missing_procedure: str,
-        safe_next_action: str, facts: List[str], hypotheses: List[str],
+        safe_next_action: str, facts: List[str], hypotheses: List[str], reopen_reason: Optional[str] = None,
     ) -> Dict[str, object]:
         return request_inbox_sensitivity_decision(
             self.knowledge_root, intake_id, actor, question=question,
             missing_procedure=missing_procedure, safe_next_action=safe_next_action,
-            facts=facts, hypotheses=hypotheses,
+            facts=facts, hypotheses=hypotheses, reopen_reason=reopen_reason,
         )
+
+    def recover_inbox_temporaries(self, *, apply: bool = False, older_than_seconds: int = 86400) -> Dict[str, object]:
+        from .inbox_temporaries import recover_inbox_temporaries
+        return recover_inbox_temporaries(self.knowledge_root, apply=apply, older_than_seconds=older_than_seconds)
 
     def ingest_accepted(self, limit: int = 100) -> Dict[str, object]:
         from circled_wiki.worker.jobs import ingest_accepted_inbox
@@ -503,6 +507,18 @@ class KnowledgeService:
             tags=tags,
         )
         return self.read_bundle(str(document.frontmatter["id"])) or {}
+
+    def plan_duplicate_bundle_recovery(self, *, source_id: str, target_id: str, merged_body: str, archive_only: bool = False) -> Dict[str, object]:
+        from .bundle_recovery import plan_duplicate_bundle_recovery
+        return plan_duplicate_bundle_recovery(self.knowledge_root, source_id=source_id, target_id=target_id, merged_body=merged_body, archive_only=archive_only)
+
+    def recover_duplicate_bundle(self, **parameters) -> Dict[str, object]:
+        from .bundle_recovery import recover_duplicate_bundle
+        return recover_duplicate_bundle(self.knowledge_root, **parameters)
+
+    def rollback_duplicate_bundle_recovery(self, transaction_id: str, *, actor: str) -> Dict[str, object]:
+        from .bundle_recovery import rollback_duplicate_bundle_recovery
+        return rollback_duplicate_bundle_recovery(self.knowledge_root, transaction_id=transaction_id, actor=actor)
 
     def apply_bundle_revision(
         self,

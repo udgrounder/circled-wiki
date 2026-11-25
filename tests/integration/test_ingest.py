@@ -61,6 +61,69 @@ def capture_file(*args, **kwargs):
 
 
 class IngestEvidenceTests(unittest.TestCase):
+    def test_completed_review_can_be_explicitly_reopened_without_losing_history(self):
+        for accepted in (False, True):
+            with self.subTest(accepted=accepted), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory) / "knowledge"
+                captured = capture_document(
+                    root, "safe synthetic source", "manual", title="Correction",
+                    why_collected="test", intended_use=["test"],
+                    idempotency_key="correction", sensitivity_review="not_applicable",
+                )
+                previous = parse_markdown(captured.inbox_path).frontmatter["data_protection_receipt"]
+                if accepted:
+                    accept_conversation_intake(root, captured.intake_id, "reviewer")
+                args = dict(question="Confirm intended retention?", missing_procedure="Earlier rationale was wrong",
+                            safe_next_action="Wait for the user", facts=["Review correction needed"], hypotheses=[])
+                with self.assertRaisesRegex(ValueError, "reopen_reason"):
+                    request_inbox_sensitivity_decision(root, captured.intake_id, "reviewer", **args)
+                with self.assertRaisesRegex(ValueError, "reopen_reason"):
+                    request_inbox_sensitivity_decision(root, captured.intake_id, "reviewer", reopen_reason=" ", **args)
+                result = KnowledgeService(root).request_inbox_sensitivity_decision(
+                    captured.intake_id, "reviewer", reopen_reason="Incorrect rationale password=synthetic-secret", **args,
+                )
+                data = parse_markdown(captured.inbox_path).frontmatter
+                self.assertEqual(data["status"], "pending")
+                self.assertEqual(data["sensitivity_review"], "required")
+                self.assertNotIn("data_protection_receipt", data)
+                self.assertEqual(data["data_protection_review_history"][0]["previous_receipt"], previous)
+                self.assertNotIn("synthetic-secret", data["data_protection_review_history"][0]["reason"])
+                self.assertEqual(get_inbox_review(root, captured.intake_id)["current"]["status"], "awaiting_user")
+                with self.assertRaises(ValueError):
+                    accept_conversation_intake(root, captured.intake_id, "reviewer")
+                self.assertEqual(ingest_accepted_inbox(root)["ingested_count"], 0)
+                request_inbox_sensitivity_decision(root, captured.intake_id, "reviewer", **args)
+                self.assertEqual(len(parse_markdown(captured.inbox_path).frontmatter["data_protection_review_history"]), 1)
+                complete_inbox_sensitivity_review(
+                    root, captured.intake_id, "reviewer", "not_applicable", policy_ref="inbox-sensitivity/v1",
+                    checks=["source_access_scope", "personal_context", "confidential_business_context", "publication_scope"],
+                    matched_categories=[], rationale="User confirmed the safe synthetic context.",
+                )
+                accept_conversation_intake(root, captured.intake_id, "reviewer")
+                ingested = ingest_accepted_inbox(root)
+                self.assertEqual(ingested["ingested_count"], 1)
+                evidence = parse_markdown(root.parent / ingested["items"][0]["evidence_path"])
+                self.assertEqual(evidence.frontmatter["extensions"]["inbox_review"]["data_protection_review_history"][0]["previous_receipt"], previous)
+
+    def test_reopen_can_retry_a_queue_write_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "knowledge"
+            captured = capture_document(
+                root, "safe synthetic source", "manual", title="Retry correction",
+                why_collected="test", intended_use=["test"],
+                idempotency_key="retry-correction", sensitivity_review="not_applicable",
+            )
+            args = dict(question="Confirm scope?", missing_procedure="Correction needed",
+                        safe_next_action="Wait", facts=[], hypotheses=[], reopen_reason="Incorrect review")
+            with patch("circled_wiki.core.ingest.reopen_inbox_data_protection_review", side_effect=OSError("queue write failed")):
+                with self.assertRaises(OSError):
+                    request_inbox_sensitivity_decision(root, captured.intake_id, "reviewer", **args)
+            with self.assertRaises(ValueError):
+                accept_conversation_intake(root, captured.intake_id, "reviewer")
+            request_inbox_sensitivity_decision(root, captured.intake_id, "reviewer", **args)
+            self.assertEqual(get_inbox_review(root, captured.intake_id)["current"]["status"], "awaiting_user")
+            self.assertEqual(len(parse_markdown(captured.inbox_path).frontmatter["data_protection_review_history"]), 1)
+
     def test_required_sensitivity_is_agent_work_not_a_user_review_queue(self):
         with tempfile.TemporaryDirectory() as temp_directory:
             knowledge_root = Path(temp_directory) / "knowledge"

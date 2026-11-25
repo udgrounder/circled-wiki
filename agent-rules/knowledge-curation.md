@@ -32,6 +32,14 @@ Evidence를 기존 Bundle과 비교하거나 신규 Draft를 작성한다.
 - 여러 단계 정제 작업에서 독립·제한된 조사 또는 검증 작업을 위임할 수 있는지와, 위임해도 Owner 승인·Security Gate·최종 책임이 유지되는지
 - 후보의 제목·요약과 Evidence 제목·intended use 간 의미 관련성, 그리고 적합한 Bundle type
 - 자동 Curation 또는 자동 처리 목적의 수동 Curation은 Bundle 생성·갱신 전에 반드시 `propose-update`를 실행한다. Runtime의 `reconcile-curation`은 이를 내부 선행 단계로 수행하며, 직접 `create-bundle`·revision 명령으로 이 단계를 대체하지 않는다. 명시적 수동 복구·관리 작업은 예외로 하되, 실행 사유와 적용한 기존 Gate를 기록한다.
+- 변경을 수행할 수 있는 Curation 호출이 끝나면 검색 후보 캐시를 무효화한다. 같은 배치의 다음 Evidence도
+  앞선 Bundle 생성·승격·갱신 결과를 반영한 proposal을 받아야 한다. 후속 단계 실패 전에 Draft 등이
+  저장됐을 수 있으므로 실패 결과에서도 이전 검색 결과를 재사용하지 않는다. 읽기 전용 proposal 배치의
+  캐시 재사용은 유지한다.
+- 이미 생성된 중복 Bundle의 정리는 자동 Curation 재실행으로 해결하지 않는다. 사용자가 중복 정리를
+  요청하면 `bundle-rebuilding.md`의 **Existing Duplicate Recovery**로 인계해 정본·고유 내용·Evidence·
+  참조를 확인한 뒤 통합하고 중복을 archive한다. 제품 수정이나 배포만으로 기존 중복이 정리됐다고
+  보고하지 않는다.
 - 설치본 `.circled-wiki/curation-taxonomy.yaml`의 `routing_rules`를 분류 기준으로 먼저 읽는다. 기존 Bundle 후보 탐색·의미 관련성·Review·Security Gate는 계속 적용하며, 적합한 기존 Bundle이 없고 단일 일치 rule의 `auto_create: true`일 때만 해당 rule의 domain/type으로 신규 Draft를 자동 생성하고 RB-NOTIFY-001 형식의 사용자 알림을 Bundle Curation 이력과 결과에 남긴다.
 - proposal의 `routing_hints`는 설치별 taxonomy 정책 힌트이고, `suggested_bundle_type`은 Evidence 기반의 비구속적 휴리스틱이다. `candidate_bundles`는 키워드·Frontmatter 기반 탐색 후보이므로 빈 목록도 기존 Bundle 부재의 증거가 아니다. 자동 신규 Draft 검토 권한은 `creation_authorized`만 표현하며, 이것도 의미 검증·Security·Review·Publication Gate를 대체하지 않는다.
 - `curation-taxonomy.yaml`이 없으면 관련 기존 Bundle의 domain·type·제목·태그·경로를 읽기 전용으로 조사해 taxonomy 초안을 사용자에게 제시한다. Agent는 Bundle 구조만으로 분류 관례를 확정하거나 파일을 자동 생성하지 않으며, 사용자 승인 뒤에만 설치별 파일을 만든다.

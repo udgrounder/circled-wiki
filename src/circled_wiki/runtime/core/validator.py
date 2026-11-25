@@ -185,13 +185,13 @@ def _is_valid_evidence_link(value: Any, knowledge_root: Path) -> bool:
     return target.is_file()
 
 
-def validate_document(path: Path, knowledge_root: Path) -> ValidationResult:
+def validate_document(path: Path, knowledge_root: Path, *, _document: Optional[MarkdownDocument] = None) -> ValidationResult:
     """Validate a single managed Markdown document without repository lookups."""
     result = ValidationResult(path=path)
     if path.name in RESERVED_FILENAMES:
         return result
     try:
-        document = parse_markdown(path)
+        document = _document if _document is not None else parse_markdown(path)
     except (OSError, FrontmatterError) as error:
         result.okf_errors.append(str(error))
         return result
@@ -870,18 +870,30 @@ def managed_markdown_files(knowledge_root: Path) -> Iterable[Path]:
 
 def validate_repository(knowledge_root: Path) -> List[ValidationResult]:
     """Validate every managed document and then check Bundle/Evidence references."""
-    results = [validate_document(path, knowledge_root) for path in managed_markdown_files(knowledge_root)]
-    by_path = {result.path: result for result in results}
+    results = []
+    by_path = {}
     evidence_ids: Set[str] = set()
     evidence_by_id: Dict[str, MarkdownDocument] = {}
     documents: Dict[Path, MarkdownDocument] = {}
-    for path in by_path:
+    for path in managed_markdown_files(knowledge_root):
         if path.name in RESERVED_FILENAMES:
+            result = validate_document(path, knowledge_root)
+            results.append(result)
+            by_path[path] = result
             continue
         try:
             document = parse_markdown(path)
-        except FrontmatterError:
+        except (OSError, FrontmatterError) as error:
+            result = ValidationResult(path=path)
+            result.okf_errors.append(str(error))
+            results.append(result)
+            by_path[path] = result
             continue
+        result = validate_document(path, knowledge_root, _document=document)
+        results.append(result)
+        by_path[path] = result
+        # Reference checks use metadata only; do not retain embedded originals.
+        document = MarkdownDocument(path=path, frontmatter=document.frontmatter, body="")
         documents[path] = document
         if _path_kind(path, knowledge_root) == "evidence":
             document_id = str(document.frontmatter.get("id", ""))
