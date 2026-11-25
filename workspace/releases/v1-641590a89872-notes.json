@@ -1,0 +1,27 @@
+{
+  "release_id": "v1-641590a89872",
+  "source_revision": "6f0b1127fa3a2e7d01ba62496ce8b0ad4abcbb37",
+  "previous_release": "v1-65d68aa27079",
+  "product_change_commits": ["6f0b1127fa3a2e7d01ba62496ce8b0ad4abcbb37"],
+  "other_commits_since_previous_release_source": ["0a51a72", "76b12e1"],
+  "changes": [
+    "Approve and apply Bundle type changes such as report to reference when the path stays the same.",
+    "Keep acknowledgement, impact list, taxonomy route and expected revision checks. Reject only genuine no-ops where classification and normalized path are unchanged.",
+    "Preserve ID, UUID, status, Evidence, existing tags and body whitespace; increment revision and append reclassification history.",
+    "Restore exact original bytes on write or Validator failure, moving back only when a path move occurred.",
+    "Normalize root aliases while rejecting symlinks inside bundles and paths escaping the Bundle boundary."
+  ],
+  "validation": {
+    "independent_review": "type_only_review: 12 new regressions and 426 total tests passed; Validator validated=15 invalid=0; diff check passed; old failure independently reproduced.",
+    "committed_source": "Clean source revision; 426 tests passed; Validator validated=15 invalid=0.",
+    "isolated_installed_runtime": "Bootstrap dry-run/apply succeeded; 12 type-only regressions and the existing path-moving reclassification test passed with imported module paths asserted under the canary installation."
+  },
+  "compatibility": {
+    "configuration_migration_required": false,
+    "knowledge_migration_required": false,
+    "duplicate_recovery_type_restriction_changed": false,
+    "operational_changes": "Deployment does not reclassify existing Bundles or apply pending Reviews. Re-read current revisions and refresh any stale proposals or Review cards when resuming the approved operational cleanup."
+  },
+  "rollback": "Use the deployment-specific complete Control Plane backup to restore the previous Runtime. Knowledge and Workspace are preserved separately; any later operational reclassification has its own revision and history.",
+  "deployment": "Tracked separately by Deployment and independent Runtime Verification Receipts."
+}
