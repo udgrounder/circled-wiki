@@ -10,4 +10,6 @@
 - Product change commit: `6f0b1127fa3a2e7d01ba62496ce8b0ad4abcbb37`; release `v1-641590a89872`, prepared from a clean committed worktree and recorded before deployment.
 - Installation verification: `type_only_review` independently verified 106 managed checksums, the full 138-file backup, Validator validated=2459 invalid=0 and 35 installed-Runtime regressions (12 same-path, 1 existing path move, 17 duplicate recovery, 5 batch duplicate prevention). All operational Knowledge, Workspace, local config and entrypoints were preserved.
 - Receipts: `workspace/receipts/deployments/campingtalk-wiki/v1-641590a89872.json` and `workspace/receipts/verifications/campingtalk-wiki/v1-641590a89872.json`; detailed preservation evidence is stored alongside the Deployment Receipt.
-- Status: complete for the approved product fix, commit, release and deployment. Existing operational Bundle reclassification, Review application and duplicate cleanup were not performed.
+- Product status: complete. Fix, release, deployment and independent installation verification are recorded above.
+- Operational follow-up (2026-11-25 KST): the user reported that the cleanup was handled and requested closure. The local checkout at `068729b` confirms the Runtime update and still shows both Bundles active at their earlier revisions (duplicate 1, canonical 11). No rebuild receipt was found in that checkout. Record the cleanup as user-reported and pending independent artifact confirmation.
+- Task status: closed on user confirmation.

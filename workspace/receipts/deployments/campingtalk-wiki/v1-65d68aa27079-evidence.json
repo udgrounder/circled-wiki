@@ -1,0 +1,160 @@
+{
+  "target_ref": "campingtalk-wiki",
+  "release_id": "v1-65d68aa27079",
+  "previous_release": "v1-27dae8168862",
+  "source_revision": "1bbd2ef73ed15d9770362106cdb3a3a832bbb88b",
+  "approved_by": "kjkim",
+  "implemented_by": "codex",
+  "backup_required": true,
+  "backup_policy": "Bootstrap copies the complete existing Control Plane before any upgrade write; stop if backup fails.",
+  "dry_run": {
+    "summary": {
+      "create": 2,
+      "adopt": 0,
+      "upgrade": 14,
+      "preserve_existing": 2,
+      "unchanged": 90,
+      "preserve_and_propose": 0,
+      "retire_missing": 0,
+      "retire_legacy_asset": 0,
+      "preserve_legacy_modified": 0
+    },
+    "runtime_dependencies": {
+      "python": "/usr/bin/python3",
+      "requirements": [
+        "PyYAML>=6.0",
+        "jsonschema>=4.18,<5"
+      ],
+      "missing": [],
+      "status": "ready"
+    },
+    "pending_proposals": [],
+    "knowledge_action": "preserve",
+    "workspace_action": "preserve"
+  },
+  "before": {
+    "knowledge": {
+      "checksum": "sha256:5774cccc5cce2a7878f1c2490644a8048c4790bfed879e1de821a4fbce79cdb3",
+      "files": 2452,
+      "directories": 153,
+      "symlinks": 0
+    },
+    "workspace": {
+      "checksum": "sha256:7ce5800810e2967bcf21e27031f4ef44d085baad77cad6e01ee481406cb14992",
+      "files": 366,
+      "directories": 6,
+      "symlinks": 0
+    },
+    "local": {
+      "config.yaml": {
+        "checksum": "sha256:f95d6121e647813663eac70451334e30f2bbea8ee0de0b96a01b6e8b970ebb1f",
+        "semantic_checksum": "sha256:ea3978fc1df6431ce0f3461d5bf68d17ebd5fac70044da37ca2b4e763ef6db57"
+      },
+      "data-protection.yaml": {
+        "checksum": "sha256:559adb560388c74b6be8fb82ac7111c71f62c3b67ad07292d81eb1ba71cd0664",
+        "semantic_checksum": "sha256:d863c3a5d65e53e929329d50a6ca0a64c05c00faa84c2ac076f5c05ec361eb3a"
+      },
+      "curation-taxonomy.yaml": {
+        "checksum": "sha256:a6d5366110e52e82be95f424e52701c31f69f58e7052f3d180a5bd9fcb08eda3",
+        "semantic_checksum": "sha256:7998557097a11ea78258e18acfb2a695ac642b86a5b94f3876442a0090606162"
+      }
+    },
+    "control_plane": {
+      "checksum": "sha256:651d8dd0d78d9fb0384732e4c69e52360aa292a855b05aa37f273b99e44d12d1",
+      "files": 135
+    },
+    "entrypoints": {
+      "AGENTS.md": "sha256:059b99b3ea026a8086f4fb8fbc52e940a38c7a5d9b67550ba2e3bd00236d69b9",
+      "CLAUDE.md": "sha256:57caca579f171731c34b8a7daa8030904a8a035212701ff434f87c0a2ce246e0",
+      "HERMES.md": "sha256:77f9dbe6405c0d74896104a6fd4eab3626750935d4ee285179b140777c64c4fa",
+      ".gitignore": "sha256:ae8cb610604f32db0a2208ff3008344b73449933295796ce618ef5d2ba85f924"
+    }
+  },
+  "pre_upgrade_validator": "validated=2459 invalid=0",
+  "source_tests": "414 passed",
+  "state": "verified",
+  "after": {
+    "after": {
+      "knowledge": {
+        "checksum": "sha256:5774cccc5cce2a7878f1c2490644a8048c4790bfed879e1de821a4fbce79cdb3",
+        "files": 2452,
+        "directories": 153,
+        "symlinks": 0
+      },
+      "workspace": {
+        "checksum": "sha256:7ce5800810e2967bcf21e27031f4ef44d085baad77cad6e01ee481406cb14992",
+        "files": 366,
+        "directories": 6,
+        "symlinks": 0
+      },
+      "local": {
+        "config.yaml": {
+          "checksum": "sha256:f95d6121e647813663eac70451334e30f2bbea8ee0de0b96a01b6e8b970ebb1f",
+          "semantic_checksum": "sha256:ea3978fc1df6431ce0f3461d5bf68d17ebd5fac70044da37ca2b4e763ef6db57"
+        },
+        "data-protection.yaml": {
+          "checksum": "sha256:559adb560388c74b6be8fb82ac7111c71f62c3b67ad07292d81eb1ba71cd0664",
+          "semantic_checksum": "sha256:d863c3a5d65e53e929329d50a6ca0a64c05c00faa84c2ac076f5c05ec361eb3a"
+        },
+        "curation-taxonomy.yaml": {
+          "checksum": "sha256:a6d5366110e52e82be95f424e52701c31f69f58e7052f3d180a5bd9fcb08eda3",
+          "semantic_checksum": "sha256:7998557097a11ea78258e18acfb2a695ac642b86a5b94f3876442a0090606162"
+        }
+      }
+    },
+    "backup": {
+      "reference": ".circled-wiki-backups/v1-27dae8168862-20261125T083911Z",
+      "checksum": "sha256:651d8dd0d78d9fb0384732e4c69e52360aa292a855b05aa37f273b99e44d12d1",
+      "files": 135
+    },
+    "release_id": "v1-65d68aa27079",
+    "matched_assets": 106,
+    "history_matches_release_manifest": true,
+    "entrypoints_preserved": true
+  },
+  "deployment_receipt": "workspace/receipts/deployments/campingtalk-wiki/v1-65d68aa27079.json",
+  "verification_receipt": "workspace/receipts/verifications/campingtalk-wiki/v1-65d68aa27079.json",
+  "preservation_hash_algorithm": {
+    "ordering": "sorted(Path(base).rglob('*')), root itself excluded",
+    "framing": "For each entry, UTF-8 json.dumps([relative_posix_path, kind, stat.S_IMODE(lstat.st_mode), value], ensure_ascii=False), using Python default separators, followed by one NUL byte; aggregate with SHA-256 and prefix sha256:.",
+    "knowledge_workspace_kinds": [
+      "files",
+      "directories",
+      "symlinks"
+    ],
+    "control_plane_backup_kinds": [
+      "file",
+      "directory",
+      "symlink"
+    ],
+    "value": "File: raw bytes SHA-256 hex without prefix. Directory: empty string. Symlink: os.readlink result.",
+    "local_semantic_checksum": "sha256: of json.dumps(yaml.safe_load(text),sort_keys=True,ensure_ascii=False,default=str).encode()"
+  },
+  "runtime_verification": {
+    "verified_by": "recovery_command_review",
+    "implemented_by": "codex",
+    "installed_validator": {
+      "validated": 2459,
+      "invalid": 0
+    },
+    "configuration_valid": true,
+    "namespace_preserved": true,
+    "installed_asset_checksums_matched": 106,
+    "backup_verified_files": 135,
+    "synthetic_tests_passed": 50,
+    "synthetic_tests_seconds": 6.024,
+    "test_groups": {
+      "integration.test_bundle_recovery": 17,
+      "integration.test_bundle_duplicate_reproduction": 5,
+      "unit.test_data_protection": 15,
+      "unit.test_inbox_temporaries": 6,
+      "unit.test_markdown_read_session": 5,
+      "Data Protection reopen and queue-failure retry integration tests": 2
+    },
+    "runtime_import_assertion": "All circled_wiki module __file__ paths were asserted to be under the actual installed .circled-wiki/runtime directory.",
+    "execution": "/usr/bin/python3 -B with PYTHONDONTWRITEBYTECODE=1; PYTHONPATH gives installed Runtime priority over release-test fixtures.",
+    "post_test_knowledge_workspace_config_entrypoints_and_assets_rechecked": true,
+    "actual_operational_knowledge_mutations_performed": false,
+    "existing_duplicates_repaired": false
+  }
+}
