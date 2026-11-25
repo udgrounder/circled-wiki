@@ -31,6 +31,13 @@
 - taxonomy 승인과 새 domain·Bundle 생성은 앞으로의 분류에만 적용한다. 영향 Bundle 목록은 자동으로 제안·알림할 수 있지만, 기존 Bundle의 domain·type·경로는 바꾸지 않는다.
 - Agent는 한 번의 Evidence나 Bundle만으로 규칙을 일반화하지 않는다. 충돌·예외·불충분 근거는 rule을 만들지 않고 `needs_review`로 남긴다.
 - 기존 Bundle 재분류는 사용자가 영향 알림을 확인한 뒤 명시적으로 요청한 경우에만 `propose-bundle-reclassification`으로 영향·현재 revision을 확인하고, acknowledgement가 존재하는 해당 `reclassification_ready` notification ID, 명시적 actor·rationale을 모두 기록한 `apply-bundle-reclassification`만 사용한다. 적용 target은 승인된 taxonomy domain 및 그 notification의 영향 목록·제안 route와 일치해야 한다.
+- 유형·domain 변경과 파일 경로 변경은 별도로 판단한다. 같은 domain의 `report -> reference`처럼 경로가
+  같아도 승인된 유형 변경은 제자리에서 적용하며, rename 없이 ID·UUID·상태·본문·Evidence를 보존한다.
+  revision과 재분류 이력을 갱신하고 전체 Validator를 실행한다. 유형·domain·경로가 모두 같을 때만
+  변경 없는 요청으로 거부한다. 실패하면 변경 전 bytes와 경로로 되돌린다. 실제 경로 이동 시 기존
+  목적지 충돌 방지는 계속 적용하며, 같은 경로라는 이유로 승인·revision Gate를 생략하지 않는다.
+  Knowledge root의 상위 경로 alias는 정규화하되, `bundles/` 내부의 심볼릭 링크를 통해 다른 파일이나
+  디렉터리를 재분류하지 않는다. 원본과 목적지는 실제 Bundle 경계 안에 있어야 한다.
 
 ## Checks
 

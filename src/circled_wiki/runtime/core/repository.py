@@ -416,13 +416,34 @@ def apply_bundle_revision(
     )
 
 
+def _reclassification_path(knowledge_root: Path, path: Path) -> Path:
+    """Keep reclassification inside real Bundle paths, without following links."""
+    bundle_root = knowledge_root / "bundles"
+    try:
+        relative = path.relative_to(bundle_root)
+    except ValueError as error:
+        raise ValueError("reclassification paths must stay inside knowledge/bundles") from error
+    current = bundle_root
+    for part in (None, *relative.parts):
+        if part is not None:
+            current = current / part
+        if current.is_symlink():
+            raise ValueError("reclassification does not follow symbolic links inside bundles")
+    resolved = path.resolve()
+    if bundle_root not in resolved.parents:
+        raise ValueError("reclassification paths must stay inside knowledge/bundles")
+    return resolved
+
+
 def propose_bundle_reclassification(
     knowledge_root: Path, *, bundle_id: str, domain: str, bundle_type: str,
 ) -> Dict[str, object]:
     """Describe a non-writing Bundle type/domain/path change."""
+    knowledge_root = knowledge_root.resolve()
     existing = find_document_by_id(knowledge_root, bundle_id)
     if existing is None or "bundles" not in existing.path.parts:
         raise ValueError("bundle_id must resolve to an existing Bundle")
+    _reclassification_path(knowledge_root, existing.path)
     if not SAFE_PATH_SEGMENT.fullmatch(domain) or not SAFE_PATH_SEGMENT.fullmatch(bundle_type):
         raise ValueError("domain and bundle_type must be safe lowercase identifiers")
     if existing.frontmatter.get("status") == "archived":
@@ -430,6 +451,7 @@ def propose_bundle_reclassification(
     relative = existing.path.relative_to(knowledge_root / "bundles")
     current_domain = _bundle_domain(relative)
     destination = _bundle_destination(knowledge_root, domain, bundle_type, existing.path.name)
+    _reclassification_path(knowledge_root, destination)
     revision = existing.frontmatter.get("extensions", {}).get("knowledge_revision")
     if not isinstance(revision, int):
         raise ValueError("Bundle must have an integer knowledge_revision")
@@ -448,7 +470,8 @@ def apply_bundle_reclassification(
     knowledge_root: Path, *, bundle_id: str, expected_revision: int, domain: str,
     bundle_type: str, actor: str, rationale: str, approval_notification_id: str,
 ) -> MarkdownDocument:
-    """Atomically apply an explicitly approved Bundle reclassification and move."""
+    """Apply an approved classification change, moving only when its path changes."""
+    knowledge_root = knowledge_root.resolve()
     if not actor.strip() or not rationale.strip() or not approval_notification_id.strip():
         raise ValueError("actor, rationale, and approval_notification_id are required")
     taxonomy = load_curation_taxonomy(knowledge_root.parent)
@@ -468,10 +491,16 @@ def apply_bundle_reclassification(
         raise ValueError("Bundle revision conflict; reload reclassification proposal")
     existing = find_document_by_id(knowledge_root, bundle_id)
     assert existing is not None
-    destination = (knowledge_root.parent / str(proposal["to"]["path"])).resolve()
-    if destination == existing.path:
+    source_path = _reclassification_path(knowledge_root, existing.path)
+    destination = _reclassification_path(knowledge_root, knowledge_root.parent / str(proposal["to"]["path"]))
+    same_path = destination == source_path
+    same_classification = (
+        proposal["from"]["domain"] == proposal["to"]["domain"]
+        and proposal["from"]["bundle_type"] == proposal["to"]["bundle_type"]
+    )
+    if same_path and same_classification:
         raise ValueError("reclassification must change the Bundle type or domain")
-    if destination.exists():
+    if not same_path and destination.exists():
         raise ValueError("reclassification destination already exists")
     data = deepcopy(existing.frontmatter)
     extensions = data.get("extensions")
@@ -494,19 +523,22 @@ def apply_bundle_reclassification(
         data.get("tags"), bundle_type=bundle_type, domain=domain, topic_fallback=existing.path.stem,
     )
     data["updated_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    original = existing.path.read_text(encoding="utf-8")
+    original = existing.path.read_bytes()
+    moved = False
     try:
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        existing.path.replace(destination)
-        destination.write_text(render_markdown(data, existing.body), encoding="utf-8")
+        if not same_path:
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            existing.path.replace(destination)
+            moved = True
+        destination.write_bytes((render_markdown(data, "") + existing.body).encode("utf-8"))
         invalid = [result for result in validate_repository(knowledge_root) if not result.is_valid]
         if invalid:
             messages = [error for result in invalid for error in result.okf_errors + result.profile_errors]
             raise ValueError("Bundle reclassification validation failed: " + "; ".join(messages))
     except Exception:
-        if destination.exists():
+        if moved and destination.exists():
             destination.replace(existing.path)
-        existing.path.write_text(original, encoding="utf-8")
+        existing.path.write_bytes(original)
         raise
     return parse_markdown(destination)
 
