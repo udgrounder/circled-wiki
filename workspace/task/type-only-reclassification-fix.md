@@ -7,4 +7,7 @@
 - Verification: add same-path draft/active, alias-root, no-op, approval, stale revision, exact-byte rollback, existing destination collision and legacy path-only movement regressions.
 - Operational boundary: deployment updates managed Runtime assets only. Existing Bundle reclassification, pending Review application and duplicate cleanup are separate operational changes.
 - Independent review: `type_only_review` passed the 12 new regressions and all 426 tests; Validator validated=15 invalid=0; diff check passed. The review also reproduced the old failure and found a symlink escape, which was blocked and covered by two no-write regressions.
-- Status: source implementation verified; commit, release and installation verification next.
+- Product change commit: `6f0b1127fa3a2e7d01ba62496ce8b0ad4abcbb37`; release `v1-641590a89872`, prepared from a clean committed worktree and recorded before deployment.
+- Installation verification: `type_only_review` independently verified 106 managed checksums, the full 138-file backup, Validator validated=2459 invalid=0 and 35 installed-Runtime regressions (12 same-path, 1 existing path move, 17 duplicate recovery, 5 batch duplicate prevention). All operational Knowledge, Workspace, local config and entrypoints were preserved.
+- Receipts: `workspace/receipts/deployments/campingtalk-wiki/v1-641590a89872.json` and `workspace/receipts/verifications/campingtalk-wiki/v1-641590a89872.json`; detailed preservation evidence is stored alongside the Deployment Receipt.
+- Status: complete for the approved product fix, commit, release and deployment. Existing operational Bundle reclassification, Review application and duplicate cleanup were not performed.
