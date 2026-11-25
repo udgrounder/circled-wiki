@@ -1,0 +1,37 @@
+{
+  "release_id": "v1-65d68aa27079",
+  "source_revision": "1bbd2ef73ed15d9770362106cdb3a3a832bbb88b",
+  "previous_release": "v1-27dae8168862",
+  "included_source_commits": ["1bbd2ef73ed15d9770362106cdb3a3a832bbb88b"],
+  "changes": [
+    "Curation 호출 종료 시 검색 캐시를 무효화하여 같은 배치의 중복 Bundle 생성을 방지한다.",
+    "중복 Bundle 복구의 변경 없는 계획, 승인 계획·revision·checksum 재확인, 보관과 실패 원복 명령을 제공한다.",
+    "중단 복구 journal과 private snapshot, 충돌 보존 및 rollback 담당자 기록을 제공한다.",
+    "runbook/manual은 기존 Review 통합 후 Owner 검토를 거친 archive-only 보관을 지원한다.",
+    "임시 ingest 파일을 활성 Inbox에서 분리하고 보존 격리 복구를 지원한다.",
+    "민감정보 판단 정정과 감사 이력의 Evidence 보존을 지원한다.",
+    "전체 검증의 중복 파싱을 제거하고 크기와 항목 수가 제한된 작업 단위 파싱 캐시를 적용한다."
+  ],
+  "validation": {
+    "independent_source_review": "414 tests passed; 17 duplicate-recovery tests passed; repository Validator validated=15 invalid=0.",
+    "committed_clean_source": "414 tests passed; repository Validator validated=15 invalid=0; git worktree clean before prepare-release.",
+    "isolated_canary": "Bootstrap dry-run and apply passed. Installed Validator validated=15 invalid=0. Recovery module import and CLI help passed. All 106 installed asset checksums matched the independently reproduced release manifest."
+  },
+  "compatibility": {
+    "configuration_migration_required": false,
+    "knowledge_migration_required": false,
+    "existing_duplicates_automatically_modified": false,
+    "recovery_concurrency": "The dedicated lock serializes recovery commands only; coordinate other Curation, Publication and external writes.",
+    "recovery_snapshots": "Private local .runtime/bundle-recoveries snapshots and journals are retained for explicit recovery and are not release assets."
+  },
+  "rollback": {
+    "bundle_recovery": "Use rollback-duplicate-bundle-recovery with its transaction ID and actor. A conflicting external edit, deletion or permission change is preserved and reported as partial_rollback.",
+    "runtime": "Before downgrading Runtime, finish or explicitly roll back new recovery transactions while these commands are available. Runtime installation rollback separately requires the specified installation backup and deployment procedure. Knowledge and Workspace are not implicitly reverted by Runtime rollback."
+  },
+  "operational_deployment_performed": false,
+  "processed_issue_cleanup": {
+    "scope": "Only the 12 issues processed in this task, as explicitly requested by the user.",
+    "deleted": 12,
+    "pending_inbox_preserved": 6
+  }
+}
